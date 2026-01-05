@@ -1,0 +1,8 @@
+# Ensure all text files use consistent line endings
+* text=auto
+
+# Force certain file types to use LF (important for code files)
+*.dart text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.sh text eol=lf

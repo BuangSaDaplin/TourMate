@@ -1,0 +1,141 @@
+Flutter crash report.
+Please report a bug at https://github.com/flutter/flutter/issues.
+
+## command
+
+flutter gen-l10n
+
+## exception
+
+ProcessException: ProcessException: `dart format` failed with exit code 65
+
+stdout:
+Formatted no files in 0.31 seconds.
+
+
+stderr:
+Could not format because the source could not be parsed:
+
+line 390, column 14 of d:/FlutterProjects/proto1/tourmate_app_touristtourguide/lib/l10n/app_localizations_ceb.dart: 'continue' can't be used as an identifier because it's a keyword.
+    â•·
+390 â”‚   String get continue => 'Continue';
+    â”‚              ^^^^^^^^
+    â•µ
+Could not format because the source could not be parsed:
+
+line 390, column 14 of d:/FlutterProjects/proto1/tourmate_app_touristtourguide/lib/l10n/app_localizations_en.dart: 'continue' can't be used as an identifier because it's a keyword.
+    â•·
+390 â”‚   String get continue => 'Continue';
+    â”‚              ^^^^^^^^
+    â•µ
+Could not format because the source could not be parsed:
+
+line 390, column 14 of d:/FlutterProjects/proto1/tourmate_app_touristtourguide/lib/l10n/app_localizations_tl.dart: 'continue' can't be used as an identifier because it's a keyword.
+    â•·
+390 â”‚   String get continue => 'Continue';
+    â”‚              ^^^^^^^^
+    â•µ
+Could not format because the source could not be parsed:
+
+line 860, column 14 of d:/FlutterProjects/proto1/tourmate_app_touristtourguide/lib/l10n/app_localizations.dart: 'continue' can't be used as an identifier because it's a keyword.
+    â•·
+860 â”‚   String get continue;
+    â”‚              ^^^^^^^^
+    â•µ
+
+  Command: C:\Flutter\bin\cache\dart-sdk\bin\dart.exe C:\Flutter\bin\cache\dart-sdk\bin\dart.exe format d:\FlutterProjects\proto1\tourmate_app_touristtourguide\lib/l10n\app_localizations_ceb.dart d:\FlutterProjects\proto1\tourmate_app_touristtourguide\lib/l10n\app_localizations_en.dart d:\FlutterProjects\proto1\tourmate_app_touristtourguide\lib/l10n\app_localizations_tl.dart d:\FlutterProjects\proto1\tourmate_app_touristtourguide\lib/l10n\app_localizations.dart
+
+```
+#0      generateLocalizations (package:flutter_tools/src/localizations/gen_l10n.dart:97:7)
+<asynchronous suspension>
+#1      GenerateLocalizationsCommand.runCommand (package:flutter_tools/src/commands/generate_localizations.dart:277:5)
+<asynchronous suspension>
+#2      FlutterCommand.run.<anonymous closure> (package:flutter_tools/src/runner/flutter_command.dart:1551:27)
+<asynchronous suspension>
+#3      AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:154:19)
+<asynchronous suspension>
+#4      CommandRunner.runCommand (package:args/command_runner.dart:212:13)
+<asynchronous suspension>
+#5      FlutterCommandRunner.runCommand.<anonymous closure> (package:flutter_tools/src/runner/flutter_command_runner.dart:494:9)
+<asynchronous suspension>
+#6      AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:154:19)
+<asynchronous suspension>
+#7      FlutterCommandRunner.runCommand (package:flutter_tools/src/runner/flutter_command_runner.dart:431:5)
+<asynchronous suspension>
+#8      run.<anonymous closure>.<anonymous closure> (package:flutter_tools/runner.dart:98:11)
+<asynchronous suspension>
+#9      AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:154:19)
+<asynchronous suspension>
+#10     main (package:flutter_tools/executable.dart:102:3)
+<asynchronous suspension>
+```
+
+## flutter doctor
+
+```
+[✓] Flutter (Channel stable, 3.32.0, on Microsoft Windows [Version 10.0.22631.5771], locale en-PH) [553ms]
+    • Flutter version 3.32.0 on channel stable at C:\Flutter
+    • Upstream repository https://github.com/flutter/flutter.git
+    • Framework revision be698c48a6 (4 months ago), 2025-05-19 12:59:14 -0700
+    • Engine revision 1881800949
+    • Dart version 3.8.0
+    • DevTools version 2.45.1
+
+[✓] Windows Version (11 Home Single Language 64-bit, 23H2, 2009) [85.4s]
+
+[!] Android toolchain - develop for Android devices (Android SDK version 35.0.1) [6.6s]
+    • Android SDK at D:\Android\Sdk
+    • Platform android-35, build-tools 35.0.1
+    • ANDROID_HOME = D:\Android\Sdk
+    • Java binary at: C:\Program Files\Android\Android Studio1\jbr\bin\java
+      This is the JDK bundled with the latest Android Studio installation on this machine.
+      To manually set the JDK path, use: `flutter config --jdk-dir="path/to/jdk"`.
+    • Java version OpenJDK Runtime Environment (build 21.0.6+-13355223-b631.42)
+    ! Some Android licenses not accepted. To resolve this, run: flutter doctor --android-licenses
+
+[✓] Chrome - develop for the web [180ms]
+    • Chrome at C:\Program Files\Google\Chrome\Application\chrome.exe
+
+[✓] Visual Studio - develop Windows apps (Visual Studio Community 2022 17.13.3) [179ms]
+    • Visual Studio at C:\Program Files\Microsoft Visual Studio\2022\Community
+    • Visual Studio Community 2022 version 17.13.35828.75
+    • Windows 10 SDK version 10.0.22621.0
+
+[!] Android Studio (version 2024.2) [16ms]
+    • Android Studio at C:\Program Files\Android\Android Studio
+    • Flutter plugin can be installed from:
+      🔨 https://plugins.jetbrains.com/plugin/9212-flutter
+    • Dart plugin can be installed from:
+      🔨 https://plugins.jetbrains.com/plugin/6351-dart
+    ✗ Unable to determine bundled Java version.
+    • Try updating or re-installing Android Studio.
+
+[✓] Android Studio (version 2024.3) [14ms]
+    • Android Studio at C:\Program Files\Android\Android Studio1
+    • Flutter plugin can be installed from:
+      🔨 https://plugins.jetbrains.com/plugin/9212-flutter
+    • Dart plugin can be installed from:
+      🔨 https://plugins.jetbrains.com/plugin/6351-dart
+    • Java version OpenJDK Runtime Environment (build 21.0.6+-13355223-b631.42)
+
+[✓] IntelliJ IDEA Community Edition (version 2023.1) [14ms]
+    • IntelliJ at C:\Users\cg\Downloads\IntelliJ IDEA Community Edition 2023.1.2
+    • Flutter plugin can be installed from:
+      🔨 https://plugins.jetbrains.com/plugin/9212-flutter
+    • Dart plugin can be installed from:
+      🔨 https://plugins.jetbrains.com/plugin/6351-dart
+
+[✓] VS Code, 64-bit edition (version 1.99.3) [13ms]
+    • VS Code at C:\Program Files\Microsoft VS Code
+    • Flutter extension version 3.118.0
+
+[✓] Connected device (3 available) [206ms]
+    • Windows (desktop) • windows • windows-x64    • Microsoft Windows [Version 10.0.22631.5771]
+    • Chrome (web)      • chrome  • web-javascript • Google Chrome 140.0.7339.208
+    • Edge (web)        • edge    • web-javascript • Microsoft Edge 140.0.3485.94
+
+[✓] Network resources [1,467ms]
+    • All expected network resources are available.
+
+! Doctor found issues in 2 categories.
+```

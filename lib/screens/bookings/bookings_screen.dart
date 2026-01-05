@@ -1,0 +1,1275 @@
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../utils/app_theme.dart';
+import '../../services/auth_service.dart';
+import '../../services/database_service.dart';
+import '../../services/notification_service.dart';
+import '../../services/payment_service.dart';
+import '../../models/booking_model.dart';
+import '../../models/review_model.dart';
+import '../../models/payment_model.dart';
+import '../../models/message_model.dart';
+import '../notifications/notification_screen.dart';
+import '../messaging/chat_screen.dart';
+
+class BookingsScreen extends StatefulWidget {
+  final int initialTab;
+
+  const BookingsScreen({super.key, this.initialTab = 0});
+
+  @override
+  State<BookingsScreen> createState() => _BookingsScreenState();
+}
+
+class _BookingsScreenState extends State<BookingsScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final AuthService _authService = AuthService();
+  final DatabaseService _db = DatabaseService();
+  final NotificationService _notificationService = NotificationService();
+  final PaymentService _paymentService = PaymentService();
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController =
+        TabController(length: 2, vsync: this, initialIndex: widget.initialTab);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(
+        title: const Text('My Bookings'),
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: Stack(
+              children: [
+                const Icon(Icons.notifications_outlined),
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: AppTheme.accentColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationScreen(),
+                ),
+              );
+            },
+            tooltip: 'Notifications',
+          ),
+          IconButton(
+            icon: const Icon(Icons.language),
+            onPressed: () {
+              // Handle language selection
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Language selection coming soon!'),
+                ),
+              );
+            },
+            tooltip: 'Language',
+          ),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [Tab(text: 'Upcoming'), Tab(text: 'Past')],
+        ),
+      ),
+      body: StreamBuilder<List<BookingModel>>(
+        stream: _getCurrentUserBookings(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Text('Error loading bookings: ${snapshot.error}'),
+            );
+          }
+
+          final bookings = snapshot.data ?? [];
+
+          final upcomingBookings = bookings
+              .where((booking) =>
+                  booking.status != BookingStatus.completed &&
+                  booking.status != BookingStatus.cancelled &&
+                  booking.status != BookingStatus.rejected)
+              .toList();
+
+          final pastBookings = bookings
+              .where((booking) =>
+                  booking.status == BookingStatus.completed ||
+                  booking.status == BookingStatus.cancelled ||
+                  booking.status == BookingStatus.rejected)
+              .toList();
+
+          return TabBarView(
+            controller: _tabController,
+            children: [
+              _buildUpcomingBookings(upcomingBookings),
+              _buildPastBookings(pastBookings),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Stream<List<BookingModel>> _getCurrentUserBookings() {
+    final user = _authService.getCurrentUser();
+    if (user != null) {
+      return _db.getBookingsByTouristStream(user.uid);
+    }
+    return Stream.value([]);
+  }
+
+  Widget _buildUpcomingBookings(List<BookingModel> bookings) {
+    if (bookings.isEmpty) {
+      return _buildEmptyState(
+        'No Upcoming Bookings',
+        'Start exploring Cebu and book your next adventure!',
+        Icons.calendar_today,
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: bookings.length,
+      itemBuilder: (context, index) {
+        final booking = bookings[index];
+        return _buildBookingCard(booking, isUpcoming: true);
+      },
+    );
+  }
+
+  Widget _buildPastBookings(List<BookingModel> bookings) {
+    if (bookings.isEmpty) {
+      return _buildEmptyState(
+        'No Past Bookings',
+        'Your completed tours will appear here',
+        Icons.history,
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: bookings.length,
+      itemBuilder: (context, index) {
+        final booking = bookings[index];
+        return _buildBookingCard(booking, isUpcoming: false);
+      },
+    );
+  }
+
+  Widget _buildEmptyState(String title, String subtitle, IconData icon) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 50, color: AppTheme.primaryColor),
+          ),
+          const SizedBox(height: 24),
+          Text(title, style: AppTheme.headlineSmall),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: AppTheme.bodyMedium.copyWith(color: AppTheme.textSecondary),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBookingCard(
+    BookingModel booking, {
+    required bool isUpcoming,
+  }) {
+    final statusColor = booking.status == BookingStatus.confirmed
+        ? AppTheme.successColor
+        : booking.status == BookingStatus.pending
+            ? Colors.orange
+            : AppTheme.primaryColor;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: AppTheme.cardDecoration,
+      child: Column(
+        children: [
+          // Header with status
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.1),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.confirmation_number,
+                      size: 20,
+                      color: statusColor,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Booking #${booking.id}',
+                      style: AppTheme.bodyMedium.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        _showItineraryDialog(booking);
+                      },
+                      icon: const Icon(Icons.map, size: 20),
+                      tooltip: 'View Itinerary',
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Feature coming soon!'),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.location_on, size: 20),
+                      tooltip: 'View Map',
+                    ),
+                    IconButton(
+                      onPressed: () => _openChatWithGuide(booking),
+                      icon: const Icon(Icons.message, size: 20),
+                      tooltip: 'Message',
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        booking.statusDisplayText,
+                        style: AppTheme.bodySmall.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // Booking details
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  booking.tourTitle,
+                  style: AppTheme.bodyLarge.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _buildInfoItem(
+                      Icons.calendar_today,
+                      '${booking.tourStartDate.day}/${booking.tourStartDate.month}/${booking.tourStartDate.year}',
+                    ),
+                    const SizedBox(width: 24),
+                    _buildInfoItem(
+                        Icons.access_time, '(${booking.duration ?? 0}) Hours'),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    FutureBuilder<String>(
+                      future: _getGuideName(booking.guideId),
+                      builder: (context, snapshot) {
+                        final guideName = snapshot.data ?? 'Loading...';
+                        return _buildInfoItem(
+                            Icons.person, 'Guide: $guideName');
+                      },
+                    ),
+                    const SizedBox(width: 24),
+                    _buildInfoItem(
+                        Icons.people, '${booking.numberOfParticipants} People'),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total: ₱${booking.totalPrice.toStringAsFixed(0)}',
+                      style: AppTheme.bodyLarge.copyWith(
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (isUpcoming) ...[
+                      Row(
+                        children: [
+                          // Pending status: Only Cancel button
+                          if (booking.status == BookingStatus.pending) ...[
+                            TextButton(
+                              onPressed: () {
+                                _showCancelDialog(booking);
+                              },
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppTheme.errorColor,
+                              ),
+                              child: const Text('Cancel'),
+                            ),
+                          ],
+                          // Confirmed status (waiting for payment): Pay Now + Cancel
+                          if (booking.status == BookingStatus.confirmed) ...[
+                            TextButton(
+                              onPressed: () {
+                                _showPaymentDialog(booking);
+                              },
+                              child: const Text('Pay Now'),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () {
+                                _showCancelReasonDialog(booking);
+                              },
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppTheme.errorColor,
+                              ),
+                              child: const Text('Cancel'),
+                            ),
+                          ],
+                          // Paid status (ready to go): Complete + Cancel
+                          if (booking.status == BookingStatus.paid) ...[
+                            ElevatedButton(
+                              onPressed: () {
+                                _showCompleteDialog(booking);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(80, 36),
+                              ),
+                              child: const Text('Complete'),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () {
+                                _showCancelReasonDialog(booking);
+                              },
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppTheme.errorColor,
+                              ),
+                              child: const Text('Cancel'),
+                            ),
+                          ],
+                          // In Progress status: Complete + Cancel
+                          if (booking.status == BookingStatus.inProgress) ...[
+                            ElevatedButton(
+                              onPressed: () {
+                                _showCompleteDialog(booking);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(80, 36),
+                              ),
+                              child: const Text('Complete'),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () {
+                                _showCancelReasonDialog(booking);
+                              },
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppTheme.errorColor,
+                              ),
+                              child: const Text('Cancel'),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ] else ...[
+                      if (booking.rating != null) ...[
+                        Row(
+                          children: [
+                            const Text(
+                              'Rating: ',
+                              style: TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                            Row(
+                              children: List.generate(
+                                5,
+                                (index) => Icon(
+                                  index < booking.rating!.round()
+                                      ? Icons.star
+                                      : Icons.star_border,
+                                  color: Colors.amber,
+                                  size: 16,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${booking.rating!.toStringAsFixed(1)}',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      ] else ...[
+                        const Text(
+                          'No rating yet',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoItem(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: AppTheme.textSecondary),
+        const SizedBox(width: 4),
+        Text(text, style: AppTheme.bodySmall),
+      ],
+    );
+  }
+
+  Future<String> _getGuideName(String? guideId) async {
+    if (guideId == null) return 'Unknown';
+    try {
+      final user = await _db.getUser(guideId);
+      return user?.displayName ?? 'Unknown';
+    } catch (e) {
+      return 'Unknown';
+    }
+  }
+
+  void _showCancelDialog(BookingModel booking) async {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Cancel Booking'),
+          content: Text(
+            'Are you sure you want to cancel your booking for ${booking.tourTitle}?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('No'),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  await _db.updateBookingStatus(
+                    booking.id,
+                    BookingStatus.cancelled,
+                    cancelledAt: DateTime.now(),
+                  );
+
+                  // Create notification for booking cancellation by tourist
+                  final currentUser = _authService.getCurrentUser();
+                  if (currentUser != null) {
+                    final notification = _notificationService
+                        .createTourCancelledByTouristNotification(
+                      userId: currentUser.uid,
+                      tourTitle: booking.tourTitle,
+                    );
+                    await _notificationService.createNotification(notification);
+                  }
+
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Booking cancelled successfully'),
+                    ),
+                  );
+                } catch (e) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to cancel booking: $e'),
+                      backgroundColor: AppTheme.errorColor,
+                    ),
+                  );
+                }
+              },
+              style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
+              child: const Text('Yes, Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showCancelReasonDialog(BookingModel booking) async {
+    final TextEditingController _reasonController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Cancel Booking'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Please provide a reason for cancellation:'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _reasonController,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: 'Enter reason...',
+                ),
+                maxLines: 3,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  await _db.updateBookingStatus(
+                    booking.id,
+                    BookingStatus.cancelled,
+                    cancellationReason: _reasonController.text.trim(),
+                    cancelledAt: DateTime.now(),
+                  );
+
+                  // Create notification for booking cancellation by tourist
+                  final currentUser = _authService.getCurrentUser();
+                  if (currentUser != null) {
+                    final notification = _notificationService
+                        .createTourCancelledByTouristNotification(
+                      userId: currentUser.uid,
+                      tourTitle: booking.tourTitle,
+                    );
+                    await _notificationService.createNotification(notification);
+                  }
+
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Booking cancelled successfully'),
+                    ),
+                  );
+                } catch (e) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to cancel booking: $e'),
+                      backgroundColor: AppTheme.errorColor,
+                    ),
+                  );
+                }
+              },
+              style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
+              child: const Text('Submit'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showCompleteDialog(BookingModel booking) async {
+    final TextEditingController _reviewController = TextEditingController();
+    double _rating = 0;
+    final currentUser = _authService.getCurrentUser();
+
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to complete booking')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Complete Booking'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Rate your experience:'),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      5,
+                      (index) => IconButton(
+                        onPressed: () {
+                          setState(() {
+                            _rating = index + 1.0;
+                          });
+                        },
+                        icon: Icon(
+                          index < _rating ? Icons.star : Icons.star_border,
+                          color: Colors.amber,
+                          size: 30,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _reviewController,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: 'Write a review...',
+                    ),
+                    maxLines: 3,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    if (_rating == 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please provide a rating'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                      return;
+                    }
+
+                    try {
+                      // Update booking status to completed
+                      await _db.updateBookingStatus(
+                        booking.id,
+                        BookingStatus.completed,
+                        completedAt: DateTime.now(),
+                      );
+
+                      // Save review data directly to booking document
+                      await _db.updateBookingWithReview(
+                        booking.id,
+                        reviewContent: _reviewController.text.trim(),
+                        rating: _rating,
+                        reviewCreatedAt: DateTime.now(),
+                        reviewerId: currentUser.uid,
+                        reviewerName: currentUser.displayName ?? 'Tourist',
+                        reviewStatus: ReviewSubmissionStatus.submitted,
+                      );
+
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content:
+                              Text('Booking completed and review submitted'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    } catch (e) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Failed to complete booking: $e'),
+                          backgroundColor: AppTheme.errorColor,
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('Submit'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showItineraryDialog(BookingModel booking) {
+    // Use the updated itinerary from specialRequests field, or fallback to default
+    String itineraryText = booking.specialRequests ??
+        'Day 1: Arrival & Check-in\n'
+            '• 7:00 AM - Hotel pickup\n'
+            '• 8:00 AM - Breakfast at local restaurant\n'
+            '• 9:00 AM - Start of tour activities\n\n'
+            'Day 2: Main Activities\n'
+            '• 6:00 AM - Early morning departure\n'
+            '• 8:00 AM - Main destination arrival\n'
+            '• 12:00 PM - Lunch break\n'
+            '• 3:00 PM - Return journey\n\n'
+            'Day 3: Departure\n'
+            '• 7:00 AM - Hotel checkout\n'
+            '• 8:00 AM - Airport transfer\n'
+            '• 10:00 AM - Flight departure';
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('${booking.tourTitle} Itinerary'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  itineraryText,
+                  style: AppTheme.bodyMedium,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () =>
+                            _shareItinerary(booking, itineraryText),
+                        icon: const Icon(Icons.share),
+                        label: const Text('Share Itinerary'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _openChatWithGuide(BookingModel booking) async {
+    if (booking.guideId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Guide information not available')),
+      );
+      return;
+    }
+
+    final currentUser = _authService.getCurrentUser();
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to message the guide')),
+      );
+      return;
+    }
+
+    try {
+      // Get guide user data
+      final guideUser = await _db.getUser(booking.guideId!);
+      if (guideUser == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Guide not found')),
+        );
+        return;
+      }
+
+      // Get or create chat room
+      final chatRoom = await _db.getOrCreateChatRoom(
+        currentUserId: currentUser.uid,
+        otherUserId: guideUser.uid,
+        currentUserName: currentUser.displayName ?? 'Tourist',
+        otherUserName: guideUser.displayName ?? 'Guide',
+        currentUserRole: 'Tourist',
+        otherUserRole: guideUser.role ?? 'Guide',
+        relatedBookingId: booking.id,
+        relatedTourId: booking.tourId,
+      );
+
+      if (chatRoom != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              chatRoom: chatRoom,
+              currentUserId: currentUser.uid,
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to open chat')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error opening chat: $e')),
+      );
+    }
+  }
+
+  PaymentMethod _mapStringToPaymentMethod(String method) {
+    switch (method) {
+      case 'Credit Card':
+        return PaymentMethod.creditCard;
+      case 'GCash':
+        return PaymentMethod.gcash;
+      case 'PayMaya':
+        return PaymentMethod.paymaya;
+      case 'Bank Transfer':
+        return PaymentMethod.bankTransfer;
+      case 'Cash':
+        return PaymentMethod.cash;
+      default:
+        return PaymentMethod.cash;
+    }
+  }
+
+  void _shareItinerary(BookingModel booking, String itineraryText) async {
+    final currentUser = _authService.getCurrentUser();
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to share itinerary')),
+      );
+      return;
+    }
+
+    if (booking.guideId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Guide information not available')),
+      );
+      return;
+    }
+
+    try {
+      // Get or create chat room with guide
+      final guideUser = await _db.getUser(booking.guideId!);
+      if (guideUser == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Guide not found')),
+        );
+        return;
+      }
+
+      final chatRoom = await _db.getOrCreateChatRoom(
+        currentUserId: currentUser.uid,
+        otherUserId: guideUser.uid,
+        currentUserName: currentUser.displayName ?? 'Tourist',
+        otherUserName: guideUser.displayName ?? 'Guide',
+        currentUserRole: 'Tourist',
+        otherUserRole: guideUser.role ?? 'Guide',
+        relatedBookingId: booking.id,
+        relatedTourId: booking.tourId,
+      );
+
+      if (chatRoom == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to create chat room')),
+        );
+        return;
+      }
+
+      // Create itinerary message using the provided itinerary text
+      final itineraryMessage = MessageModel(
+        id: '', // Will be generated by Firestore
+        chatRoomId: chatRoom.id,
+        senderId: currentUser.uid,
+        senderName: currentUser.displayName ?? 'Tourist',
+        senderRole: 'Tourist',
+        content:
+            'Here\'s the itinerary for our ${booking.tourTitle} tour:\n\n$itineraryText',
+        type: MessageType.text,
+        timestamp: DateTime.now(),
+      );
+
+      // Send the message
+      await _db.sendMessage(itineraryMessage);
+
+      // Close the dialog and show success message
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Itinerary shared successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to share itinerary: $e')),
+      );
+    }
+  }
+
+  void _showPaymentDialog(BookingModel booking) {
+    String selectedPaymentMethod = 'Credit Card';
+    final TextEditingController _cardNumberController = TextEditingController();
+    final TextEditingController _expiryController = TextEditingController();
+    final TextEditingController _cvvController = TextEditingController();
+    final TextEditingController _cardHolderController = TextEditingController();
+    final TextEditingController _gcashNumberController =
+        TextEditingController();
+    final TextEditingController _referenceController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Payment Methods'),
+              content: SizedBox(
+                width: double.maxFinite,
+                height: MediaQuery.of(context).size.height *
+                    0.7, // Limit height to 70% of screen
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Select Payment Method:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 16),
+                      // Payment method selection
+                      Column(
+                        children: [
+                          RadioListTile<String>(
+                            title: const Text('Credit Card'),
+                            value: 'Credit Card',
+                            groupValue: selectedPaymentMethod,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedPaymentMethod = value!;
+                              });
+                            },
+                          ),
+                          RadioListTile<String>(
+                            title: const Text('GCash'),
+                            value: 'GCash',
+                            groupValue: selectedPaymentMethod,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedPaymentMethod = value!;
+                              });
+                            },
+                          ),
+                          RadioListTile<String>(
+                            title: const Text('PayMaya'),
+                            value: 'PayMaya',
+                            groupValue: selectedPaymentMethod,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedPaymentMethod = value!;
+                              });
+                            },
+                          ),
+                          RadioListTile<String>(
+                            title: const Text('Bank Transfer'),
+                            value: 'Bank Transfer',
+                            groupValue: selectedPaymentMethod,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedPaymentMethod = value!;
+                              });
+                            },
+                          ),
+                          RadioListTile<String>(
+                            title: const Text('Cash'),
+                            value: 'Cash',
+                            groupValue: selectedPaymentMethod,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedPaymentMethod = value!;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // Payment form fields
+                      if (selectedPaymentMethod == 'Credit Card') ...[
+                        const Text(
+                          'Card Details:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _cardNumberController,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            hintText: 'Card Number (1234 5678 9012 3456)',
+                            prefixIcon: Icon(Icons.credit_card),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _expiryController,
+                                decoration: const InputDecoration(
+                                  border: OutlineInputBorder(),
+                                  hintText: 'MM/YY',
+                                  labelText: 'Expiry',
+                                ),
+                                keyboardType: TextInputType.datetime,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextField(
+                                controller: _cvvController,
+                                decoration: const InputDecoration(
+                                  border: OutlineInputBorder(),
+                                  hintText: '123',
+                                  labelText: 'CVV',
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _cardHolderController,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            hintText: 'John Doe',
+                            labelText: 'Card Holder Name',
+                          ),
+                        ),
+                      ] else if (selectedPaymentMethod == 'GCash' ||
+                          selectedPaymentMethod == 'PayMaya') ...[
+                        const Text(
+                          'Mobile Wallet Details:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _gcashNumberController,
+                          decoration: InputDecoration(
+                            border: const OutlineInputBorder(),
+                            hintText: '09XX XXX XXXX',
+                            labelText: '${selectedPaymentMethod} Number',
+                            prefixIcon: const Icon(Icons.phone_android),
+                          ),
+                          keyboardType: TextInputType.phone,
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _referenceController,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            hintText: 'Reference Number (Optional)',
+                            labelText: 'Reference Number',
+                          ),
+                        ),
+                      ] else if (selectedPaymentMethod == 'Bank Transfer') ...[
+                        const Text(
+                          'Bank Transfer Details:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Bank: BDO Unibank\nAccount Name: TourMate Cebu\nAccount Number: 1234 5678 9012\nRouting Number: 123456789',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _referenceController,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            hintText: 'Reference Number',
+                            labelText: 'Reference Number',
+                          ),
+                        ),
+                      ] else if (selectedPaymentMethod == 'Cash') ...[
+                        const Text(
+                          'Cash Payment Instructions:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          '• Pay in cash at our office or designated payment center\n• Bring valid ID for verification\n• Payment must be made at least 24 hours before tour date\n• You will receive a confirmation receipt after payment\n• For urgent bookings, contact us directly',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Office Address: 123 Tourism Street, Cebu City\nBusiness Hours: 8:00 AM - 6:00 PM (Mon-Sat)',
+                          style: TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _referenceController,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            hintText: 'Booking Reference (Optional)',
+                            labelText: 'Booking Reference',
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      Text(
+                        'Total Amount: ₱${booking.totalPrice.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final currentUser = _authService.getCurrentUser();
+                    if (currentUser == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please log in to make payment'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                      return;
+                    }
+
+                    // Collect payment details based on method
+                    Map<String, dynamic> paymentDetails = {};
+                    if (selectedPaymentMethod == 'Credit Card') {
+                      paymentDetails = {
+                        'cardNumber': _cardNumberController.text,
+                        'expiry': _expiryController.text,
+                        'cvv': _cvvController.text,
+                        'cardHolderName': _cardHolderController.text,
+                      };
+                    } else if (selectedPaymentMethod == 'GCash' ||
+                        selectedPaymentMethod == 'PayMaya') {
+                      paymentDetails = {
+                        'mobileNumber': _gcashNumberController.text,
+                        'referenceNumber': _referenceController.text,
+                      };
+                    } else if (selectedPaymentMethod == 'Bank Transfer') {
+                      paymentDetails = {
+                        'referenceNumber': _referenceController.text,
+                      };
+                    } else if (selectedPaymentMethod == 'Cash') {
+                      paymentDetails = {
+                        'referenceNumber': _referenceController.text,
+                      };
+                    }
+
+                    try {
+                      final payment = await _paymentService.processPayment(
+                        bookingId: booking.id,
+                        userId: currentUser.uid,
+                        guideId: booking.guideId ?? '',
+                        amount: booking.totalPrice,
+                        paymentMethod:
+                            _mapStringToPaymentMethod(selectedPaymentMethod),
+                        paymentDetails: paymentDetails,
+                      );
+
+                      if (payment != null) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                                'Payment processed successfully via $selectedPaymentMethod'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Payment processing failed'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Payment failed: $e'),
+                          backgroundColor: AppTheme.errorColor,
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                  ),
+                  child: const Text('Pay Now'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}

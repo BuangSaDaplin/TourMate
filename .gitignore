@@ -1,0 +1,31 @@
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+# iOS symlinks
+/ios/.symlinks/
+# Android build files
+/android/.gradle/
+/android/app/build/
+/android/app/.gradle/
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+
+# Operating System
+.DS_Store
+Thumbs.db
+
+# Allow these important files to be tracked and visible
+!firestore.rules
+!storage.rules
+!cors.json
+!lib/services/tour_reminder_service.dart
+!pubspec.yaml
+!pubspec.lock

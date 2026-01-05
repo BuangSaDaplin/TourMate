@@ -1,0 +1,46 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "tourmate-bd9e8",
+          "appId": "1:333895864153:android:1234567890abcdef",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "tourmate-bd9e8", 
+          "appId": "1:333895864153:ios:1234567890abcdef",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "tourmate-bd9e8",
+          "appId": "1:333895864153:ios:1234567890abcdef", 
+          "uploadDebugSymbols": false,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "web": {
+        "default": {
+          "projectId": "tourmate-bd9e8",
+          "appId": "1:333895864153:web:ddbb246a07ab0a67bb8648",
+          "measurementId": "G-BWKYF8VL8C",
+          "fileOutput": "web/firebase-config.js"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "tourmate-bd9e8",
+          "configurations": {
+            "web": "1:333895864153:web:ddbb246a07ab0a67bb8648",
+            "windows": "1:333895864153:web:6e8aa954828938e8bb8648"
+          }
+        }
+      }
+    }
+  }
+}
