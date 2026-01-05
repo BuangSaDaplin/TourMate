@@ -217,7 +217,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               case 'Tour Guide':
                                 editScreen = const GuideEditAccountScreen();
                                 break;
-                              case 'Admin':
+                              case 'admin':
                                 editScreen =
                                     AdminEditAccountScreen(user: _userProfile!);
                                 break;
@@ -247,16 +247,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Icons.email, 'Email', _userProfile?.email ?? 'No email'),
                   _buildInfoRow(Icons.phone, 'Phone',
                       _userProfile?.phoneNumber ?? 'Not provided'),
-                  _buildInfoRow(
-                    Icons.place,
-                    'Favorite Destination',
-                    _userProfile?.favoriteDestination ?? 'Not set',
-                  ),
-                  _buildInfoRow(
-                    Icons.language,
-                    'Languages',
-                    _userProfile?.languages?.join(', ') ?? 'English',
-                  ),
+                  if (_userProfile?.role != 'admin') ...[
+                    _buildInfoRow(
+                      Icons.place,
+                      'Favorite Destination',
+                      _userProfile?.favoriteDestination ?? 'Not set',
+                    ),
+                    _buildInfoRow(
+                      Icons.language,
+                      'Languages',
+                      _userProfile?.languages?.join(', ') ?? 'English',
+                    ),
+                  ],
                 ],
               ),
             ),

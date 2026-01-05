@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:tourmate_app/models/tour_model.dart';
+import 'package:tourmate_app/models/user_model.dart';
+import 'package:tourmate_app/services/database_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../utils/app_theme.dart';
 
 class AdminTourModerationScreen extends StatefulWidget {
@@ -14,6 +17,8 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedFilter = 'All';
   String _selectedSort = 'Newest';
+  bool _isLoading = true;
+  final DatabaseService _databaseService = DatabaseService();
 
   final List<String> _filterOptions = [
     'All',
@@ -29,103 +34,7 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
     'Guide Name'
   ];
 
-  // Mock tour data with moderation status - replace with actual data fetching
-  final List<Map<String, dynamic>> _toursForModeration = [
-    {
-      'tour': TourModel(
-        id: '1',
-        title: 'Inappropriate Content Tour',
-        description:
-            'This tour contains inappropriate content that violates community guidelines.',
-        price: 1500.0,
-        category: ['Adventure'],
-        maxParticipants: 10,
-        currentParticipants: 2,
-        startTime: DateTime.now().add(const Duration(days: 5)),
-        endTime: DateTime.now().add(const Duration(days: 5, hours: 6)),
-        meetingPoint: 'Meeting Point',
-        mediaURL: ['inappropriate1.jpg', 'inappropriate2.jpg'],
-        createdBy: 'guide_001',
-        shared: true,
-        itinerary: [],
-        status: 'suspended',
-        duration: 6,
-        languages: ['English'],
-        specializations: ['Adventure'],
-      ),
-      'guideName': 'John Doe',
-      'guideEmail': 'john@example.com',
-      'moderationStatus': 'Pending Review',
-      'reports': 3,
-      'reportedReasons': ['Inappropriate content', 'Misleading description'],
-      'submittedAt': DateTime.now().subtract(const Duration(days: 2)),
-      'lastReviewed': null,
-    },
-    {
-      'tour': TourModel(
-        id: '2',
-        title: 'Family-Friendly Beach Tour',
-        description:
-            'A wonderful family-friendly tour to pristine beaches with activities for all ages.',
-        price: 2000.0,
-        category: ['Beach'],
-        maxParticipants: 15,
-        currentParticipants: 8,
-        startTime: DateTime.now().add(const Duration(days: 10)),
-        endTime: DateTime.now().add(const Duration(days: 10, hours: 8)),
-        meetingPoint: 'Beach Resort',
-        mediaURL: ['beach1.jpg', 'beach2.jpg', 'beach3.jpg'],
-        createdBy: 'guide_002',
-        shared: true,
-        itinerary: [],
-        status: 'active',
-        duration: 8,
-        languages: ['English', 'Spanish'],
-        specializations: ['Beach Activities', 'Family Tours'],
-      ),
-      'guideName': 'Jane Smith',
-      'guideEmail': 'jane@example.com',
-      'moderationStatus': 'Approved',
-      'reports': 0,
-      'reportedReasons': [],
-      'submittedAt': DateTime.now().subtract(const Duration(days: 30)),
-      'lastReviewed': DateTime.now().subtract(const Duration(days: 25)),
-    },
-    {
-      'tour': TourModel(
-        id: '3',
-        title: 'Reported Tour - Safety Concerns',
-        description:
-            'This tour has been reported for safety concerns and needs review.',
-        price: 1800.0,
-        category: ['Adventure'],
-        maxParticipants: 8,
-        currentParticipants: 0,
-        startTime: DateTime.now().add(const Duration(days: 15)),
-        endTime: DateTime.now().add(const Duration(days: 15, hours: 5)),
-        meetingPoint: 'Adventure Base',
-        mediaURL: ['adventure1.jpg'],
-        createdBy: 'guide_003',
-        shared: true,
-        itinerary: [],
-        status: 'active',
-        duration: 5,
-        languages: ['English'],
-        specializations: ['Adventure', 'Hiking'],
-      ),
-      'guideName': 'Mike Johnson',
-      'guideEmail': 'mike@example.com',
-      'moderationStatus': 'Pending Review',
-      'reports': 5,
-      'reportedReasons': [
-        'Safety concerns',
-        'Inadequate equipment',
-        'Unqualified guide'
-      ],
-      'submittedAt': DateTime.now().subtract(const Duration(days: 7)),
-      'lastReviewed': null,
-    },
-  ];
+  List<Map<String, dynamic>> _toursForModeration = [];
 
   List<Map<String, dynamic>> get _filteredTours {
     return _toursForModeration.where((tourData) {
@@ -157,9 +66,62 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _fetchToursForModeration();
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchToursForModeration() async {
+    setState(() => _isLoading = true);
+    try {
+      final tours = await _databaseService.getAllTours();
+      final List<Map<String, dynamic>> moderationData = [];
+
+      for (final tour in tours) {
+        final guide = await _databaseService.getUser(tour.createdBy);
+        final guideName = guide?.displayName ?? 'Unknown Guide';
+        final guideEmail = guide?.email ?? 'unknown@example.com';
+
+        // Determine moderation status based on tour status
+        String moderationStatus;
+        if (tour.status == 'active') {
+          moderationStatus = 'Approved';
+        } else if (tour.status == 'suspended') {
+          moderationStatus = 'Suspended';
+        } else {
+          moderationStatus = 'Pending Review';
+        }
+
+        moderationData.add({
+          'tour': tour,
+          'guideName': guideName,
+          'guideEmail': guideEmail,
+          'moderationStatus': moderationStatus,
+          'reports': 0, // TODO: Implement reports functionality
+          'reportedReasons':
+              <String>[], // TODO: Implement reports functionality
+          'submittedAt':
+              DateTime.now(), // TODO: Add createdAt field to TourModel
+          'lastReviewed': null,
+        });
+      }
+
+      setState(() {
+        _toursForModeration = moderationData;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading tours: $e')),
+      );
+    }
   }
 
   @override
@@ -308,14 +270,17 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
 
           // Tours List
           Expanded(
-            child: _filteredTours.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    itemCount: _filteredTours.length,
-                    itemBuilder: (context, index) {
-                      return _buildTourModerationCard(_filteredTours[index]);
-                    },
-                  ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredTours.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                        itemCount: _filteredTours.length,
+                        itemBuilder: (context, index) {
+                          return _buildTourModerationCard(
+                              _filteredTours[index]);
+                        },
+                      ),
           ),
         ],
       ),
@@ -679,9 +644,121 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
   }
 
   void _viewTourDetails(Map<String, dynamic> tourData) {
-    // TODO: Navigate to detailed tour view for moderation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Viewing details for: ${tourData['tour'].title}')),
+    final tour = tourData['tour'] as TourModel;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('${tour.title} - Tour Details'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildDetailRow('Guide Name', tourData['guideName']),
+                _buildDetailRow('Guide Email', tourData['guideEmail']),
+                _buildDetailRow('Status', tourData['moderationStatus']),
+                _buildDetailRow('Price', '₱${tour.price.toStringAsFixed(0)}'),
+                _buildDetailRow(
+                    'Category',
+                    tour.category.isNotEmpty
+                        ? tour.category.join(', ')
+                        : 'No Category'),
+                _buildDetailRow(
+                    'Max Participants', tour.maxParticipants.toString()),
+                _buildDetailRow('Current Participants',
+                    tour.currentParticipants.toString()),
+                _buildDetailRow('Duration', '${tour.duration} hours'),
+                _buildDetailRow('Meeting Point', tour.meetingPoint),
+                _buildDetailRow(
+                    'Languages',
+                    tour.languages.isNotEmpty
+                        ? tour.languages.join(', ')
+                        : 'Not specified'),
+                _buildDetailRow(
+                    'Specializations',
+                    tour.specializations.isNotEmpty
+                        ? tour.specializations.join(', ')
+                        : 'Not specified'),
+                _buildDetailRow(
+                    'Submitted', _formatDate(tourData['submittedAt'])),
+                if (tourData['lastReviewed'] != null)
+                  _buildDetailRow(
+                      'Last Reviewed', _formatDate(tourData['lastReviewed'])),
+                const SizedBox(height: 16),
+                const Text('Description:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text(tour.description),
+                const SizedBox(height: 16),
+                if (tour.itinerary.isNotEmpty) ...[
+                  const Text('Itinerary:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  ...tour.itinerary.map((item) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${item['time']}: ${item['activity']}',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600)),
+                          if (item['description'] != null &&
+                              item['description']!.isNotEmpty)
+                            Text(item['description']!,
+                                style: const TextStyle(
+                                    fontSize: 12, color: Colors.grey)),
+                        ],
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 16),
+                ],
+                const Text('Documents/Media:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                if (tour.mediaURL.isNotEmpty)
+                  _buildMediaLink('Tour Media', tour.mediaURL)
+                else
+                  const Text('No documents/media submitted'),
+                if (tourData['reportedReasons'].isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Text('Reported Issues:',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, color: Colors.red)),
+                  const SizedBox(height: 8),
+                  ...tourData['reportedReasons'].map<Widget>((reason) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error, size: 14, color: Colors.red),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              reason,
+                              style: const TextStyle(
+                                  color: Colors.red, fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -745,34 +822,103 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
   }
 
   void _processModeration(
-      Map<String, dynamic> tourData, String action, String reason) {
-    // TODO: Update tour moderation status in database
-    // TODO: Send notification to guide
-    // TODO: Log moderation action
+      Map<String, dynamic> tourData, String action, String reason) async {
+    try {
+      final tour = tourData['tour'] as TourModel;
+      String newStatus;
 
-    final message = action == 'approve'
-        ? 'Tour "${tourData['tour'].title}" has been approved'
-        : action == 'suspend'
-            ? 'Tour "${tourData['tour'].title}" has been suspended'
-            : 'Tour "${tourData['tour'].title}" is under review';
+      if (action == 'approve') {
+        newStatus = 'active';
+      } else if (action == 'suspend') {
+        newStatus = 'suspended';
+      } else {
+        newStatus = 'pending';
+      }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor:
-            action == 'approve' ? AppTheme.successColor : AppTheme.errorColor,
-      ),
-    );
+      await _databaseService.updateTourStatus(tour.id, newStatus);
 
-    // Update local state (in real app, this would be handled by state management)
-    setState(() {
-      tourData['moderationStatus'] =
-          action == 'approve' ? 'Approved' : 'Suspended';
-      tourData['lastReviewed'] = DateTime.now();
-    });
+      final message = action == 'approve'
+          ? 'Tour "${tour.title}" has been approved'
+          : action == 'suspend'
+              ? 'Tour "${tour.title}" has been suspended'
+              : 'Tour "${tour.title}" is under review';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              action == 'approve' ? AppTheme.successColor : AppTheme.errorColor,
+        ),
+      );
+
+      // Update local state
+      setState(() {
+        tourData['moderationStatus'] =
+            action == 'approve' ? 'Approved' : 'Suspended';
+        tourData['lastReviewed'] = DateTime.now();
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error processing moderation: $e')),
+      );
+    }
   }
 
   String _formatDate(DateTime date) {
     return '${date.month}/${date.day}/${date.year}';
+  }
+
+  String _formatDateTime(DateTime date) {
+    return '${date.month}/${date.day}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text('$label:',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMediaLink(String label, List<String> urls) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          const Icon(Icons.link, size: 16),
+          const SizedBox(width: 8),
+          Text('$label: '),
+          TextButton(
+            onPressed: () async {
+              if (urls.isNotEmpty) {
+                final Uri url = Uri.parse(urls.first);
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Could not open $label')),
+                  );
+                }
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('No $label available')),
+                );
+              }
+            },
+            child: Text('View Media (${urls.length})'),
+            style: TextButton.styleFrom(padding: EdgeInsets.zero),
+          ),
+        ],
+      ),
+    );
   }
 }

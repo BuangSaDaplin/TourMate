@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tourmate_app/models/guide_verification_model.dart';
+import 'package:tourmate_app/services/database_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../utils/app_theme.dart';
 
 class AdminGuideVerificationScreen extends StatefulWidget {
@@ -12,65 +14,13 @@ class AdminGuideVerificationScreen extends StatefulWidget {
 
 class _AdminGuideVerificationScreenState
     extends State<AdminGuideVerificationScreen> {
+  final DatabaseService _databaseService = DatabaseService();
+  List<GuideVerification> _verifications = [];
+  bool _isLoading = false;
+  String? _errorMessage;
+
   VerificationStatus _selectedFilter = VerificationStatus.pending;
   final TextEditingController _searchController = TextEditingController();
-
-  // Mock verification data - replace with actual data fetching
-  final List<GuideVerification> _verifications = [
-    GuideVerification(
-      id: '1',
-      guideId: 'guide_001',
-      guideName: 'Maria Santos',
-      guideEmail: 'maria.santos@example.com',
-      bio:
-          'Experienced tour guide with 5+ years in Cebu tourism, specializing in historical and cultural tours.',
-      idDocumentUrl: ['https://example.com/id_001.jpg'],
-      lguDocumentUrl: ['https://example.com/lgu_001.jpg'],
-      status: VerificationStatus.pending,
-      submittedAt: DateTime.now().subtract(const Duration(days: 2)),
-    ),
-    GuideVerification(
-      id: '2',
-      guideId: 'guide_002',
-      guideName: 'Juan dela Cruz',
-      guideEmail: 'juan.delacruz@example.com',
-      bio:
-          'Local guide born and raised in Bohol, expert in island hopping and adventure tours.',
-      idDocumentUrl: ['https://example.com/id_002.jpg'],
-      lguDocumentUrl: ['https://example.com/lgu_002.jpg'],
-      status: VerificationStatus.pending,
-      submittedAt: DateTime.now().subtract(const Duration(days: 5)),
-    ),
-    GuideVerification(
-      id: '3',
-      guideId: 'guide_003',
-      guideName: 'Ana Reyes',
-      guideEmail: 'ana.reyes@example.com',
-      bio:
-          'Professional guide with tourism degree, specializes in eco-tourism and sustainable travel.',
-      idDocumentUrl: ['https://example.com/id_003.jpg'],
-      lguDocumentUrl: ['https://example.com/lgu_003.jpg'],
-      status: VerificationStatus.approved,
-      submittedAt: DateTime.now().subtract(const Duration(days: 10)),
-      reviewedAt: DateTime.now().subtract(const Duration(days: 8)),
-      reviewedBy: 'Admin User',
-    ),
-    GuideVerification(
-      id: '4',
-      guideId: 'guide_004',
-      guideName: 'Pedro Garcia',
-      guideEmail: 'pedro.garcia@example.com',
-      bio:
-          'Mountain guide with extensive experience in hiking and outdoor activities.',
-      idDocumentUrl: ['https://example.com/id_004.jpg'],
-      lguDocumentUrl: ['https://example.com/lgu_004.jpg'],
-      status: VerificationStatus.rejected,
-      submittedAt: DateTime.now().subtract(const Duration(days: 7)),
-      reviewedAt: DateTime.now().subtract(const Duration(days: 6)),
-      reviewedBy: 'Admin User',
-      rejectionReason: 'LGU certificate expired',
-    ),
-  ];
 
   List<GuideVerification> get _filteredVerifications {
     return _verifications.where((verification) {
@@ -87,6 +37,33 @@ class _AdminGuideVerificationScreenState
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadVerifications();
+  }
+
+  Future<void> _loadVerifications() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      final verifications = await _databaseService.getAllGuideVerifications();
+
+      setState(() {
+        _verifications = verifications;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to load verifications: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
@@ -94,6 +71,26 @@ class _AdminGuideVerificationScreenState
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(_errorMessage!, style: AppTheme.bodyMedium),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadVerifications,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -242,13 +239,6 @@ class _AdminGuideVerificationScreenState
                                 style: AppTheme.bodySmall
                                     .copyWith(color: AppTheme.textSecondary),
                               ),
-                              if (verification.bio != null &&
-                                  verification.bio!.length > 50)
-                                Text(
-                                  '${verification.bio!.substring(0, 50)}...',
-                                  style: AppTheme.bodySmall
-                                      .copyWith(color: AppTheme.textSecondary),
-                                ),
                             ],
                           ),
                         ),
@@ -270,25 +260,17 @@ class _AdminGuideVerificationScreenState
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Icon(Icons.description,
-                                      size: 16, color: AppTheme.primaryColor),
-                                  const SizedBox(width: 4),
-                                  Text('ID Document',
-                                      style: AppTheme.bodySmall),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(Icons.verified_user,
-                                      size: 16, color: AppTheme.accentColor),
-                                  const SizedBox(width: 4),
-                                  Text('LGU Certificate',
-                                      style: AppTheme.bodySmall),
-                                ],
-                              ),
+                              if (verification.status ==
+                                  VerificationStatus.pending) ...[
+                                const SizedBox(height: 8),
+                                TextButton(
+                                  onPressed: () =>
+                                      _showDetailsDialog(context, verification),
+                                  child: const Text('View Details'),
+                                  style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -538,11 +520,21 @@ class _AdminGuideVerificationScreenState
           const SizedBox(width: 8),
           Text('$label: '),
           TextButton(
-            onPressed: () {
-              // TODO: Open document URL
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Opening $label')),
-              );
+            onPressed: () async {
+              if (urls.isNotEmpty) {
+                final Uri url = Uri.parse(urls.first);
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Could not open $label')),
+                  );
+                }
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('No $label available')),
+                );
+              }
             },
             child: Text('View Document (${urls.length})'),
             style: TextButton.styleFrom(padding: EdgeInsets.zero),
@@ -552,27 +544,55 @@ class _AdminGuideVerificationScreenState
     );
   }
 
-  void _processReview(
-      GuideVerification verification, bool approve, String? reason) {
-    // TODO: Update verification status in database
-    // TODO: Send notification to guide
-    // TODO: Update user role if approved
+  Future<void> _processReview(
+      GuideVerification verification, bool approve, String? reason) async {
+    try {
+      final newStatus =
+          approve ? VerificationStatus.approved : VerificationStatus.rejected;
 
-    final newStatus =
-        approve ? VerificationStatus.approved : VerificationStatus.rejected;
-    final message = approve
-        ? '${verification.guideName} has been approved as a verified guide!'
-        : '${verification.guideName} verification has been rejected.';
+      // Update status in database
+      await _databaseService.updateGuideVerificationStatus(
+        verification.id,
+        newStatus,
+        'Admin User', // TODO: Get actual admin user name
+        rejectionReason: reason,
+      );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: approve ? AppTheme.successColor : AppTheme.errorColor,
-      ),
-    );
+      // Update local state
+      setState(() {
+        final index = _verifications.indexWhere((v) => v.id == verification.id);
+        if (index != -1) {
+          _verifications[index] = verification.copyWith(
+            status: newStatus,
+            reviewedAt: DateTime.now(),
+            reviewedBy: 'Admin User',
+            rejectionReason: reason,
+          );
+        }
+      });
 
-    // Update local state (in real app, this would be handled by state management)
-    // TODO: Implement proper state management for verification updates
+      final message = approve
+          ? '${verification.guideName} has been approved as a verified guide!'
+          : '${verification.guideName} verification has been rejected.';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              approve ? AppTheme.successColor : AppTheme.errorColor,
+        ),
+      );
+
+      // TODO: Send notification to guide
+      // TODO: Update user role if approved
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update verification: $e'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
   }
 
   String _formatDate(DateTime date) {

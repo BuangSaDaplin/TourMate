@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum VerificationStatus { pending, approved, rejected }
 
 class GuideVerification {
@@ -30,6 +32,16 @@ class GuideVerification {
   });
 
   factory GuideVerification.fromMap(Map<String, dynamic> data) {
+    DateTime parseDate(dynamic dateData) {
+      if (dateData is Timestamp) {
+        return dateData.toDate();
+      } else if (dateData is String) {
+        return DateTime.parse(dateData);
+      } else {
+        return DateTime.now();
+      }
+    }
+
     return GuideVerification(
       id: data['id'] ?? '',
       guideId: data['guideId'] ?? '',
@@ -43,11 +55,9 @@ class GuideVerification {
           ? List<String>.from(data['lguDocumentUrl'])
           : null,
       status: VerificationStatus.values[data['status'] ?? 0],
-      submittedAt: DateTime.parse(
-          data['submittedAt'] ?? DateTime.now().toIso8601String()),
-      reviewedAt: data['reviewedAt'] != null
-          ? DateTime.parse(data['reviewedAt'])
-          : null,
+      submittedAt: parseDate(data['submittedAt']),
+      reviewedAt:
+          data['reviewedAt'] != null ? parseDate(data['reviewedAt']) : null,
       reviewedBy: data['reviewedBy'],
       rejectionReason: data['rejectionReason'],
     );

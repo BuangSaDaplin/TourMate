@@ -710,6 +710,7 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
           'duration': booking.duration,
           'rating': booking.rating, // Use actual rating from booking
           'review': booking.reviewContent, // Use actual review content
+          'reviewStatus': booking.reviewStatus?.index, // Include review status
         };
 
         return _buildHistoryCard(historyBooking);
@@ -1060,7 +1061,7 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
                     ),
                   ),
                   child: Text(
-                    booking['review'] ?? 'No review provided.',
+                    _getReviewDisplayText(booking),
                     style: AppTheme.bodyMedium,
                   ),
                 ),
@@ -1818,5 +1819,42 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
         backgroundColor: AppTheme.successColor,
       ),
     );
+  }
+
+  String _getReviewDisplayText(Map<String, dynamic> booking) {
+    // Get the review status from the booking
+    final reviewStatusRaw = booking['reviewStatus'];
+
+    // Debug logging
+    print(
+        'DEBUG: reviewStatusRaw = $reviewStatusRaw, type = ${reviewStatusRaw?.runtimeType}');
+
+    if (reviewStatusRaw == null) {
+      return 'No review provided.';
+    }
+
+    // Convert to int if necessary
+    int reviewStatus;
+    if (reviewStatusRaw is int) {
+      reviewStatus = reviewStatusRaw;
+    } else if (reviewStatusRaw is String) {
+      reviewStatus = int.tryParse(reviewStatusRaw) ?? -1;
+    } else {
+      return 'No review provided.';
+    }
+
+    print('DEBUG: converted reviewStatus = $reviewStatus');
+
+    switch (reviewStatus) {
+      case 1: // approved
+        return booking['review'] ?? 'No review provided.';
+      case 0: // pending
+        return 'Review is pending approval.';
+      case 2: // rejected
+        return 'Review has been moderated by admin.';
+      default:
+        print('DEBUG: Hit default case with reviewStatus = $reviewStatus');
+        return 'No review provided.';
+    }
   }
 }

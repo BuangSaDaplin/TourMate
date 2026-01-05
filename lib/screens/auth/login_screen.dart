@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:tourmate_app/screens/auth/signup_screen.dart';
 import 'package:tourmate_app/services/firebase_auth_service.dart';
+import 'package:tourmate_app/services/database_service.dart';
+import 'package:tourmate_app/models/user_model.dart';
 import '../../utils/app_theme.dart';
 import '../home/main_dashboard.dart';
 import '../home/tour_guide_main_dashboard.dart';
 import '../home/admin_dashboard.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'suspended_account_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,6 +19,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final FirebaseAuthService _authService = FirebaseAuthService();
+  final DatabaseService _databaseService = DatabaseService();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
@@ -29,7 +33,24 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _navigateBasedOnRole(String? role) {
+  Future<void> _navigateBasedOnUserStatusAndRole(
+      String uid, String? role) async {
+    print(
+        'Navigating based on user status and role for UID: $uid, Role: $role');
+    // First, check if the user account is suspended
+    final user = await _databaseService.getUser(uid);
+    print('User status: ${user?.status}');
+    print('User activeStatus: ${user?.activeStatus}');
+    print('User isActive: ${user?.isActive}');
+    if (user != null &&
+        (user.status == UserStatus.suspended || user.isActive == false)) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const SuspendedAccountScreen()),
+      );
+      return;
+    }
+
+    // If not suspended, navigate based on role
     Widget destination;
     switch (role) {
       case 'admin':
@@ -206,13 +227,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
                           // ✅ Proceed only if the user exists
                           final user = _authService.getCurrentUser();
+                          print(
+                              'Current user after email sign in: ${user?.uid}');
                           if (user != null) {
                             final role =
                                 await _authService.getUserRole(user.uid);
+                            print('User role from email: $role');
                             if (role != null) {
-                              _navigateBasedOnRole(role);
+                              await _navigateBasedOnUserStatusAndRole(
+                                  user.uid, role);
                             } else {
-                              _navigateBasedOnRole('tourist');
+                              await _navigateBasedOnUserStatusAndRole(
+                                  user.uid, 'tourist');
                             }
                           }
                         } catch (e) {
@@ -276,14 +302,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
                           // Get user role and navigate
                           final user = _authService.getCurrentUser();
+                          print(
+                              'Current user after Google sign in: ${user?.uid}');
                           if (user != null) {
                             final role =
                                 await _authService.getUserRole(user.uid);
+                            print('User role from Google: $role');
                             if (role != null) {
-                              _navigateBasedOnRole(role);
+                              await _navigateBasedOnUserStatusAndRole(
+                                  user.uid, role);
                             } else {
                               // Fallback to tourist dashboard if role is null
-                              _navigateBasedOnRole('tourist');
+                              await _navigateBasedOnUserStatusAndRole(
+                                  user.uid, 'tourist');
                             }
                           }
                         } catch (e) {
@@ -326,10 +357,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             final role =
                                 await _authService.getUserRole(user.uid);
                             if (role != null) {
-                              _navigateBasedOnRole(role);
+                              await _navigateBasedOnUserStatusAndRole(
+                                  user.uid, role);
                             } else {
                               // Fallback to tourist dashboard if role is null
-                              _navigateBasedOnRole('tourist');
+                              await _navigateBasedOnUserStatusAndRole(
+                                  user.uid, 'tourist');
                             }
                           }
                         } catch (e) {

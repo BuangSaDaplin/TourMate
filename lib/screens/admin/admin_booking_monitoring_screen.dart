@@ -7,10 +7,12 @@ class AdminBookingMonitoringScreen extends StatefulWidget {
   const AdminBookingMonitoringScreen({super.key});
 
   @override
-  State<AdminBookingMonitoringScreen> createState() => _AdminBookingMonitoringScreenState();
+  State<AdminBookingMonitoringScreen> createState() =>
+      _AdminBookingMonitoringScreenState();
 }
 
-class _AdminBookingMonitoringScreenState extends State<AdminBookingMonitoringScreen>
+class _AdminBookingMonitoringScreenState
+    extends State<AdminBookingMonitoringScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _selectedStatus = 'All';
@@ -81,14 +83,16 @@ class _AdminBookingMonitoringScreenState extends State<AdminBookingMonitoringScr
 
           // Statistics Cards
           StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance.collection('bookings').snapshots(),
+            stream:
+                FirebaseFirestore.instance.collection('bookings').snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
 
               final bookings = snapshot.data!.docs
-                  .map((doc) => BookingModel.fromMap(doc.data() as Map<String, dynamic>))
+                  .map((doc) =>
+                      BookingModel.fromMap(doc.data() as Map<String, dynamic>))
                   .toList();
 
               final stats = _calculateBookingStats(bookings);
@@ -161,11 +165,14 @@ class _AdminBookingMonitoringScreenState extends State<AdminBookingMonitoringScr
               }
 
               final recentBookings = snapshot.data!.docs
-                  .map((doc) => BookingModel.fromMap(doc.data() as Map<String, dynamic>))
+                  .map((doc) =>
+                      BookingModel.fromMap(doc.data() as Map<String, dynamic>))
                   .toList();
 
               return Column(
-                children: recentBookings.map((booking) => _buildActivityItem(booking)).toList(),
+                children: recentBookings
+                    .map((booking) => _buildActivityItem(booking))
+                    .toList(),
               );
             },
           ),
@@ -241,7 +248,8 @@ class _AdminBookingMonitoringScreenState extends State<AdminBookingMonitoringScr
               }
 
               var bookings = snapshot.data!.docs
-                  .map((doc) => BookingModel.fromMap(doc.data() as Map<String, dynamic>))
+                  .map((doc) =>
+                      BookingModel.fromMap(doc.data() as Map<String, dynamic>))
                   .toList();
 
               // Apply filters
@@ -273,7 +281,7 @@ class _AdminBookingMonitoringScreenState extends State<AdminBookingMonitoringScr
                 bookings = bookings.where((booking) {
                   // This would need to be enhanced with actual tour and user data
                   return booking.id.contains(_searchQuery) ||
-                         booking.tourId.contains(_searchQuery);
+                      booking.tourId.contains(_searchQuery);
                 }).toList();
               }
 
@@ -329,7 +337,8 @@ class _AdminBookingMonitoringScreenState extends State<AdminBookingMonitoringScr
         }
 
         final issueBookings = snapshot.data!.docs
-            .map((doc) => BookingModel.fromMap(doc.data() as Map<String, dynamic>))
+            .map((doc) =>
+                BookingModel.fromMap(doc.data() as Map<String, dynamic>))
             .toList();
 
         if (issueBookings.isEmpty) {
@@ -365,7 +374,8 @@ class _AdminBookingMonitoringScreenState extends State<AdminBookingMonitoringScr
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -437,7 +447,8 @@ class _AdminBookingMonitoringScreenState extends State<AdminBookingMonitoringScr
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: booking.statusColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -485,7 +496,8 @@ class _AdminBookingMonitoringScreenState extends State<AdminBookingMonitoringScr
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(Icons.calendar_today, size: 16, color: AppTheme.textSecondary),
+                Icon(Icons.calendar_today,
+                    size: 16, color: AppTheme.textSecondary),
                 const SizedBox(width: 4),
                 Text(
                   'Tour: ${booking.tourStartDate.day}/${booking.tourStartDate.month}/${booking.tourStartDate.year}',
@@ -520,7 +532,8 @@ class _AdminBookingMonitoringScreenState extends State<AdminBookingMonitoringScr
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: booking.statusColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -545,7 +558,8 @@ class _AdminBookingMonitoringScreenState extends State<AdminBookingMonitoringScr
               style: AppTheme.bodyLarge.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
-            if (booking.cancellationReason != null && booking.cancellationReason!.isNotEmpty)
+            if (booking.cancellationReason != null &&
+                booking.cancellationReason!.isNotEmpty)
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -560,7 +574,8 @@ class _AdminBookingMonitoringScreenState extends State<AdminBookingMonitoringScr
                     Expanded(
                       child: Text(
                         'Reason: ${booking.cancellationReason}',
-                        style: AppTheme.bodySmall.copyWith(color: AppTheme.errorColor),
+                        style: AppTheme.bodySmall
+                            .copyWith(color: AppTheme.errorColor),
                       ),
                     ),
                   ],
@@ -575,10 +590,20 @@ class _AdminBookingMonitoringScreenState extends State<AdminBookingMonitoringScr
   Map<String, dynamic> _calculateBookingStats(List<BookingModel> bookings) {
     return {
       'total': bookings.length,
-      'pending': bookings.where((b) => b.status == BookingStatus.pending).length,
-      'active': bookings.where((b) => b.status == BookingStatus.inProgress).length,
+      'pending':
+          bookings.where((b) => b.status == BookingStatus.pending).length,
+      'active': bookings
+          .where((b) => [
+                BookingStatus.pending,
+                BookingStatus.confirmed,
+                BookingStatus.paid,
+                BookingStatus.inProgress
+              ].contains(b.status))
+          .length,
       'revenue': bookings
-          .where((b) => b.status == BookingStatus.completed || b.status == BookingStatus.paid)
+          .where((b) =>
+              b.status == BookingStatus.completed ||
+              b.status == BookingStatus.paid)
           .fold(0.0, (sum, b) => sum + b.totalPrice),
     };
   }

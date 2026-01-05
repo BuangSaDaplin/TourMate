@@ -159,6 +159,11 @@ class DatabaseService {
     return snapshot.docs.map((doc) => TourModel.fromMap(doc.data())).toList();
   }
 
+  Future<List<TourModel>> getAllTours() async {
+    final snapshot = await _db.collection('tours').get();
+    return snapshot.docs.map((doc) => TourModel.fromMap(doc.data())).toList();
+  }
+
   Future<void> updateTourStatus(String tourId, String status) async {
     await _db.collection('tours').doc(tourId).update({'status': status});
 
@@ -520,15 +525,6 @@ class DatabaseService {
     return getReviewsByTarget(guideId, ReviewType.guide);
   }
 
-  Future<List<ReviewModel>> getPendingReviews() async {
-    final snapshot = await _db
-        .collection('reviews')
-        .where('status', isEqualTo: ReviewStatus.pending.index)
-        .orderBy('createdAt', descending: false)
-        .get();
-    return snapshot.docs.map((doc) => ReviewModel.fromMap(doc.data())).toList();
-  }
-
   Future<List<ReviewModel>> getUserReviews(String userId) async {
     final snapshot = await _db
         .collection('reviews')
@@ -633,6 +629,86 @@ class DatabaseService {
 
   Future<void> deleteReview(String reviewId) async {
     await _db.collection('reviews').doc(reviewId).delete();
+  }
+
+  // Get bookings with reviews for admin moderation
+  Future<List<BookingModel>> getBookingsWithReviews() async {
+    final snapshot = await _db
+        .collection('bookings')
+        .where('reviewStatus', isNotEqualTo: null)
+        .orderBy('reviewCreatedAt', descending: false)
+        .get();
+    return snapshot.docs
+        .map((doc) => BookingModel.fromMap(doc.data()))
+        .toList();
+  }
+
+  Future<List<BookingModel>> getPendingReviewBookings() async {
+    final snapshot = await _db
+        .collection('bookings')
+        .where('reviewStatus', isEqualTo: ReviewSubmissionStatus.pending.index)
+        .orderBy('reviewCreatedAt', descending: false)
+        .get();
+    return snapshot.docs
+        .map((doc) => BookingModel.fromMap(doc.data()))
+        .toList();
+  }
+
+  Future<List<BookingModel>> getApprovedReviewBookings() async {
+    final snapshot = await _db
+        .collection('bookings')
+        .where('reviewStatus', isEqualTo: ReviewSubmissionStatus.approved.index)
+        .orderBy('reviewCreatedAt', descending: false)
+        .get();
+    return snapshot.docs
+        .map((doc) => BookingModel.fromMap(doc.data()))
+        .toList();
+  }
+
+  Future<List<BookingModel>> getModeratedReviewBookings() async {
+    final snapshot = await _db
+        .collection('bookings')
+        .where('reviewStatus',
+            isEqualTo: ReviewSubmissionStatus.moderated.index)
+        .orderBy('reviewCreatedAt', descending: false)
+        .get();
+    return snapshot.docs
+        .map((doc) => BookingModel.fromMap(doc.data()))
+        .toList();
+  }
+
+  Future<void> updateBookingReviewStatus(
+    String bookingId,
+    ReviewSubmissionStatus status, {
+    String? moderatorId,
+    String? moderationReason,
+  }) async {
+    final updateData = {
+      'reviewStatus': status.index,
+      'reviewModeratedAt': FieldValue.serverTimestamp(),
+    };
+
+    if (moderatorId != null) {
+      updateData['moderatorId'] = moderatorId;
+      if (moderationReason != null) {
+        updateData['reviewModerateReason'] = moderationReason;
+      }
+    }
+
+    await _db.collection('bookings').doc(bookingId).update(updateData);
+  }
+
+  Future<void> deleteBookingReview(String bookingId) async {
+    await _db.collection('bookings').doc(bookingId).update({
+      'reviewContent': FieldValue.delete(),
+      'rating': FieldValue.delete(),
+      'reviewCreatedAt': FieldValue.delete(),
+      'reviewerId': FieldValue.delete(),
+      'reviewerName': FieldValue.delete(),
+      'reviewStatus': FieldValue.delete(),
+      'reviewModeratedAt': FieldValue.delete(),
+      'reviewModerateReason': FieldValue.delete(),
+    });
   }
 
   // Enhanced Messaging operations
@@ -873,10 +949,12 @@ class DatabaseService {
   }
 
   Future<List<GuideVerification>> getAllGuideVerifications() async {
-    // TODO: Implement Firebase Firestore integration
-    // final snapshot = await _db.collection('guide_verifications').get();
-    // return snapshot.docs.map((doc) => GuideVerification.fromMap(doc.data())).toList();
-    throw UnimplementedError('getAllGuideVerifications not implemented yet');
+    final snapshot = await _db.collection('guide_verifications').get();
+    return snapshot.docs.map((doc) {
+      final data = doc.data();
+      data['id'] = doc.id;
+      return GuideVerification.fromMap(data);
+    }).toList();
   }
 
   Future<List<GuideVerification>> getGuideVerificationsByStatus(
@@ -897,15 +975,12 @@ class DatabaseService {
     String reviewedBy, {
     String? rejectionReason,
   }) async {
-    // TODO: Implement Firebase Firestore integration
-    // await _db.collection('guide_verifications').doc(verificationId).update({
-    //   'status': status.index,
-    //   'reviewedAt': FieldValue.serverTimestamp(),
-    //   'reviewedBy': reviewedBy,
-    //   if (rejectionReason != null) 'rejectionReason': rejectionReason,
-    // });
-    throw UnimplementedError(
-        'updateGuideVerificationStatus not implemented yet');
+    await _db.collection('guide_verifications').doc(verificationId).update({
+      'status': status.index,
+      'reviewedAt': FieldValue.serverTimestamp(),
+      'reviewedBy': reviewedBy,
+      if (rejectionReason != null) 'rejectionReason': rejectionReason,
+    });
   }
 
   // Tour moderation operations

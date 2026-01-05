@@ -6,7 +6,6 @@ import '../../services/database_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/payment_service.dart';
 import '../../models/booking_model.dart';
-import '../../models/review_model.dart';
 import '../../models/payment_model.dart';
 import '../../models/message_model.dart';
 import '../notifications/notification_screen.dart';
@@ -714,7 +713,7 @@ class _BookingsScreenState extends State<BookingsScreen>
                         reviewCreatedAt: DateTime.now(),
                         reviewerId: currentUser.uid,
                         reviewerName: currentUser.displayName ?? 'Tourist',
-                        reviewStatus: ReviewSubmissionStatus.submitted,
+                        reviewStatus: ReviewSubmissionStatus.pending,
                       );
 
                       Navigator.pop(context);

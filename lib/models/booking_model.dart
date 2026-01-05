@@ -12,8 +12,9 @@ enum BookingStatus {
 }
 
 enum ReviewSubmissionStatus {
-  submitted, // 0 = submitted
-  moderated, // 1 = moderated
+  pending, // 0 = submitted
+  approved, // 1
+  moderated, // 2 = moderated
 }
 
 class BookingModel {

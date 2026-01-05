@@ -188,7 +188,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text(
                           'Change Password',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600),
                         ),
                 ),
               ),

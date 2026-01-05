@@ -396,10 +396,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                     value: 'view',
                                     child: Text('View Details'),
                                   ),
-                                  const PopupMenuItem(
-                                    value: 'edit',
-                                    child: Text('Edit User'),
-                                  ),
                                   PopupMenuItem(
                                     value: 'status',
                                     child: Text(_getUserStatus(user) == 'Active'
@@ -507,12 +503,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     switch (action) {
       case 'view':
         _showUserDetailsDialog(user);
-        break;
-      case 'edit':
-        // TODO: Navigate to edit user screen
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Edit ${user.displayName} - Coming Soon!')),
-        );
         break;
       case 'status':
         final currentStatus = _getUserStatus(user);
