@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LanguageProvider extends ChangeNotifier {
   static const String _defaultLocale = 'en';
@@ -73,11 +74,31 @@ class LanguageProvider extends ChangeNotifier {
     await _loadTranslations(languageCode);
 
     notifyListeners();
+
+    // Persist preference
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('language_code', languageCode);
   }
 
-  // Initialize provider with default language
-  Future<void> initialize() async {
-    await _loadTranslations(_defaultLanguageCode);
+  // Initialize from storage and load translations
+  Future<void> loadAppLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? languageCode = prefs.getString('language_code');
+    if (languageCode != null) {
+      _currentLocale = Locale(languageCode);
+      notifyListeners();
+    }
+    await _loadTranslations(_currentLocale.languageCode);
+  }
+
+  // Initialize from storage (kept for backwards compatibility)
+  Future<void> loadLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? languageCode = prefs.getString('language_code');
+    if (languageCode != null) {
+      _currentLocale = Locale(languageCode);
+      notifyListeners();
+    }
   }
 
   // Check if a translation key exists
@@ -90,12 +111,12 @@ class LanguageProvider extends ChangeNotifier {
         {
           'code': _defaultLanguageCode,
           'name': 'English',
-          'nativeName': 'English',
+          'nativeName': 'English'
         },
         {
           'code': _tagalogLanguageCode,
           'name': 'Tagalog',
-          'nativeName': 'Tagalog',
+          'nativeName': 'Tagalog'
         },
       ];
 

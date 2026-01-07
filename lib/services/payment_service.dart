@@ -68,18 +68,20 @@ class PaymentService {
         });
 
         // Get booking details for notification
-        final bookingDoc =
-            await _db.collection('bookings').doc(bookingId).get();
+        final bookingDoc = await _db
+            .collection('bookings')
+            .doc(bookingId)
+            .get();
         final bookingData = bookingDoc.data();
         final tourTitle = bookingData?['tourTitle'] ?? 'Tour';
 
         // Create payment completion notification
-        final paymentNotification =
-            _notificationService.createPaymentNotification(
-          userId: userId,
-          amount: amount,
-          tourTitle: tourTitle,
-        );
+        final paymentNotification = _notificationService
+            .createPaymentNotification(
+              userId: userId,
+              amount: amount,
+              tourTitle: tourTitle,
+            );
         await _notificationService.createNotification(paymentNotification);
 
         return updatedPayment;
@@ -88,18 +90,20 @@ class PaymentService {
         await _updatePaymentStatus(paymentId, PaymentStatus.failed);
 
         // Get booking details for notification
-        final bookingDoc =
-            await _db.collection('bookings').doc(bookingId).get();
+        final bookingDoc = await _db
+            .collection('bookings')
+            .doc(bookingId)
+            .get();
         final bookingData = bookingDoc.data();
         final tourTitle = bookingData?['tourTitle'] ?? 'Tour';
 
         // Create payment failure notification
-        final failureNotification =
-            _notificationService.createPaymentFailedNotification(
-          userId: userId,
-          amount: amount,
-          tourTitle: tourTitle,
-        );
+        final failureNotification = _notificationService
+            .createPaymentFailedNotification(
+              userId: userId,
+              amount: amount,
+              tourTitle: tourTitle,
+            );
         await _notificationService.createNotification(failureNotification);
 
         return null;
@@ -148,25 +152,21 @@ class PaymentService {
   }
 
   Future<bool> _processStripePayment(PaymentModel payment) async {
-    // Integrate with Stripe SDK or API
-    try {
-      // final paymentIntent = await Stripe.instance.createPaymentMethod(...);
-      // final result = await Stripe.instance.confirmPayment(...);
-      // return result.status == PaymentIntentStatus.succeeded;
-      throw UnimplementedError('Stripe integration not implemented');
-    } catch (e) {
-      return false;
-    }
+    // DEMO SIMULATION: Fake a successful payment
+    await Future.delayed(const Duration(seconds: 2));
+    return true;
   }
 
   Future<bool> _processPayPalPayment(PaymentModel payment) async {
-    // Integrate with PayPal SDK or API
-    throw UnimplementedError('PayPal integration not implemented');
+    // DEMO SIMULATION: Fake a successful payment
+    await Future.delayed(const Duration(seconds: 2));
+    return true;
   }
 
   Future<bool> _processLocalPayment(PaymentModel payment) async {
-    // Integrate with GCash/PayMaya APIs
-    throw UnimplementedError('Local payment integration not implemented');
+    // DEMO SIMULATION: Fake a successful payment (GCash/PayMaya)
+    await Future.delayed(const Duration(seconds: 2));
+    return true;
   }
 
   Future<bool> _processBankTransfer(PaymentModel payment) async {
@@ -183,7 +183,9 @@ class PaymentService {
   }
 
   Future<void> _updatePaymentStatus(
-      String paymentId, PaymentStatus status) async {
+    String paymentId,
+    PaymentStatus status,
+  ) async {
     await _db.collection('payments').doc(paymentId).update({
       'status': status.index,
       if (status == PaymentStatus.completed)
@@ -194,7 +196,9 @@ class PaymentService {
   }
 
   Future<void> _updateBookingPaymentStatus(
-      String bookingId, BookingStatus status) async {
+    String bookingId,
+    BookingStatus status,
+  ) async {
     await _db.collection('bookings').doc(bookingId).update({
       'status': status.index,
       'paidAt': FieldValue.serverTimestamp(),
@@ -217,8 +221,10 @@ class PaymentService {
       final refundAmount = amount ?? payment.amount;
 
       // Process refund with payment provider
-      final refundSuccess =
-          await _processRefundWithProvider(payment, refundAmount);
+      final refundSuccess = await _processRefundWithProvider(
+        payment,
+        refundAmount,
+      );
 
       if (refundSuccess) {
         await _db.collection('payments').doc(paymentId).update({
@@ -238,31 +244,34 @@ class PaymentService {
         });
 
         // Get booking details for notification
-        final bookingDoc =
-            await _db.collection('bookings').doc(payment.bookingId).get();
+        final bookingDoc = await _db
+            .collection('bookings')
+            .doc(payment.bookingId)
+            .get();
         final bookingData = bookingDoc.data();
         final tourTitle = bookingData?['tourTitle'] ?? 'Tour';
 
         // Create refund notification
         if (refundAmount < payment.amount) {
           // Partial refund
-          final partialRefundNotification =
-              _notificationService.createPartialRefundNotification(
-            userId: payment.userId,
-            amount: refundAmount,
-            tourTitle: tourTitle,
-            reason: reason,
+          final partialRefundNotification = _notificationService
+              .createPartialRefundNotification(
+                userId: payment.userId,
+                amount: refundAmount,
+                tourTitle: tourTitle,
+                reason: reason,
+              );
+          await _notificationService.createNotification(
+            partialRefundNotification,
           );
-          await _notificationService
-              .createNotification(partialRefundNotification);
         } else {
           // Full refund
-          final refundNotification =
-              _notificationService.createRefundProcessedNotification(
-            userId: payment.userId,
-            amount: refundAmount,
-            tourTitle: tourTitle,
-          );
+          final refundNotification = _notificationService
+              .createRefundProcessedNotification(
+                userId: payment.userId,
+                amount: refundAmount,
+                tourTitle: tourTitle,
+              );
           await _notificationService.createNotification(refundNotification);
         }
 
@@ -277,7 +286,9 @@ class PaymentService {
   }
 
   Future<bool> _processRefundWithProvider(
-      PaymentModel payment, double amount) async {
+    PaymentModel payment,
+    double amount,
+  ) async {
     // Simulate refund processing
     await Future.delayed(const Duration(seconds: 1));
     return true; // Simulate success
@@ -293,15 +304,18 @@ class PaymentService {
           .orderBy('createdAt', descending: true)
           .get();
 
-      final payments =
-          snapshot.docs.map((doc) => PaymentModel.fromMap(doc.data())).toList();
+      final payments = snapshot.docs
+          .map((doc) => PaymentModel.fromMap(doc.data()))
+          .toList();
       print(
-          'PaymentService: Found ${payments.length} user payments using query');
+        'PaymentService: Found ${payments.length} user payments using query',
+      );
       return payments;
     } catch (e) {
       // If index error, fallback to getting all and filtering
       print(
-          'Index error in getUserPayments, falling back to manual filtering: $e');
+        'Index error in getUserPayments, falling back to manual filtering: $e',
+      );
       final allSnapshot = await _db.collection('payments').get();
       final userPayments = allSnapshot.docs
           .map((doc) => PaymentModel.fromMap(doc.data()))
@@ -309,7 +323,8 @@ class PaymentService {
           .toList();
       userPayments.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       print(
-          'PaymentService: Found ${userPayments.length} user payments using manual filtering');
+        'PaymentService: Found ${userPayments.length} user payments using manual filtering',
+      );
       return userPayments;
     }
   }
@@ -328,7 +343,8 @@ class PaymentService {
     } catch (e) {
       // If index error, fallback to getting all and filtering
       print(
-          'Index error in getGuidePayments, falling back to manual filtering: $e');
+        'Index error in getGuidePayments, falling back to manual filtering: $e',
+      );
       final allSnapshot = await _db.collection('payments').get();
       final guidePayments = allSnapshot.docs
           .map((doc) => PaymentModel.fromMap(doc.data()))

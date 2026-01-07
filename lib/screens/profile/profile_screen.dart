@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 import 'package:tourmate_app/screens/payments/payment_history_screen.dart';
 import 'package:tourmate_app/screens/verification/verification_screen.dart';
 import 'package:tourmate_app/services/auth_service.dart';
 import 'package:tourmate_app/services/user_profile_service.dart';
 import 'package:tourmate_app/models/user_model.dart';
+import 'package:tourmate_app/providers/language_provider.dart';
 import '../../utils/app_theme.dart';
 import '../auth/login_screen.dart';
 import '../notifications/notification_screen.dart';
@@ -53,9 +55,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_isLoading) {
       return Scaffold(
         backgroundColor: AppTheme.backgroundColor,
-        body: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -130,21 +130,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   CircleAvatar(
                     radius: 50,
                     backgroundColor: Colors.grey.shade200,
-                    backgroundImage: (_userProfile?.photoURL != null &&
+                    backgroundImage:
+                        (_userProfile?.photoURL != null &&
                             _userProfile!.photoURL!.isNotEmpty)
                         ? NetworkImage(_userProfile!.photoURL!)
                         : null,
-                    child: (_userProfile?.photoURL == null ||
+                    child:
+                        (_userProfile?.photoURL == null ||
                             _userProfile!.photoURL!.isEmpty)
                         ? const Icon(Icons.person, size: 50, color: Colors.grey)
                         : null,
                   ),
                   const SizedBox(height: 16),
-                  Text(_userProfile?.displayName ?? 'Guest User',
-                      style: AppTheme.headlineMedium),
+                  Text(
+                    _userProfile?.displayName ?? 'Guest User',
+                    style: AppTheme.headlineMedium,
+                  ),
                   const SizedBox(height: 4),
-                  Text(_userProfile?.email ?? 'No email',
-                      style: AppTheme.bodyMedium),
+                  Text(
+                    _userProfile?.email ?? 'No email',
+                    style: AppTheme.bodyMedium,
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     _userProfile?.createdAt != null
@@ -170,11 +176,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               color: AppTheme.dividerColor,
                             ),
                             _buildStatItem(
-                                _userProfile?.averageRating
-                                        ?.toStringAsFixed(1) ??
-                                    '0.0',
-                                'Average Rating',
-                                Icons.star),
+                              _userProfile?.averageRating?.toStringAsFixed(1) ??
+                                  '0.0',
+                              'Average Rating',
+                              Icons.star,
+                            ),
                             Container(
                               height: 40,
                               width: 1,
@@ -207,8 +213,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Account Information',
-                          style: AppTheme.headlineSmall),
+                      Text(
+                        'Account Information',
+                        style: AppTheme.headlineSmall,
+                      ),
                       IconButton(
                         onPressed: () {
                           if (_userProfile != null) {
@@ -218,15 +226,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 editScreen = const GuideEditAccountScreen();
                                 break;
                               case 'admin':
-                                editScreen =
-                                    AdminEditAccountScreen(user: _userProfile!);
+                                editScreen = AdminEditAccountScreen(
+                                  user: _userProfile!,
+                                );
                                 break;
                               default:
                                 editScreen = const TouristEditAccountScreen();
                             }
                             Navigator.of(context)
-                                .push(MaterialPageRoute(
-                                    builder: (context) => editScreen))
+                                .push(
+                                  MaterialPageRoute(
+                                    builder: (context) => editScreen,
+                                  ),
+                                )
                                 .then((_) => _loadUserProfile());
                             print('PHOTO URL: ${_userProfile?.photoURL}');
                           }
@@ -241,12 +253,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildInfoRow(Icons.person, 'Full Name',
-                      _userProfile?.displayName ?? 'Guest User'),
                   _buildInfoRow(
-                      Icons.email, 'Email', _userProfile?.email ?? 'No email'),
-                  _buildInfoRow(Icons.phone, 'Phone',
-                      _userProfile?.phoneNumber ?? 'Not provided'),
+                    Icons.person,
+                    'Full Name',
+                    _userProfile?.displayName ?? 'Guest User',
+                  ),
+                  _buildInfoRow(
+                    Icons.email,
+                    'Email',
+                    _userProfile?.email ?? 'No email',
+                  ),
+                  _buildInfoRow(
+                    Icons.phone,
+                    'Phone',
+                    _userProfile?.phoneNumber ?? 'Not provided',
+                  ),
                   if (_userProfile?.role != 'admin') ...[
                     _buildInfoRow(
                       Icons.place,
@@ -290,25 +311,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           title: const Text('Language'),
                           subtitle: Text(_selectedLanguage),
                           trailing: DropdownButton<String>(
-                            value: _selectedLanguage,
+                            // Update value based on current provider state
+                            value:
+                                Provider.of<LanguageProvider>(
+                                      context,
+                                    ).currentLocale.languageCode ==
+                                    'tl'
+                                ? 'Tagalog'
+                                : 'English',
                             underline: Container(),
+                            // REMOVED Cebuano from this list
+                            items: ['English', 'Tagalog']
+                                .map<DropdownMenuItem<String>>((String value) {
+                                  return DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value),
+                                  );
+                                })
+                                .toList(),
                             onChanged: (String? newValue) {
                               if (newValue != null) {
                                 setState(() {
                                   _selectedLanguage = newValue;
                                 });
+
+                                // Map Selection to Locale Code
+                                String code = (newValue == 'Tagalog')
+                                    ? 'tl'
+                                    : 'en';
+
+                                // TRIGGER THE CHANGE
+                                Provider.of<LanguageProvider>(
+                                  context,
+                                  listen: false,
+                                ).changeLanguage(code);
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Language switched to $newValue',
+                                    ),
+                                  ),
+                                );
                               }
                             },
-                            items: [
-                              'English',
-                              'Cebuano',
-                              'Tagalog',
-                            ].map<DropdownMenuItem<String>>((String value) {
-                              return DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(value),
-                              );
-                            }).toList(),
                           ),
                         ),
                         const Divider(),
@@ -327,8 +373,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           title: const Text('Push Notifications'),
-                          subtitle:
-                              const Text('Receive tour updates and reminders'),
+                          subtitle: const Text(
+                            'Receive tour updates and reminders',
+                          ),
                           value: _notificationsEnabled,
                           onChanged: (bool value) {
                             setState(() {
@@ -380,9 +427,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           title: const Text('Active Status'),
-                          subtitle: Text(_activeStatus
-                              ? 'Online - Available for tours'
-                              : 'Offline - Not available'),
+                          subtitle: Text(
+                            _activeStatus
+                                ? 'Online - Available for tours'
+                                : 'Offline - Not available',
+                          ),
                           value: _activeStatus,
                           onChanged: (bool value) {
                             setState(() {
@@ -595,7 +644,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 if (mounted) {
                   Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(
-                        builder: (context) => const LoginScreen()),
+                      builder: (context) => const LoginScreen(),
+                    ),
                     (route) => false,
                   );
                 }
@@ -614,10 +664,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (context) {
         return AlertDialog(
           title: const Text('Deactivate Account'),
-          content:
-              const Text('Are you sure you want to deactivate your account? '
-                  'You can reactivate it later by contacting support. '
-                  'This will temporarily disable your access to the platform.'),
+          content: const Text(
+            'Are you sure you want to deactivate your account? '
+            'You can reactivate it later by contacting support. '
+            'This will temporarily disable your access to the platform.',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -631,7 +682,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   if (mounted) {
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(
-                          builder: (context) => const LoginScreen()),
+                        builder: (context) => const LoginScreen(),
+                      ),
                       (route) => false,
                     );
                   }
@@ -639,8 +691,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                          content: Text(
-                              'Error deactivating account: ${e.toString()}')),
+                        content: Text(
+                          'Error deactivating account: ${e.toString()}',
+                        ),
+                      ),
                     );
                   }
                 }

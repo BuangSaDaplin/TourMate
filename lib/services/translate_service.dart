@@ -7,8 +7,9 @@ class TranslateService {
       _AppLocalizationsDelegate();
 
   static Future<TranslateService> load(Locale locale) {
-    final String name =
-        locale.countryCode!.isEmpty ? locale.languageCode : locale.toString();
+    final String name = locale.countryCode!.isEmpty
+        ? locale.languageCode
+        : locale.toString();
     final String localeName = Intl.canonicalizedLocale(name);
     return Future.value(TranslateService());
   }
@@ -32,7 +33,8 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) {
-    return ['en', 'tl', 'ceb'].contains(locale.languageCode);
+    // REMOVED 'ceb' (Cebuano)
+    return ['en', 'tl'].contains(locale.languageCode);
   }
 
   @override
