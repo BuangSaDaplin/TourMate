@@ -1,10 +1,44 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/notification_model.dart';
+import '../models/notification_settings_model.dart';
 
 class NotificationService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+
+  // Check if notifications should be sent for a user based on their settings
+  Future<bool> shouldSendNotification(
+      String userId, NotificationType type) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final masterEnabled = prefs.getBool('masterNotificationsEnabled') ?? true;
+
+      if (!masterEnabled) return false;
+
+      // Check specific notification type settings
+      switch (type) {
+        case NotificationType.booking:
+          return prefs.getBool('bookingNotifications') ?? true;
+        case NotificationType.payment:
+          return prefs.getBool('paymentNotifications') ?? true;
+        case NotificationType.message:
+          return prefs.getBool('messageNotifications') ?? true;
+        case NotificationType.review:
+          return prefs.getBool('reviewNotifications') ?? true;
+        case NotificationType.verification:
+          return prefs.getBool('systemNotifications') ?? true;
+        case NotificationType.system:
+          return prefs.getBool('systemNotifications') ?? true;
+        default:
+          return true;
+      }
+    } catch (e) {
+      // If there's an error reading settings, default to sending notifications
+      return true;
+    }
+  }
 
   // Get notifications for a user
   Stream<List<NotificationModel>> getUserNotifications(String userId) {
@@ -34,6 +68,11 @@ class NotificationService {
 
   // Create a new notification
   Future<void> createNotification(NotificationModel notification) async {
+    // Check if notifications should be sent based on user settings
+    final shouldSend =
+        await shouldSendNotification(notification.userId, notification.type);
+    if (!shouldSend) return;
+
     await _db
         .collection('notifications')
         .doc(notification.id)
@@ -85,6 +124,10 @@ class NotificationService {
     final now = DateTime.now();
 
     for (final userId in userIds) {
+      // Check if notifications should be sent for this user
+      final shouldSend = await shouldSendNotification(userId, type);
+      if (!shouldSend) continue;
+
       final notificationId =
           '${userId}_${now.millisecondsSinceEpoch}_${userIds.indexOf(userId)}';
       final notification = NotificationModel(
@@ -1181,5 +1224,361 @@ class NotificationService {
       data: {'tourTitle': tourTitle},
       createdAt: DateTime.now(),
     );
+  }
+
+  // Admin-triggered notification templates
+  NotificationModel createUserSuspendedNotification({
+    required String userId,
+    required String userName,
+    required String reason,
+  }) {
+    return NotificationModel(
+      id: 'user_suspended_${userId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: userId,
+      title: 'Account Suspended',
+      message:
+          'Your account has been suspended by an administrator. Reason: $reason. Please contact support for more information.',
+      type: NotificationType.system,
+      priority: NotificationPriority.urgent,
+      data: {'userName': userName, 'reason': reason, 'action': 'suspended'},
+      createdAt: DateTime.now(),
+    );
+  }
+
+  NotificationModel createUserDeactivatedNotification({
+    required String userId,
+    required String userName,
+    required String reason,
+  }) {
+    return NotificationModel(
+      id: 'user_deactivated_${userId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: userId,
+      title: 'Account Deactivated',
+      message:
+          'Your account has been deactivated by an administrator. Reason: $reason. Please contact support for more information.',
+      type: NotificationType.system,
+      priority: NotificationPriority.urgent,
+      data: {'userName': userName, 'reason': reason, 'action': 'deactivated'},
+      createdAt: DateTime.now(),
+    );
+  }
+
+  NotificationModel createUserReactivatedNotification({
+    required String userId,
+    required String userName,
+  }) {
+    return NotificationModel(
+      id: 'user_reactivated_${userId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: userId,
+      title: 'Account Reactivated',
+      message:
+          'Your account has been reactivated by an administrator. You can now access all features.',
+      type: NotificationType.system,
+      priority: NotificationPriority.high,
+      data: {'userName': userName, 'action': 'reactivated'},
+      createdAt: DateTime.now(),
+    );
+  }
+
+  NotificationModel createGuideVerificationApprovedNotification({
+    required String userId,
+    required String guideName,
+  }) {
+    return NotificationModel(
+      id: 'guide_verification_approved_${userId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: userId,
+      title: 'Guide Verification Approved',
+      message:
+          'Congratulations $guideName! Your guide verification has been approved. You can now start accepting bookings.',
+      type: NotificationType.verification,
+      priority: NotificationPriority.high,
+      data: {'guideName': guideName, 'status': 'approved'},
+      createdAt: DateTime.now(),
+    );
+  }
+
+  NotificationModel createGuideVerificationRejectedNotification({
+    required String userId,
+    required String guideName,
+    required String reason,
+  }) {
+    return NotificationModel(
+      id: 'guide_verification_rejected_${userId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: userId,
+      title: 'Guide Verification Rejected',
+      message:
+          'Your guide verification has been rejected. Reason: $reason. Please review and resubmit your documents.',
+      type: NotificationType.verification,
+      priority: NotificationPriority.high,
+      data: {'guideName': guideName, 'status': 'rejected', 'reason': reason},
+      createdAt: DateTime.now(),
+    );
+  }
+
+  NotificationModel createReviewApprovedNotification({
+    required String userId,
+    required String tourTitle,
+    required String reviewerName,
+  }) {
+    return NotificationModel(
+      id: 'review_approved_${userId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: userId,
+      title: 'Review Approved',
+      message:
+          'Your review for "$tourTitle" has been approved and is now visible to other users.',
+      type: NotificationType.review,
+      priority: NotificationPriority.normal,
+      data: {
+        'tourTitle': tourTitle,
+        'reviewerName': reviewerName,
+        'status': 'approved'
+      },
+      createdAt: DateTime.now(),
+    );
+  }
+
+  NotificationModel createReviewRejectedNotification({
+    required String userId,
+    required String tourTitle,
+    required String reviewerName,
+    required String reason,
+  }) {
+    return NotificationModel(
+      id: 'review_rejected_${userId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: userId,
+      title: 'Review Rejected',
+      message:
+          'Your review for "$tourTitle" has been rejected. Reason: $reason. Please ensure your review follows our community guidelines.',
+      type: NotificationType.review,
+      priority: NotificationPriority.normal,
+      data: {
+        'tourTitle': tourTitle,
+        'reviewerName': reviewerName,
+        'status': 'rejected',
+        'reason': reason
+      },
+      createdAt: DateTime.now(),
+    );
+  }
+
+  NotificationModel createReviewModeratedNotification({
+    required String userId,
+    required String tourTitle,
+    required String reviewerName,
+    required String reason,
+  }) {
+    return NotificationModel(
+      id: 'review_moderated_${userId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: userId,
+      title: 'Review Moderated',
+      message:
+          'Your review for "$tourTitle" has been moderated. Reason: $reason. The review has been edited to comply with our guidelines.',
+      type: NotificationType.review,
+      priority: NotificationPriority.normal,
+      data: {
+        'tourTitle': tourTitle,
+        'reviewerName': reviewerName,
+        'status': 'moderated',
+        'reason': reason
+      },
+      createdAt: DateTime.now(),
+    );
+  }
+
+  // Get all admin user IDs
+  Future<List<String>> getAdminUserIds() async {
+    try {
+      final adminUsers =
+          await _db.collection('users').where('role', isEqualTo: 'admin').get();
+
+      return adminUsers.docs.map((doc) => doc.id).toList();
+    } catch (e) {
+      print('Error getting admin user IDs: $e');
+      return [];
+    }
+  }
+
+  // Admin notification templates for the requested features
+
+  // 1. Guide Verification Request - sent to admins when a guide submits verification
+  Future<void> sendGuideVerificationRequestNotification({
+    required String guideId,
+    required String guideName,
+    required String guideEmail,
+  }) async {
+    final adminIds = await getAdminUserIds();
+    if (adminIds.isEmpty) return;
+
+    final notification = NotificationModel(
+      id: 'guide_verification_request_${guideId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: '', // Will be set for each admin
+      title: 'New Guide Verification Request',
+      message:
+          '$guideName ($guideEmail) has submitted a guide verification request.',
+      type: NotificationType.verification,
+      priority: NotificationPriority.high,
+      data: {
+        'guideId': guideId,
+        'guideName': guideName,
+        'guideEmail': guideEmail,
+        'requestType': 'guide_verification'
+      },
+      createdAt: DateTime.now(),
+    );
+
+    final batch = _db.batch();
+    for (final adminId in adminIds) {
+      final adminNotification = notification.copyWith(
+        id: 'guide_verification_request_${guideId}_${adminId}_${DateTime.now().millisecondsSinceEpoch}',
+        userId: adminId,
+      );
+      final docRef = _db.collection('notifications').doc(adminNotification.id);
+      batch.set(docRef, adminNotification.toMap());
+    }
+    await batch.commit();
+  }
+
+  // 2. Pending Review for Approval - sent to admins when a review is submitted
+  Future<void> sendReviewPendingApprovalNotification({
+    required String reviewId,
+    required String reviewerName,
+    required String tourTitle,
+    required double rating,
+  }) async {
+    final adminIds = await getAdminUserIds();
+    if (adminIds.isEmpty) return;
+
+    final notification = NotificationModel(
+      id: 'review_pending_approval_${reviewId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: '', // Will be set for each admin
+      title: 'New Review Pending Approval',
+      message:
+          '$reviewerName submitted a ${rating.toStringAsFixed(1)}-star review for "$tourTitle" that needs approval.',
+      type: NotificationType.review,
+      priority: NotificationPriority.normal,
+      data: {
+        'reviewId': reviewId,
+        'reviewerName': reviewerName,
+        'tourTitle': tourTitle,
+        'rating': rating,
+        'requestType': 'review_approval'
+      },
+      createdAt: DateTime.now(),
+    );
+
+    final batch = _db.batch();
+    for (final adminId in adminIds) {
+      final adminNotification = notification.copyWith(
+        id: 'review_pending_approval_${reviewId}_${adminId}_${DateTime.now().millisecondsSinceEpoch}',
+        userId: adminId,
+      );
+      final docRef = _db.collection('notifications').doc(adminNotification.id);
+      batch.set(docRef, adminNotification.toMap());
+    }
+    await batch.commit();
+  }
+
+  // 3. New Tour Suggestion Submitted for Approval - sent to admins when a tour is submitted
+  Future<void> sendTourSuggestionSubmittedNotification({
+    required String tourId,
+    required String tourTitle,
+    required String guideId,
+    required String guideName,
+  }) async {
+    final adminIds = await getAdminUserIds();
+    if (adminIds.isEmpty) return;
+
+    final notification = NotificationModel(
+      id: 'tour_suggestion_submitted_${tourId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: '', // Will be set for each admin
+      title: 'New Tour Suggestion Submitted',
+      message: '$guideName submitted a new tour suggestion: "$tourTitle"',
+      type: NotificationType.system,
+      priority: NotificationPriority.normal,
+      data: {
+        'tourId': tourId,
+        'tourTitle': tourTitle,
+        'guideId': guideId,
+        'guideName': guideName,
+        'requestType': 'tour_suggestion'
+      },
+      createdAt: DateTime.now(),
+    );
+
+    final batch = _db.batch();
+    for (final adminId in adminIds) {
+      final adminNotification = notification.copyWith(
+        id: 'tour_suggestion_submitted_${tourId}_${adminId}_${DateTime.now().millisecondsSinceEpoch}',
+        userId: adminId,
+      );
+      final docRef = _db.collection('notifications').doc(adminNotification.id);
+      batch.set(docRef, adminNotification.toMap());
+    }
+    await batch.commit();
+  }
+
+  // 4. Tour Suggestion Approved/Rejected - sent to both admin and the user involved
+  Future<void> sendTourSuggestionStatusNotification({
+    required String tourId,
+    required String tourTitle,
+    required String guideId,
+    required String guideName,
+    required String status, // 'approved' or 'rejected'
+    required String adminId,
+    String? reason,
+  }) async {
+    final batch = _db.batch();
+    final now = DateTime.now();
+
+    // Notification for the guide (tour creator)
+    final guideNotification = NotificationModel(
+      id: 'tour_suggestion_${status}_${tourId}_${guideId}_${now.millisecondsSinceEpoch}',
+      userId: guideId,
+      title: status == 'approved'
+          ? 'Tour Suggestion Approved'
+          : 'Tour Suggestion Rejected',
+      message: status == 'approved'
+          ? 'Your tour suggestion "$tourTitle" has been approved and is now live.'
+          : 'Your tour suggestion "$tourTitle" has been rejected.${reason != null ? ' Reason: $reason' : ''}',
+      type: NotificationType.system,
+      priority: status == 'approved'
+          ? NotificationPriority.high
+          : NotificationPriority.normal,
+      data: {
+        'tourId': tourId,
+        'tourTitle': tourTitle,
+        'status': status,
+        'reason': reason,
+      },
+      createdAt: now,
+    );
+
+    // Notification for the admin who made the decision
+    final adminNotification = NotificationModel(
+      id: 'tour_suggestion_${status}_admin_${tourId}_${adminId}_${now.millisecondsSinceEpoch}',
+      userId: adminId,
+      title:
+          'Tour Suggestion ${status[0].toUpperCase() + status.substring(1).toLowerCase()}',
+      message:
+          'You ${status == 'approved' ? 'approved' : 'rejected'} the tour suggestion "$tourTitle" by $guideName.',
+      type: NotificationType.system,
+      priority: NotificationPriority.normal,
+      data: {
+        'tourId': tourId,
+        'tourTitle': tourTitle,
+        'guideId': guideId,
+        'guideName': guideName,
+        'status': status,
+        'reason': reason,
+      },
+      createdAt: now,
+    );
+
+    batch.set(_db.collection('notifications').doc(guideNotification.id),
+        guideNotification.toMap());
+    batch.set(_db.collection('notifications').doc(adminNotification.id),
+        adminNotification.toMap());
+
+    await batch.commit();
   }
 }

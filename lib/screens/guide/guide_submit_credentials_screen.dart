@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:tourmate_app/models/guide_verification_model.dart';
 import 'package:tourmate_app/services/auth_service.dart';
 import 'package:tourmate_app/services/database_service.dart';
+import 'package:tourmate_app/services/notification_service.dart';
 import '../../utils/app_theme.dart';
 
 class GuideSubmitCredentialsScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class _GuideSubmitCredentialsScreenState
   final _bioController = TextEditingController();
   final AuthService _authService = AuthService();
   final DatabaseService _db = DatabaseService();
+  final NotificationService _notificationService = NotificationService();
 
   List<PlatformFile> _idDocuments = [];
   List<PlatformFile> _lguDocuments = [];
@@ -128,6 +130,13 @@ class _GuideSubmitCredentialsScreenState
 
       // Submit verification request
       await _db.submitGuideVerification(verification);
+
+      // Send notification to admins about new verification request
+      await _notificationService.sendGuideVerificationRequestNotification(
+        guideId: user.uid,
+        guideName: verification.guideName,
+        guideEmail: verification.guideEmail,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

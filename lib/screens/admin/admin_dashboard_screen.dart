@@ -161,7 +161,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     stream: _firestore
                         .collection('users')
                         .where('role', isEqualTo: 'guide')
-                        .where('isVerified', isEqualTo: false)
+                        .where('isLGUVerified', isEqualTo: false)
                         .snapshots(),
                     builder: (context, snapshot) {
                       if (snapshot.hasError) {
@@ -232,10 +232,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                   child: Icon(Icons.book_online,
                                       color: AppTheme.primaryColor),
                                 ),
-                                title:
-                                    Text(data['tourTitle'] ?? 'Tour Booking'),
-                                subtitle: Text(
-                                    'User: ${data['touristId']} • Status: ${_getStatusText(data['status'])}'),
+                                title: Text(data['tourTitle'] ??
+                                    'Tour ${data['tourId'] ?? 'Unknown'}'),
+                                subtitle: FutureBuilder<DocumentSnapshot>(
+                                  future: _firestore
+                                      .collection('users')
+                                      .doc(data['touristId'])
+                                      .get(),
+                                  builder: (context, userSnapshot) {
+                                    String userName = 'Unknown User';
+                                    if (userSnapshot.hasData &&
+                                        userSnapshot.data!.exists) {
+                                      final userData = userSnapshot.data!.data()
+                                          as Map<String, dynamic>;
+                                      userName =
+                                          userData['displayName'] ?? 'No Name';
+                                    }
+                                    return Text(
+                                        'User: $userName • Status: ${_getStatusText(data['status'])}');
+                                  },
+                                ),
                                 trailing: Text(
                                   '${_formatDate(data['bookingDate'])}',
                                   style: AppTheme.bodySmall,
@@ -631,7 +647,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   Future<void> _verifyUser(String userId) async {
     try {
       await _firestore.collection('users').doc(userId).update({
-        'isVerified': true,
+        'isLGUVerified': true,
         'verifiedAt': FieldValue.serverTimestamp(),
         'verifiedBy': FirebaseAuth.instance.currentUser?.uid,
       });

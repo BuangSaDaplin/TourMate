@@ -1,11 +1,220 @@
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
+import '../../services/auth_service.dart';
+import '../../services/database_service.dart';
+import '../../models/booking_model.dart';
+import '../../models/payment_model.dart';
+import '../../models/review_model.dart';
 import 'create_tour_screen.dart';
 import 'bookings_management_screen.dart';
 import 'guide_submit_credentials_screen.dart';
 
-class TourGuideDashboardTab extends StatelessWidget {
+// Activity item data class
+class ActivityItem {
+  final String title;
+  final String time;
+  final IconData icon;
+  final DateTime timestamp;
+
+  ActivityItem({
+    required this.title,
+    required this.time,
+    required this.icon,
+    required this.timestamp,
+  });
+}
+
+class TourGuideDashboardTab extends StatefulWidget {
   const TourGuideDashboardTab({super.key});
+
+  @override
+  State<TourGuideDashboardTab> createState() => _TourGuideDashboardTabState();
+}
+
+class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
+  final AuthService _authService = AuthService();
+  final DatabaseService _db = DatabaseService();
+
+  bool _isLoading = true;
+  String? _error;
+  String? _userName;
+  List<ActivityItem> _recentActivities = [];
+
+  // Overview stats
+  int _activeTours = 0;
+  double _earnings = 0.0;
+  double _rating = 0.0;
+  int _requests = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardData();
+  }
+
+  Future<void> _loadDashboardData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final currentUser = _authService.getCurrentUser();
+      if (currentUser == null) {
+        setState(() {
+          _error = 'User not authenticated';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      print('Loading dashboard data for guide: ${currentUser.uid}');
+
+      // Load user profile to get display name
+      final userProfile = await _db.getUser(currentUser.uid);
+      final userName = userProfile?.displayName ?? 'Guide';
+
+      // Load overview stats
+      await _loadOverviewStats(currentUser.uid);
+
+      // Load recent activities
+      await _loadRecentActivities(currentUser.uid);
+
+      setState(() {
+        _userName = userName;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading dashboard data: $e');
+      setState(() {
+        _error =
+            'Failed to load dashboard data. Please check your connection and try again.';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadOverviewStats(String guideId) async {
+    // Load bookings assigned to the guide
+    final bookings = await _db.getBookingsByGuide(guideId);
+
+    // Active Tours: total number of bookings with status pending, confirmed, paid, or inProgress
+    final activeTours = bookings
+        .where((booking) => [
+              BookingStatus.pending,
+              BookingStatus.confirmed,
+              BookingStatus.paid,
+              BookingStatus.inProgress
+            ].contains(booking.status))
+        .length;
+
+    // Earnings: total sum of totalPrice from bookings with status paid or completed
+    final earnings = bookings
+        .where((booking) =>
+            booking.status == BookingStatus.paid ||
+            booking.status == BookingStatus.completed)
+        .fold<double>(0.0, (sum, booking) => sum + booking.totalPrice);
+
+    // Rating: average rating from bookings that contain a rating value
+    final ratedBookings = bookings.where((booking) => booking.rating != null);
+    final rating = ratedBookings.isNotEmpty
+        ? ratedBookings
+                .map((booking) => booking.rating!)
+                .reduce((a, b) => a + b) /
+            ratedBookings.length
+        : 0.0;
+
+    // Requests: total number of bookings with status pending
+    final requests = bookings
+        .where((booking) => booking.status == BookingStatus.pending)
+        .length;
+
+    setState(() {
+      _activeTours = activeTours;
+      _earnings = earnings;
+      _rating = rating;
+      _requests = requests;
+    });
+  }
+
+  Future<void> _loadRecentActivities(String guideId) async {
+    // Fetch recent data
+    final bookings = await _db.getBookingsByGuide(guideId);
+    print('Found ${bookings.length} bookings');
+
+    final payments = await _db.getPaymentsByGuide(guideId);
+    print('Found ${payments.length} payments');
+
+    final reviews = await _db.getRecentGuideReviews(guideId);
+    print('Found ${reviews.length} reviews');
+
+    // Combine and sort activities
+    final activities = <ActivityItem>[];
+
+    // Add booking activities
+    for (final booking in bookings) {
+      if (booking.status == BookingStatus.pending) {
+        activities.add(ActivityItem(
+          title: 'New booking request for ${booking.tourTitle}',
+          time: _formatTimeAgo(booking.bookingDate),
+          icon: Icons.calendar_today,
+          timestamp: booking.bookingDate,
+        ));
+      } else if (booking.status == BookingStatus.completed) {
+        activities.add(ActivityItem(
+          title: 'Tour completed: ${booking.tourTitle}',
+          time: _formatTimeAgo(booking.completedAt ?? booking.bookingDate),
+          icon: Icons.check_circle,
+          timestamp: booking.completedAt ?? booking.bookingDate,
+        ));
+      }
+    }
+
+    // Add payment activities
+    for (final payment in payments) {
+      if (payment.status == PaymentStatus.completed) {
+        activities.add(ActivityItem(
+          title: 'Payment received for tour',
+          time: _formatTimeAgo(payment.completedAt ?? payment.createdAt),
+          icon: Icons.attach_money,
+          timestamp: payment.completedAt ?? payment.createdAt,
+        ));
+      }
+    }
+
+    // Add review activities
+    for (final review in reviews) {
+      activities.add(ActivityItem(
+        title: 'New ${review.overallRating.round()}-star review received',
+        time: _formatTimeAgo(review.createdAt),
+        icon: Icons.star,
+        timestamp: review.createdAt,
+      ));
+    }
+
+    // Sort by timestamp (most recent first) and take top 10
+    activities.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final recentActivities = activities.take(10).toList();
+
+    setState(() {
+      _recentActivities = recentActivities;
+    });
+  }
+
+  String _formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
+    } else {
+      return 'Just now';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,73 +232,76 @@ class TourGuideDashboardTab extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Welcome back, Juan!',
+                  'Welcome, $_userName!',
                   style: AppTheme.headlineMedium,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Ready to guide more tourists today?',
+                  'Ready to guide tourists today?',
                   style: AppTheme.bodyMedium,
                 ),
               ],
             ),
-           ),
-           const SizedBox(height: 16),
+          ),
+          const SizedBox(height: 16),
 
-           // Verification Status Banner
-           Container(
-             padding: const EdgeInsets.all(16),
-             decoration: BoxDecoration(
-               color: AppTheme.accentColor.withOpacity(0.1),
-               borderRadius: BorderRadius.circular(12),
-               border: Border.all(color: AppTheme.accentColor.withOpacity(0.3)),
-             ),
-             child: Row(
-               children: [
-                 Icon(
-                   Icons.verified_user,
-                   color: AppTheme.accentColor,
-                   size: 24,
-                 ),
-                 const SizedBox(width: 12),
-                 Expanded(
-                   child: Column(
-                     crossAxisAlignment: CrossAxisAlignment.start,
-                     children: [
-                       Text(
-                         'Verification Required',
-                         style: AppTheme.bodyLarge.copyWith(
-                           fontWeight: FontWeight.w600,
-                           color: AppTheme.accentColor,
-                         ),
-                       ),
-                       const SizedBox(height: 4),
-                       Text(
-                         'Submit your credentials to become a verified tour guide',
-                         style: AppTheme.bodySmall,
-                       ),
-                     ],
-                   ),
-                 ),
-                 ElevatedButton(
-                   onPressed: () {
-                     Navigator.of(context).push(
-                       MaterialPageRoute(
-                         builder: (context) => const GuideSubmitCredentialsScreen(),
-                       ),
-                     );
-                   },
-                   style: ElevatedButton.styleFrom(
-                     backgroundColor: AppTheme.accentColor,
-                     foregroundColor: Colors.white,
-                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                   ),
-                   child: const Text('Submit Now'),
-                 ),
-               ],
-             ),
-           ),
-           const SizedBox(height: 24),
+          // Verification Status Banner
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.accentColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: AppTheme.accentColor.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.verified_user,
+                  color: AppTheme.accentColor,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Verification Required',
+                        style: AppTheme.bodyLarge.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.accentColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Submit your credentials to become a verified tour guide',
+                        style: AppTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const GuideSubmitCredentialsScreen(),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.accentColor,
+                    foregroundColor: Colors.white,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                  child: const Text('Submit Now'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
 
           // Stats Overview
           Text('Overview', style: AppTheme.headlineSmall),
@@ -99,7 +311,7 @@ class TourGuideDashboardTab extends StatelessWidget {
               Expanded(
                 child: _buildStatCard(
                   'Active Tours',
-                  '3',
+                  _activeTours.toString(),
                   Icons.tour,
                   AppTheme.primaryColor,
                 ),
@@ -108,7 +320,7 @@ class TourGuideDashboardTab extends StatelessWidget {
               Expanded(
                 child: _buildStatCard(
                   'Earnings',
-                  '₱12,500',
+                  '₱${_earnings.toStringAsFixed(0)}',
                   Icons.attach_money,
                   AppTheme.successColor,
                 ),
@@ -121,7 +333,7 @@ class TourGuideDashboardTab extends StatelessWidget {
               Expanded(
                 child: _buildStatCard(
                   'Rating',
-                  '4.8',
+                  _rating.toStringAsFixed(1),
                   Icons.star,
                   Colors.amber,
                 ),
@@ -130,7 +342,7 @@ class TourGuideDashboardTab extends StatelessWidget {
               Expanded(
                 child: _buildStatCard(
                   'Requests',
-                  '5',
+                  _requests.toString(),
                   Icons.notifications,
                   AppTheme.accentColor,
                 ),
@@ -139,69 +351,48 @@ class TourGuideDashboardTab extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          // Quick Actions
-          Text('Quick Actions', style: AppTheme.headlineSmall),
+          // Booking Trends
+          Text('Booking Trends', style: AppTheme.headlineSmall),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildActionButton(
-                  'Create Tour',
-                  Icons.add,
-                  () {
-                    // Navigate to create tour screen
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const CreateTourScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildActionButton(
-                  'View Requests',
-                  Icons.calendar_today,
-                  () {
-                    // Navigate to bookings management screen - Requests tab
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const BookingsManagementScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+          ..._buildBookingTrends(),
           const SizedBox(height: 24),
 
           // Recent Activity
           Text('Recent Activity', style: AppTheme.headlineSmall),
           const SizedBox(height: 16),
-          _buildActivityItem(
-            'New booking request for Kawasan Falls tour',
-            '2 hours ago',
-            Icons.calendar_today,
-          ),
-          _buildActivityItem(
-            'Payment received for Oslob tour',
-            '5 hours ago',
-            Icons.attach_money,
-          ),
-          _buildActivityItem(
-            'New 5-star review received',
-            '1 day ago',
-            Icons.star,
-          ),
-          _buildActivityItem(
-            'Tour completed: Bantayan Island',
-            '2 days ago',
-            Icons.check_circle,
-          ),
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (_error != null)
+            Center(
+              child: Column(
+                children: [
+                  Icon(Icons.error_outline, color: Colors.red, size: 48),
+                  const SizedBox(height: 8),
+                  Text(_error!, style: AppTheme.bodyMedium),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: _loadDashboardData,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          else if (_recentActivities.isEmpty)
+            Center(
+              child: Column(
+                children: [
+                  Icon(Icons.history, color: AppTheme.textSecondary, size: 48),
+                  const SizedBox(height: 8),
+                  Text('No recent activity', style: AppTheme.bodyMedium),
+                ],
+              ),
+            )
+          else
+            ..._recentActivities.map((activity) => _buildActivityItem(
+                  activity.title,
+                  activity.time,
+                  activity.icon,
+                )),
         ],
       ),
     );
@@ -276,6 +467,41 @@ class TourGuideDashboardTab extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildBookingTrends() {
+    final trends = [
+      {'name': 'Kawasan Falls Canyoonering', 'rating': '4.9'},
+      {'name': 'Oslob Whale Shark Encounter', 'rating': '4.8'},
+      {'name': 'Sumilon Island Snorkeling', 'rating': '4.7'},
+      {'name': 'Chocolate Hills Adventure', 'rating': '4.6'},
+      {'name': 'Bohol Countryside Tour', 'rating': '4.5'},
+    ];
+
+    return trends
+        .map(
+            (trend) => _buildBookingTrendItem(trend['name']!, trend['rating']!))
+        .toList();
+  }
+
+  Widget _buildBookingTrendItem(String tourName, String rating) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: AppTheme.cardDecoration,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(tourName, style: AppTheme.bodyMedium),
+          ),
+          Icon(Icons.star, color: Colors.amber, size: 16),
+          const SizedBox(width: 4),
+          Text(rating,
+              style:
+                  AppTheme.bodyMedium.copyWith(color: AppTheme.textSecondary)),
         ],
       ),
     );

@@ -1,7 +1,15 @@
-# TODO: Implement Suspended Account Check in Login
+# TODO: Make Recent Activity Functional in Tour Guide Dashboard
 
 ## Tasks
-- [x] Import DatabaseService in login_screen.dart
-- [x] Add method to check user status and navigate accordingly
-- [x] Update sign-in logic to check status before role-based navigation
-- [x] Test the implementation
+- [ ] Convert TourGuideDashboardTab to StatefulWidget
+- [ ] Add AuthService and DatabaseService dependencies
+- [ ] Create ActivityItem data model for activities
+- [ ] Implement fetchRecentActivities method
+- [ ] Update build method to display dynamic activities
+- [ ] Add loading and error states
+- [ ] Test the functionality
+
+## Completed
+- [x] Analyze current hardcoded implementation
+- [x] Understand data models and services available
+- [x] Create implementation plan

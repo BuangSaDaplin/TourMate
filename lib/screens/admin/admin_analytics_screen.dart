@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/app_theme.dart';
 
 class AdminAnalyticsScreen extends StatefulWidget {
@@ -13,53 +14,248 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   String _selectedTimeRange = '7d'; // 7d, 30d, 90d, 1y
   String _selectedMetric = 'bookings'; // bookings, revenue, users, ratings
 
-  // Mock data - replace with actual data from your backend
-  final Map<String, dynamic> _analyticsData = {
-    'totalBookings': 1250,
-    'totalRevenue': 45280.50,
-    'totalUsers': 3200,
-    'activeTours': 89,
-    'avgRating': 4.6,
-    'bookingGrowth': 12.5,
-    'revenueGrowth': 18.3,
-    'userGrowth': 8.7,
-  };
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Mock time series data
-  final List<Map<String, dynamic>> _bookingTrends = [
-    {'date': '2024-09-01', 'bookings': 45, 'revenue': 1250.00},
-    {'date': '2024-09-02', 'bookings': 52, 'revenue': 1420.00},
-    {'date': '2024-09-03', 'bookings': 38, 'revenue': 980.00},
-    {'date': '2024-09-04', 'bookings': 61, 'revenue': 1680.00},
-    {'date': '2024-09-05', 'bookings': 49, 'revenue': 1320.00},
-    {'date': '2024-09-06', 'bookings': 55, 'revenue': 1490.00},
-    {'date': '2024-09-07', 'bookings': 67, 'revenue': 1820.00},
-  ];
+  // Real data from Firestore
+  Map<String, dynamic> _analyticsData = {};
+  bool _isLoadingAnalytics = true;
 
-  final List<Map<String, dynamic>> _ratingTrends = [
-    {'date': '2024-09-01', 'avgRating': 4.2, 'totalReviews': 23},
-    {'date': '2024-09-02', 'avgRating': 4.4, 'totalReviews': 28},
-    {'date': '2024-09-03', 'avgRating': 4.1, 'totalReviews': 19},
-    {'date': '2024-09-04', 'avgRating': 4.6, 'totalReviews': 31},
-    {'date': '2024-09-05', 'avgRating': 4.3, 'totalReviews': 25},
-    {'date': '2024-09-06', 'avgRating': 4.5, 'totalReviews': 29},
-    {'date': '2024-09-07', 'avgRating': 4.7, 'totalReviews': 35},
-  ];
+  // Real time series data from Firestore
+  List<Map<String, dynamic>> _bookingTrends = [];
+  List<Map<String, dynamic>> _ratingTrends = [];
+  bool _isLoadingTrends = true;
 
-  final Map<String, int> _categoryDistribution = {
-    'Adventure': 25,
-    'Culture': 20,
-    'Food': 15,
-    'Nature': 18,
-    'Beach': 12,
-    'City Tour': 10,
-  };
+  Map<String, int> _categoryDistribution = {};
+  Map<String, int> _userTypeDistribution = {};
 
-  final Map<String, int> _userTypeDistribution = {
-    'Tourists': 68,
-    'Tour Guides': 22,
-    'Admins': 10,
-  };
+  @override
+  void initState() {
+    super.initState();
+    _loadAnalyticsData();
+  }
+
+  Future<void> _loadAnalyticsData() async {
+    setState(() {
+      _isLoadingAnalytics = true;
+      _isLoadingTrends = true;
+    });
+    try {
+      final data = await _fetchAnalyticsData();
+      final bookingTrends = await _fetchBookingTrends();
+      final ratingTrends = await _fetchRatingTrends();
+      final categoryDistribution = await _fetchCategoryDistribution();
+      final userTypeDistribution = await _fetchUserTypeDistribution();
+
+      setState(() {
+        _analyticsData = data;
+        _bookingTrends = bookingTrends;
+        _ratingTrends = ratingTrends;
+        _categoryDistribution = categoryDistribution;
+        _userTypeDistribution = userTypeDistribution;
+        _isLoadingAnalytics = false;
+        _isLoadingTrends = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingAnalytics = false;
+        _isLoadingTrends = false;
+      });
+      // Handle error - could show snackbar
+    }
+  }
+
+  Future<Map<String, dynamic>> _fetchAnalyticsData() async {
+    // Fetch total users
+    final usersSnapshot = await _firestore.collection('users').get();
+    final totalUsers = usersSnapshot.docs.length;
+
+    // Fetch total bookings
+    final bookingsSnapshot = await _firestore.collection('bookings').get();
+    final totalBookings = bookingsSnapshot.docs.length;
+
+    // Calculate total revenue from payments
+    final paymentsSnapshot = await _firestore
+        .collection('payments')
+        .where('status', isEqualTo: 'completed')
+        .get();
+    double totalRevenue = 0;
+    for (var doc in paymentsSnapshot.docs) {
+      final amount = doc.data()['amount'] ?? 0;
+      totalRevenue += amount.toDouble();
+    }
+
+    // Fetch active tours
+    final toursSnapshot = await _firestore
+        .collection('tours')
+        .where('status', isEqualTo: 'published')
+        .get();
+    final activeTours = toursSnapshot.docs.length;
+
+    // Calculate average rating from reviews
+    final reviewsSnapshot = await _firestore.collection('reviews').get();
+    double avgRating = 0;
+    if (reviewsSnapshot.docs.isNotEmpty) {
+      double totalRating = 0;
+      for (var doc in reviewsSnapshot.docs) {
+        totalRating += (doc.data()['rating'] ?? 0).toDouble();
+      }
+      avgRating = totalRating / reviewsSnapshot.docs.length;
+    }
+
+    // For growth calculations, we'd need historical data
+    // For now, return 0 as placeholder
+    return {
+      'totalBookings': totalBookings,
+      'totalRevenue': totalRevenue,
+      'totalUsers': totalUsers,
+      'activeTours': activeTours,
+      'avgRating': avgRating,
+      'bookingGrowth': 0.0, // Would need historical data
+      'revenueGrowth': 0.0, // Would need historical data
+      'userGrowth': 0.0, // Would need historical data
+    };
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchBookingTrends() async {
+    // Get bookings from the last 7 days
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+
+    final bookingsSnapshot = await _firestore
+        .collection('bookings')
+        .where('createdAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(sevenDaysAgo))
+        .orderBy('createdAt', descending: false)
+        .get();
+
+    // Group bookings by date
+    final Map<String, Map<String, dynamic>> dailyData = {};
+
+    for (var doc in bookingsSnapshot.docs) {
+      final data = doc.data();
+      final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+      if (createdAt != null) {
+        final dateKey =
+            '${createdAt.year}-${createdAt.month.toString().padLeft(2, '0')}-${createdAt.day.toString().padLeft(2, '0')}';
+        final amount = (data['totalPrice'] ?? 0).toDouble();
+
+        if (dailyData.containsKey(dateKey)) {
+          dailyData[dateKey]!['bookings'] =
+              (dailyData[dateKey]!['bookings'] ?? 0) + 1;
+          dailyData[dateKey]!['revenue'] =
+              (dailyData[dateKey]!['revenue'] ?? 0) + amount;
+        } else {
+          dailyData[dateKey] = {
+            'date': dateKey,
+            'bookings': 1,
+            'revenue': amount,
+          };
+        }
+      }
+    }
+
+    // Convert to list and sort by date
+    final result = dailyData.values.toList();
+    result.sort((a, b) => a['date'].compareTo(b['date']));
+
+    return result;
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchRatingTrends() async {
+    // Get reviews from the last 7 days
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+
+    final reviewsSnapshot = await _firestore
+        .collection('reviews')
+        .where('createdAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(sevenDaysAgo))
+        .orderBy('createdAt', descending: false)
+        .get();
+
+    // Group reviews by date
+    final Map<String, Map<String, dynamic>> dailyData = {};
+
+    for (var doc in reviewsSnapshot.docs) {
+      final data = doc.data();
+      final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+      if (createdAt != null) {
+        final dateKey =
+            '${createdAt.year}-${createdAt.month.toString().padLeft(2, '0')}-${createdAt.day.toString().padLeft(2, '0')}';
+        final rating = (data['rating'] ?? 0).toDouble();
+
+        if (dailyData.containsKey(dateKey)) {
+          dailyData[dateKey]!['totalRating'] =
+              (dailyData[dateKey]!['totalRating'] ?? 0) + rating;
+          dailyData[dateKey]!['totalReviews'] =
+              (dailyData[dateKey]!['totalReviews'] ?? 0) + 1;
+        } else {
+          dailyData[dateKey] = {
+            'date': dateKey,
+            'totalRating': rating,
+            'totalReviews': 1,
+          };
+        }
+      }
+    }
+
+    // Calculate average rating and convert to list
+    final result = dailyData.values.map((data) {
+      final avgRating = data['totalReviews'] > 0
+          ? data['totalRating'] / data['totalReviews']
+          : 0.0;
+      return {
+        'date': data['date'],
+        'avgRating': avgRating,
+        'totalReviews': data['totalReviews'],
+      };
+    }).toList();
+
+    result.sort((a, b) => a['date'].compareTo(b['date']));
+
+    return result;
+  }
+
+  Future<Map<String, int>> _fetchCategoryDistribution() async {
+    final toursSnapshot = await _firestore.collection('tours').get();
+    final Map<String, int> categoryCount = {};
+
+    for (var doc in toursSnapshot.docs) {
+      final data = doc.data();
+      final category = data['category'] ?? 'Other';
+      categoryCount[category] = (categoryCount[category] ?? 0) + 1;
+    }
+
+    return categoryCount;
+  }
+
+  Future<Map<String, int>> _fetchUserTypeDistribution() async {
+    final usersSnapshot = await _firestore.collection('users').get();
+    final Map<String, int> userTypeCount = {
+      'Tourists': 0,
+      'Tour Guides': 0,
+      'Admins': 0,
+    };
+
+    for (var doc in usersSnapshot.docs) {
+      final data = doc.data();
+      final role = data['role'] ?? 'tourist';
+
+      switch (role) {
+        case 'tourist':
+          userTypeCount['Tourists'] = userTypeCount['Tourists']! + 1;
+          break;
+        case 'guide':
+          userTypeCount['Tour Guides'] = userTypeCount['Tour Guides']! + 1;
+          break;
+        case 'admin':
+          userTypeCount['Admins'] = userTypeCount['Admins']! + 1;
+          break;
+      }
+    }
+
+    return userTypeCount;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +289,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const Icon(Icons.arrow_drop_down, color: AppTheme.primaryColor),
+                  const Icon(Icons.arrow_drop_down,
+                      color: AppTheme.primaryColor),
                 ],
               ),
             ),
@@ -190,7 +387,14 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                   child: _buildPieChart(
                     'Tour Categories',
                     _categoryDistribution,
-                    [Colors.blue, Colors.green, Colors.orange, Colors.red, Colors.purple, Colors.teal],
+                    [
+                      Colors.blue,
+                      Colors.green,
+                      Colors.orange,
+                      Colors.red,
+                      Colors.purple,
+                      Colors.teal
+                    ],
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -246,7 +450,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     );
   }
 
-  Widget _buildKPICard(String title, String value, IconData icon, Color color, String change) {
+  Widget _buildKPICard(
+      String title, String value, IconData icon, Color color, String change) {
     final isPositive = !change.startsWith('-');
 
     return Container(
@@ -309,37 +514,45 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     switch (_selectedMetric) {
       case 'bookings':
         return _buildLineChart(
-          _bookingTrends.map((data) => FlSpot(
-            _bookingTrends.indexOf(data).toDouble(),
-            data['bookings'].toDouble(),
-          )).toList(),
+          _bookingTrends
+              .map((data) => FlSpot(
+                    _bookingTrends.indexOf(data).toDouble(),
+                    data['bookings'].toDouble(),
+                  ))
+              .toList(),
           'Daily Bookings',
           Colors.blue,
         );
       case 'revenue':
         return _buildLineChart(
-          _bookingTrends.map((data) => FlSpot(
-            _bookingTrends.indexOf(data).toDouble(),
-            data['revenue'],
-          )).toList(),
+          _bookingTrends
+              .map((data) => FlSpot(
+                    _bookingTrends.indexOf(data).toDouble(),
+                    data['revenue'],
+                  ))
+              .toList(),
           'Daily Revenue (\$)',
           Colors.green,
         );
       case 'ratings':
         return _buildLineChart(
-          _ratingTrends.map((data) => FlSpot(
-            _ratingTrends.indexOf(data).toDouble(),
-            data['avgRating'],
-          )).toList(),
+          _ratingTrends
+              .map((data) => FlSpot(
+                    _ratingTrends.indexOf(data).toDouble(),
+                    data['avgRating'],
+                  ))
+              .toList(),
           'Average Rating',
           Colors.orange,
         );
       default:
         return _buildLineChart(
-          _bookingTrends.map((data) => FlSpot(
-            _bookingTrends.indexOf(data).toDouble(),
-            data['bookings'].toDouble(),
-          )).toList(),
+          _bookingTrends
+              .map((data) => FlSpot(
+                    _bookingTrends.indexOf(data).toDouble(),
+                    data['bookings'].toDouble(),
+                  ))
+              .toList(),
           'Daily Bookings',
           Colors.blue,
         );
@@ -400,7 +613,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     );
   }
 
-  Widget _buildPieChart(String title, Map<String, int> data, List<Color> colors) {
+  Widget _buildPieChart(
+      String title, Map<String, int> data, List<Color> colors) {
     final total = data.values.reduce((a, b) => a + b);
     int colorIndex = 0;
 
@@ -419,7 +633,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       ),
       child: Column(
         children: [
-          Text(title, style: AppTheme.bodyLarge.copyWith(fontWeight: FontWeight.w600)),
+          Text(title,
+              style: AppTheme.bodyLarge.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 16),
           SizedBox(
             height: 150,
@@ -446,7 +661,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           ),
           const SizedBox(height: 16),
           ...data.entries.map((entry) {
-            final color = colors[(data.keys.toList().indexOf(entry.key)) % colors.length];
+            final color =
+                colors[(data.keys.toList().indexOf(entry.key)) % colors.length];
             return Padding(
               padding: const EdgeInsets.only(bottom: 4),
               child: Row(
@@ -468,7 +684,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                   ),
                   Text(
                     entry.value.toString(),
-                    style: AppTheme.bodySmall.copyWith(fontWeight: FontWeight.w600),
+                    style: AppTheme.bodySmall
+                        .copyWith(fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -533,7 +750,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     );
   }
 
-  Widget _buildInsightCard(String title, String value, String subtitle, IconData icon, Color color) {
+  Widget _buildInsightCard(
+      String title, String value, String subtitle, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

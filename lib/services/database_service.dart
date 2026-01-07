@@ -8,6 +8,7 @@ import 'package:tourmate_app/models/chat_room_model.dart';
 import 'package:tourmate_app/models/guide_verification_model.dart';
 import 'package:tourmate_app/models/itinerary_model.dart';
 import 'package:tourmate_app/models/message_model.dart';
+import 'package:tourmate_app/models/payment_model.dart';
 import 'package:tourmate_app/models/review_model.dart';
 import 'package:tourmate_app/models/tour_model.dart';
 import 'package:tourmate_app/models/user_model.dart';
@@ -250,6 +251,77 @@ class DatabaseService {
     return snapshot.docs
         .map((doc) => BookingModel.fromMap(doc.data()))
         .toList();
+  }
+
+  Future<List<PaymentModel>> getPaymentsByGuide(String guideId) async {
+    try {
+      // First try with index (if created)
+      final snapshot = await _db
+          .collection('payments')
+          .where('guideId', isEqualTo: guideId)
+          .orderBy('createdAt', descending: true)
+          .limit(20)
+          .get();
+      return snapshot.docs
+          .map((doc) => PaymentModel.fromMap(doc.data()))
+          .toList();
+    } catch (e) {
+      print('Index not available for payments, trying fallback: $e');
+      try {
+        // Fallback: fetch without ordering and sort in code
+        final snapshot = await _db
+            .collection('payments')
+            .where('guideId', isEqualTo: guideId)
+            .limit(50) // Get more to sort
+            .get();
+
+        final payments = snapshot.docs
+            .map((doc) => PaymentModel.fromMap(doc.data()))
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+        return payments.take(20).toList();
+      } catch (fallbackError) {
+        print('Fallback query also failed: $fallbackError');
+        // Return empty list if collection doesn't exist or other errors
+        return [];
+      }
+    }
+  }
+
+  Future<List<ReviewModel>> getRecentGuideReviews(String guideId) async {
+    try {
+      // First try with index (if created)
+      final snapshot = await _db
+          .collection('reviews')
+          .where('targetId', isEqualTo: guideId)
+          .where('type', isEqualTo: ReviewType.guide.index)
+          .where('status', isEqualTo: ReviewStatus.approved.index)
+          .orderBy('createdAt', descending: true)
+          .limit(20)
+          .get();
+      return snapshot.docs
+          .map((doc) => ReviewModel.fromMap(doc.data()))
+          .toList();
+    } catch (e) {
+      // Fallback: fetch without complex filtering and sort in code
+      print('Index not available for reviews, using fallback query: $e');
+      final snapshot = await _db
+          .collection('reviews')
+          .where('targetId', isEqualTo: guideId)
+          .limit(50) // Get more to filter and sort
+          .get();
+
+      final reviews = snapshot.docs
+          .map((doc) => ReviewModel.fromMap(doc.data()))
+          .where((review) =>
+              review.type == ReviewType.guide &&
+              review.status == ReviewStatus.approved)
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      return reviews.take(20).toList();
+    }
   }
 
   Stream<List<BookingModel>> getBookingsByGuideStream(String guideId) {

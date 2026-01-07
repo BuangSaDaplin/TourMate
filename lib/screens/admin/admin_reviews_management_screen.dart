@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tourmate_app/models/booking_model.dart';
 import 'package:tourmate_app/services/database_service.dart';
 import 'package:tourmate_app/services/auth_service.dart';
+import 'package:tourmate_app/services/notification_service.dart';
 import '../../utils/app_theme.dart';
 
 class AdminReviewsManagementScreen extends StatefulWidget {
@@ -16,6 +17,7 @@ class _AdminReviewsManagementScreenState
     extends State<AdminReviewsManagementScreen> {
   final DatabaseService _db = DatabaseService();
   final AuthService _authService = AuthService();
+  final NotificationService _notificationService = NotificationService();
 
   List<BookingModel> _pendingReviews = [];
   List<BookingModel> _approvedReviews = [];
@@ -380,6 +382,32 @@ class _AdminReviewsManagementScreenState
         moderatorId: currentUser.uid,
         moderationReason: reason,
       );
+
+      // Create notification for admin
+      final currentAdmin = _authService.getCurrentUser();
+      if (currentAdmin != null) {
+        final adminNotification = status == ReviewSubmissionStatus.approved
+            ? _notificationService.createReviewApprovedNotification(
+                userId: currentAdmin.uid,
+                tourTitle: booking.tourTitle,
+                reviewerName: booking.reviewerName ?? 'Anonymous',
+              )
+            : status == ReviewSubmissionStatus.moderated
+                ? _notificationService.createReviewRejectedNotification(
+                    userId: currentAdmin.uid,
+                    tourTitle: booking.tourTitle,
+                    reviewerName: booking.reviewerName ?? 'Anonymous',
+                    reason: reason ?? 'Content violation',
+                  )
+                : _notificationService.createReviewModeratedNotification(
+                    userId: currentAdmin.uid,
+                    tourTitle: booking.tourTitle,
+                    reviewerName: booking.reviewerName ?? 'Anonymous',
+                    reason: reason ?? 'Content moderation',
+                  );
+
+        await _notificationService.createNotification(adminNotification);
+      }
 
       // Reload reviews
       await _loadReviews();

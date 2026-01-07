@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:tourmate_app/services/auth_service.dart';
 import 'package:tourmate_app/services/database_service.dart';
+import 'package:tourmate_app/services/notification_service.dart';
 import 'package:tourmate_app/models/review_model.dart';
 import '../../utils/app_theme.dart';
 
@@ -22,6 +23,7 @@ class AddReviewScreen extends StatefulWidget {
 class _AddReviewScreenState extends State<AddReviewScreen> {
   final AuthService _authService = AuthService();
   final DatabaseService _db = DatabaseService();
+  final NotificationService _notificationService = NotificationService();
 
   final _titleController = TextEditingController();
   final _reviewController = TextEditingController();
@@ -67,7 +69,8 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
     }
   }
 
-  Widget _buildCriteriaRating(String label, double rating, Function(double) onRatingUpdate) {
+  Widget _buildCriteriaRating(
+      String label, double rating, Function(double) onRatingUpdate) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -158,12 +161,21 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
                   child: Column(
                     children: [
                       if (widget.reviewType == ReviewType.guide) ...[
-                        _buildCriteriaRating('Communication', _communicationRating,
-                            (rating) => setState(() => _communicationRating = rating)),
-                        _buildCriteriaRating('Local Knowledge', _knowledgeRating,
-                            (rating) => setState(() => _knowledgeRating = rating)),
-                        _buildCriteriaRating('Punctuality', _punctualityRating,
-                            (rating) => setState(() => _punctualityRating = rating)),
+                        _buildCriteriaRating(
+                            'Communication',
+                            _communicationRating,
+                            (rating) =>
+                                setState(() => _communicationRating = rating)),
+                        _buildCriteriaRating(
+                            'Local Knowledge',
+                            _knowledgeRating,
+                            (rating) =>
+                                setState(() => _knowledgeRating = rating)),
+                        _buildCriteriaRating(
+                            'Punctuality',
+                            _punctualityRating,
+                            (rating) =>
+                                setState(() => _punctualityRating = rating)),
                         _buildCriteriaRating('Professionalism', _valueRating,
                             (rating) => setState(() => _valueRating = rating)),
                       ] else if (widget.reviewType == ReviewType.tour) ...[
@@ -172,12 +184,21 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
                         _buildCriteriaRating('Safety', _safetyRating,
                             (rating) => setState(() => _safetyRating = rating)),
                       ] else ...[
-                        _buildCriteriaRating('Booking Process', _communicationRating,
-                            (rating) => setState(() => _communicationRating = rating)),
-                        _buildCriteriaRating('Response Time', _punctualityRating,
-                            (rating) => setState(() => _punctualityRating = rating)),
-                        _buildCriteriaRating('Accuracy', _knowledgeRating,
-                            (rating) => setState(() => _knowledgeRating = rating)),
+                        _buildCriteriaRating(
+                            'Booking Process',
+                            _communicationRating,
+                            (rating) =>
+                                setState(() => _communicationRating = rating)),
+                        _buildCriteriaRating(
+                            'Response Time',
+                            _punctualityRating,
+                            (rating) =>
+                                setState(() => _punctualityRating = rating)),
+                        _buildCriteriaRating(
+                            'Accuracy',
+                            _knowledgeRating,
+                            (rating) =>
+                                setState(() => _knowledgeRating = rating)),
                       ],
                     ],
                   ),
@@ -240,7 +261,8 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
                   Expanded(
                     child: Text(
                       'This review will be verified once your booking is confirmed.',
-                      style: AppTheme.bodySmall.copyWith(color: Colors.green[700]),
+                      style:
+                          AppTheme.bodySmall.copyWith(color: Colors.green[700]),
                     ),
                   ),
                 ],
@@ -263,7 +285,8 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
                       ),
                       child: const Text(
                         'Submit Review',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                     ),
             ),
@@ -275,7 +298,9 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
   }
 
   void _submitReview() async {
-    if (_overallRating == 0 || _titleController.text.isEmpty || _reviewController.text.isEmpty) {
+    if (_overallRating == 0 ||
+        _titleController.text.isEmpty ||
+        _reviewController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in all required fields')),
       );
@@ -311,7 +336,9 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Review submitted successfully! It will be published after moderation.')),
+          const SnackBar(
+              content: Text(
+                  'Review submitted successfully! It will be published after moderation.')),
         );
         Navigator.of(context).pop();
       }

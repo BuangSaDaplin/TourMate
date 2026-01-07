@@ -9,10 +9,12 @@ class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
 
   @override
-  State<NotificationSettingsScreen> createState() => _NotificationSettingsScreenState();
+  State<NotificationSettingsScreen> createState() =>
+      _NotificationSettingsScreenState();
 }
 
-class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
+class _NotificationSettingsScreenState
+    extends State<NotificationSettingsScreen> {
   final AuthService _authService = AuthService();
   late NotificationSettingsModel _settings;
   bool _isLoading = true;
@@ -32,6 +34,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       // Load settings from SharedPreferences
       _settings = NotificationSettingsModel(
         userId: currentUser?.uid ?? '',
+        masterNotificationsEnabled:
+            prefs.getBool('masterNotificationsEnabled') ?? true,
         pushNotifications: prefs.getBool('pushNotifications') ?? true,
         emailNotifications: prefs.getBool('emailNotifications') ?? false,
         bookingNotifications: prefs.getBool('bookingNotifications') ?? true,
@@ -39,7 +43,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         messageNotifications: prefs.getBool('messageNotifications') ?? true,
         reviewNotifications: prefs.getBool('reviewNotifications') ?? true,
         systemNotifications: prefs.getBool('systemNotifications') ?? true,
-        marketingNotifications: prefs.getBool('marketingNotifications') ?? false,
+        marketingNotifications:
+            prefs.getBool('marketingNotifications') ?? false,
         quietHours: {
           'monday': prefs.getBool('quietMonday') ?? false,
           'tuesday': prefs.getBool('quietTuesday') ?? false,
@@ -63,23 +68,36 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       final prefs = await SharedPreferences.getInstance();
 
       // Save settings to SharedPreferences
+      await prefs.setBool(
+          'masterNotificationsEnabled', _settings.masterNotificationsEnabled);
       await prefs.setBool('pushNotifications', _settings.pushNotifications);
       await prefs.setBool('emailNotifications', _settings.emailNotifications);
-      await prefs.setBool('bookingNotifications', _settings.bookingNotifications);
-      await prefs.setBool('paymentNotifications', _settings.paymentNotifications);
-      await prefs.setBool('messageNotifications', _settings.messageNotifications);
+      await prefs.setBool(
+          'bookingNotifications', _settings.bookingNotifications);
+      await prefs.setBool(
+          'paymentNotifications', _settings.paymentNotifications);
+      await prefs.setBool(
+          'messageNotifications', _settings.messageNotifications);
       await prefs.setBool('reviewNotifications', _settings.reviewNotifications);
       await prefs.setBool('systemNotifications', _settings.systemNotifications);
-      await prefs.setBool('marketingNotifications', _settings.marketingNotifications);
+      await prefs.setBool(
+          'marketingNotifications', _settings.marketingNotifications);
 
       // Save quiet hours
-      await prefs.setBool('quietMonday', _settings.quietHours['monday'] ?? false);
-      await prefs.setBool('quietTuesday', _settings.quietHours['tuesday'] ?? false);
-      await prefs.setBool('quietWednesday', _settings.quietHours['wednesday'] ?? false);
-      await prefs.setBool('quietThursday', _settings.quietHours['thursday'] ?? false);
-      await prefs.setBool('quietFriday', _settings.quietHours['friday'] ?? false);
-      await prefs.setBool('quietSaturday', _settings.quietHours['saturday'] ?? false);
-      await prefs.setBool('quietSunday', _settings.quietHours['sunday'] ?? false);
+      await prefs.setBool(
+          'quietMonday', _settings.quietHours['monday'] ?? false);
+      await prefs.setBool(
+          'quietTuesday', _settings.quietHours['tuesday'] ?? false);
+      await prefs.setBool(
+          'quietWednesday', _settings.quietHours['wednesday'] ?? false);
+      await prefs.setBool(
+          'quietThursday', _settings.quietHours['thursday'] ?? false);
+      await prefs.setBool(
+          'quietFriday', _settings.quietHours['friday'] ?? false);
+      await prefs.setBool(
+          'quietSaturday', _settings.quietHours['saturday'] ?? false);
+      await prefs.setBool(
+          'quietSunday', _settings.quietHours['sunday'] ?? false);
 
       setState(() => _hasChanges = false);
 
@@ -128,6 +146,18 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
           _settings = _settings.copyWith(marketingNotifications: value);
           break;
       }
+
+      // Update master toggle based on individual settings
+      _settings = _settings.copyWith(
+        masterNotificationsEnabled: _settings.pushNotifications &&
+            _settings.emailNotifications &&
+            _settings.bookingNotifications &&
+            _settings.paymentNotifications &&
+            _settings.messageNotifications &&
+            _settings.reviewNotifications &&
+            _settings.systemNotifications &&
+            _settings.marketingNotifications,
+      );
     });
   }
 
@@ -166,7 +196,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
           children: [
             Text(
               'Stay informed about your tours and bookings',
-              style: AppTheme.bodyMedium.copyWith(color: AppTheme.textSecondary),
+              style:
+                  AppTheme.bodyMedium.copyWith(color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 24),
 
@@ -176,6 +207,47 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
               style: AppTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
+
+            // Master toggle for all notifications
+            Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: SwitchListTile(
+                secondary: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.notifications_active,
+                      color: AppTheme.primaryColor),
+                ),
+                title: Text('Enable All Notifications',
+                    style: AppTheme.bodyLarge
+                        .copyWith(fontWeight: FontWeight.w600)),
+                subtitle: Text('Turn on/off all notifications at once',
+                    style: AppTheme.bodySmall),
+                value: _settings.masterNotificationsEnabled,
+                onChanged: (value) {
+                  setState(() {
+                    _hasChanges = true;
+                    final enabled = value ?? true;
+                    // Update all individual settings based on master toggle
+                    _settings = _settings.copyWith(
+                      masterNotificationsEnabled: enabled,
+                      pushNotifications: enabled,
+                      emailNotifications: enabled,
+                      bookingNotifications: enabled,
+                      paymentNotifications: enabled,
+                      messageNotifications: enabled,
+                      reviewNotifications: enabled,
+                      systemNotifications: enabled,
+                      marketingNotifications: enabled,
+                    );
+                  });
+                },
+                activeColor: AppTheme.primaryColor,
+              ),
+            ),
 
             _buildSettingCard(
               'Push Notifications',
@@ -277,10 +349,12 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                   children: [
                     Text(
                       'Test Notification',
-                      style: AppTheme.bodyLarge.copyWith(fontWeight: FontWeight.w600),
+                      style: AppTheme.bodyLarge
+                          .copyWith(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 8),
-                    const Text('Send a test notification to verify your settings'),
+                    const Text(
+                        'Send a test notification to verify your settings'),
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: _sendTestNotification,
@@ -316,7 +390,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
           ),
           child: Icon(icon, color: AppTheme.primaryColor),
         ),
-        title: Text(title, style: AppTheme.bodyLarge.copyWith(fontWeight: FontWeight.w600)),
+        title: Text(title,
+            style: AppTheme.bodyLarge.copyWith(fontWeight: FontWeight.w600)),
         subtitle: Text(subtitle, style: AppTheme.bodySmall),
         value: value,
         onChanged: onChanged,
@@ -326,7 +401,15 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   }
 
   Widget _buildQuietHoursSettings() {
-    final days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    final days = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday'
+    ];
 
     return Card(
       child: Padding(
@@ -351,7 +434,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                 onChanged: (value) {
                   setState(() {
                     _hasChanges = true;
-                    final newQuietHours = Map<String, bool>.from(_settings.quietHours);
+                    final newQuietHours =
+                        Map<String, bool>.from(_settings.quietHours);
                     newQuietHours[day] = value ?? false;
                     _settings = _settings.copyWith(quietHours: newQuietHours);
                   });
@@ -368,7 +452,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   void _sendTestNotification() {
     // In a real app, this would create and send a test notification
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Test notification sent! Check your notifications.')),
+      const SnackBar(
+          content: Text('Test notification sent! Check your notifications.')),
     );
   }
 }

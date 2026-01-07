@@ -1,19 +1,236 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/app_theme.dart';
+import '../../models/user_model.dart';
 
-class AdminOverviewScreen extends StatelessWidget {
+class AdminOverviewScreen extends StatefulWidget {
   const AdminOverviewScreen({super.key});
 
-  // Mock data - replace with actual data fetching
-  static const int totalUsers = 1250;
-  static const int pendingVerifications = 15;
-  static const int activeTours = 89;
-  static const double monthlyRevenue = 15420.50;
-  static const int totalBookings = 342;
-  static const double averageRating = 4.7;
+  @override
+  State<AdminOverviewScreen> createState() => _AdminOverviewScreenState();
+}
+
+class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // Real data from Firestore
+  Map<String, dynamic> _overviewData = {};
+  List<Map<String, dynamic>> _recentActivities = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOverviewData();
+  }
+
+  Future<void> _loadOverviewData() async {
+    setState(() => _isLoading = true);
+    try {
+      final data = await _fetchOverviewData();
+      final activities = await _fetchRecentActivities();
+      setState(() {
+        _overviewData = data;
+        _recentActivities = activities;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      // Handle error - could show snackbar
+    }
+  }
+
+  Future<Map<String, dynamic>> _fetchOverviewData() async {
+    try {
+      // Total Users: Count all documents in the users collection
+      final usersSnapshot = await _firestore.collection('users').get();
+      final totalUsers = usersSnapshot.docs.length;
+
+      // Total Bookings: Count all documents in the bookings collection
+      final bookingsSnapshot = await _firestore.collection('bookings').get();
+      final totalBookings = bookingsSnapshot.docs.length;
+
+      // Active Tours: Count bookings with status pending(0), confirmed(1), paid(2), inProgress(3)
+      final activeToursSnapshot = await _firestore
+          .collection('bookings')
+          .where('status', whereIn: [0, 1, 2, 3]).get();
+      final activeTours = activeToursSnapshot.docs.length;
+
+      // Monthly Revenue: Calculate the total sum of totalPrice for all documents in the bookings collection where status is 'completed' or 'paid', limited to the current month
+      final now = DateTime.now();
+      final startOfMonth = DateTime(now.year, now.month, 1);
+      final endOfMonth = DateTime(now.year, now.month + 1, 1)
+          .subtract(const Duration(days: 1));
+
+      final monthlyRevenueSnapshot = await _firestore
+          .collection('bookings')
+          .where('status', whereIn: [2, 4]) // paid = 2, completed = 4
+          .where('bookingDate',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth))
+          .where('bookingDate',
+              isLessThanOrEqualTo: Timestamp.fromDate(endOfMonth))
+          .get();
+
+      double monthlyRevenue = 0;
+      for (var doc in monthlyRevenueSnapshot.docs) {
+        final totalPrice = doc.data()['totalPrice'] ?? 0;
+        monthlyRevenue += totalPrice.toDouble();
+      }
+
+      // Pending Verifications: Count guide_verifications with status pending (0)
+      final pendingVerificationsSnapshot = await _firestore
+          .collection('guide_verifications')
+          .where('status', isEqualTo: 0) // VerificationStatus.pending = 0
+          .get();
+      final pendingVerifications = pendingVerificationsSnapshot.docs.length;
+
+      // Average Rating: Compute the average by summing all rating values and dividing by the total number of bookings that contain a rating in the bookings collection
+      final bookingsWithRatingsSnapshot = await _firestore
+          .collection('bookings')
+          .where('rating', isNotEqualTo: null)
+          .get();
+
+      double averageRating = 0;
+      if (bookingsWithRatingsSnapshot.docs.isNotEmpty) {
+        double totalRating = 0;
+        for (var doc in bookingsWithRatingsSnapshot.docs) {
+          final rating = doc.data()['rating'];
+          if (rating != null) {
+            totalRating += rating.toDouble();
+          }
+        }
+        averageRating = totalRating / bookingsWithRatingsSnapshot.docs.length;
+      }
+
+      return {
+        'totalUsers': totalUsers,
+        'totalBookings': totalBookings,
+        'monthlyRevenue': monthlyRevenue,
+        'activeTours': activeTours,
+        'pendingVerifications': pendingVerifications,
+        'averageRating': averageRating,
+      };
+    } catch (e) {
+      print('Error fetching overview data: $e');
+      // Return empty data on error
+      return {
+        'totalUsers': 0,
+        'totalBookings': 0,
+        'monthlyRevenue': 0.0,
+        'activeTours': 0,
+        'pendingVerifications': 0,
+        'averageRating': 0.0,
+      };
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchRecentActivities() async {
+    List<Map<String, dynamic>> activities = [];
+
+    try {
+      // Fetch recent user registrations
+      final usersSnapshot = await _firestore
+          .collection('users')
+          .orderBy('createdAt', descending: true)
+          .limit(5)
+          .get();
+
+      for (var doc in usersSnapshot.docs) {
+        final userData = doc.data();
+        final displayName =
+            userData['displayName'] ?? userData['email'] ?? 'Unknown User';
+        final role = userData['role'] ?? 'tourist';
+        final capitalizedRole =
+            role.isNotEmpty ? role[0].toUpperCase() + role.substring(1) : role;
+
+        activities.add({
+          'title': 'New user registration',
+          'subtitle': '$displayName registered as a $capitalizedRole',
+          'timestamp': userData['createdAt'] as Timestamp?,
+          'icon': Icons.person_add,
+        });
+      }
+
+      // Fetch recent bookings
+      final bookingsSnapshot = await _firestore
+          .collection('bookings')
+          .orderBy('bookingDate', descending: true)
+          .limit(5)
+          .get();
+
+      for (var doc in bookingsSnapshot.docs) {
+        final bookingData = doc.data();
+        final tourTitle = bookingData['tourTitle'] ??
+            'Tour ${bookingData['tourId'] ?? 'Unknown'}';
+
+        activities.add({
+          'title': 'Tour booked',
+          'subtitle': '$tourTitle was booked',
+          'timestamp': bookingData['bookingDate'] as Timestamp?,
+          'icon': Icons.book_online,
+        });
+      }
+
+      // Fetch recent payments
+      final paymentsSnapshot = await _firestore
+          .collection('payments')
+          .orderBy('createdAt', descending: true)
+          .limit(5)
+          .get();
+
+      for (var doc in paymentsSnapshot.docs) {
+        final paymentData = doc.data();
+        final amount = paymentData['amount'] ?? 0;
+        final bookingId = paymentData['bookingId'] ?? 'Unknown';
+
+        activities.add({
+          'title': 'Payment processed',
+          'subtitle':
+              'Booking #$bookingId payment of ₱${amount.toStringAsFixed(2)} completed',
+          'timestamp': paymentData['createdAt'] as Timestamp?,
+          'icon': Icons.payment,
+        });
+      }
+
+      // Sort all activities by timestamp (most recent first)
+      activities.sort((a, b) {
+        final aTime = a['timestamp'] as Timestamp?;
+        final bTime = b['timestamp'] as Timestamp?;
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+        return bTime.compareTo(aTime);
+      });
+
+      // Return only the 10 most recent activities
+      return activities.take(10).toList();
+    } catch (e) {
+      print('Error fetching recent activities: $e');
+      return [];
+    }
+  }
+
+  String _formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
+    } else {
+      return 'Just now';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -37,7 +254,7 @@ class AdminOverviewScreen extends StatelessWidget {
               Expanded(
                 child: _buildKPICard(
                   'Total Users',
-                  totalUsers.toString(),
+                  (_overviewData['totalUsers'] ?? 0).toString(),
                   Icons.people,
                   AppTheme.primaryColor,
                   '+12% from last month',
@@ -47,7 +264,7 @@ class AdminOverviewScreen extends StatelessWidget {
               Expanded(
                 child: _buildKPICard(
                   'Active Tours',
-                  activeTours.toString(),
+                  (_overviewData['activeTours'] ?? 0).toString(),
                   Icons.tour,
                   AppTheme.successColor,
                   '+8% from last month',
@@ -57,7 +274,7 @@ class AdminOverviewScreen extends StatelessWidget {
               Expanded(
                 child: _buildKPICard(
                   'Total Bookings',
-                  totalBookings.toString(),
+                  (_overviewData['totalBookings'] ?? 0).toString(),
                   Icons.book_online,
                   AppTheme.accentColor,
                   '+15% from last month',
@@ -73,7 +290,7 @@ class AdminOverviewScreen extends StatelessWidget {
               Expanded(
                 child: _buildKPICard(
                   'Monthly Revenue',
-                  '\$${monthlyRevenue.toStringAsFixed(0)}',
+                  '\$${(_overviewData['monthlyRevenue'] ?? 0).toStringAsFixed(0)}',
                   Icons.attach_money,
                   AppTheme.errorColor,
                   '+22% from last month',
@@ -83,7 +300,7 @@ class AdminOverviewScreen extends StatelessWidget {
               Expanded(
                 child: _buildKPICard(
                   'Pending Verifications',
-                  pendingVerifications.toString(),
+                  (_overviewData['pendingVerifications'] ?? 0).toString(),
                   Icons.verified_user,
                   AppTheme.primaryColor,
                   'Requires attention',
@@ -93,7 +310,7 @@ class AdminOverviewScreen extends StatelessWidget {
               Expanded(
                 child: _buildKPICard(
                   'Average Rating',
-                  averageRating.toString(),
+                  (_overviewData['averageRating'] ?? 0).toStringAsFixed(1),
                   Icons.star,
                   AppTheme.successColor,
                   'Platform rating',
@@ -122,7 +339,8 @@ class AdminOverviewScreen extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.show_chart, color: AppTheme.primaryColor),
+                            Icon(Icons.show_chart,
+                                color: AppTheme.primaryColor),
                             const SizedBox(width: 12),
                             Text(
                               'Bookings Trend',
@@ -149,7 +367,8 @@ class AdminOverviewScreen extends StatelessWidget {
                         const SizedBox(height: 16),
                         Text(
                           'Last 30 days booking activity',
-                          style: AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
+                          style: AppTheme.bodySmall
+                              .copyWith(color: AppTheme.textSecondary),
                         ),
                       ],
                     ),
@@ -157,49 +376,6 @@ class AdminOverviewScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 24),
-
-              // Quick Actions
-              Expanded(
-                child: Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Quick Actions',
-                          style: AppTheme.headlineSmall,
-                        ),
-                        const SizedBox(height: 24),
-                        _buildQuickAction(
-                          'Review Verifications',
-                          '15 pending requests',
-                          Icons.verified_user,
-                          AppTheme.accentColor,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildQuickAction(
-                          'Moderate Tours',
-                          '3 flagged listings',
-                          Icons.tour,
-                          AppTheme.errorColor,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildQuickAction(
-                          'View Reports',
-                          'Generate analytics',
-                          Icons.analytics,
-                          AppTheme.successColor,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 48),
@@ -220,36 +396,24 @@ class AdminOverviewScreen extends StatelessWidget {
                     style: AppTheme.headlineSmall,
                   ),
                   const SizedBox(height: 24),
-                  _buildActivityItem(
-                    'New user registration',
-                    'John Doe registered as a Tourist',
-                    '2 hours ago',
-                    Icons.person_add,
-                  ),
-                  _buildActivityItem(
-                    'Verification approved',
-                    'Jane Smith\'s guide application approved',
-                    '4 hours ago',
-                    Icons.verified,
-                  ),
-                  _buildActivityItem(
-                    'Tour created',
-                    'Mike Johnson created "City Walking Tour"',
-                    '6 hours ago',
-                    Icons.add_circle,
-                  ),
-                  _buildActivityItem(
-                    'Payment processed',
-                    'Booking #1234 payment completed',
-                    '8 hours ago',
-                    Icons.payment,
-                  ),
-                  _buildActivityItem(
-                    'Review submitted',
-                    'New 5-star review for "Mountain Hiking Tour"',
-                    '10 hours ago',
-                    Icons.rate_review,
-                  ),
+                  if (_recentActivities.isEmpty)
+                    const Center(
+                      child: Text('No recent activity'),
+                    )
+                  else
+                    ..._recentActivities.map((activity) {
+                      final timestamp = activity['timestamp'] as Timestamp?;
+                      final timeAgo = timestamp != null
+                          ? _formatTimeAgo(timestamp.toDate())
+                          : 'Unknown time';
+
+                      return _buildActivityItem(
+                        activity['title'] as String,
+                        activity['subtitle'] as String,
+                        timeAgo,
+                        activity['icon'] as IconData,
+                      );
+                    }),
                 ],
               ),
             ),
@@ -259,7 +423,8 @@ class AdminOverviewScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildKPICard(String title, String value, IconData icon, Color color, String subtitle) {
+  Widget _buildKPICard(
+      String title, String value, IconData icon, Color color, String subtitle) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -299,7 +464,8 @@ class AdminOverviewScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickAction(String title, String subtitle, IconData icon, Color color) {
+  Widget _buildQuickAction(
+      String title, String subtitle, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -317,11 +483,13 @@ class AdminOverviewScreen extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                  style:
+                      AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
                 ),
                 Text(
                   subtitle,
-                  style: AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
+                  style: AppTheme.bodySmall
+                      .copyWith(color: AppTheme.textSecondary),
                 ),
               ],
             ),
@@ -332,7 +500,8 @@ class AdminOverviewScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildActivityItem(String title, String subtitle, String time, IconData icon) {
+  Widget _buildActivityItem(
+      String title, String subtitle, String time, IconData icon) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -348,7 +517,8 @@ class AdminOverviewScreen extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                  style:
+                      AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
                 ),
                 Text(
                   subtitle,

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/notification_model.dart';
 import '../../services/notification_service.dart';
 import '../../utils/app_theme.dart';
+import '../notifications/notification_settings_screen.dart';
 
 class AdminNotificationsScreen extends StatefulWidget {
   const AdminNotificationsScreen({super.key});
@@ -17,439 +17,340 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
   final NotificationService _notificationService = NotificationService();
   final String? _currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
-  // Notification settings
-  bool _bookingNotifications = true;
-  bool _paymentNotifications = true;
-  bool _messageNotifications = true;
-  bool _reviewNotifications = true;
-  bool _systemNotifications = true;
-  bool _pushNotifications = true;
-  bool _emailNotifications = false;
-
-  // Bulk notification form
-  final _titleController = TextEditingController();
-  final _messageController = TextEditingController();
-  NotificationType _selectedType = NotificationType.system;
-  NotificationPriority _selectedPriority = NotificationPriority.normal;
-  bool _sendToAllUsers = false;
-  List<String> _selectedUserIds = [];
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _messageController.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
+    if (_currentUserId == null) {
+      return Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         appBar: AppBar(
-          title: const Text('Notification Management'),
+          title: const Text('Admin Notifications'),
           backgroundColor: Colors.white,
+          foregroundColor: AppTheme.primaryColor,
           elevation: 0,
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Settings'),
-              Tab(text: 'Send'),
-              Tab(text: 'History'),
-            ],
-          ),
         ),
-        body: TabBarView(
-          children: [
-            _buildSettingsTab(),
-            _buildSendTab(),
-            _buildHistoryTab(),
-          ],
-        ),
-      ),
-    );
-  }
+        body: const Center(child: Text('Please log in to view notifications')),
+      );
+    }
 
-  Widget _buildSettingsTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Global Notification Settings',
-            style: AppTheme.headlineSmall,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Configure default notification preferences for all users',
-            style: AppTheme.bodyMedium.copyWith(color: AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 24),
-          _buildSettingCard(
-            'Push Notifications',
-            'Send push notifications to user devices',
-            _pushNotifications,
-            (value) => setState(() => _pushNotifications = value),
-          ),
-          _buildSettingCard(
-            'Email Notifications',
-            'Send email notifications for important updates',
-            _emailNotifications,
-            (value) => setState(() => _emailNotifications = value),
-          ),
-          const SizedBox(height: 32),
-          Text(
-            'Notification Types',
-            style: AppTheme.headlineSmall,
-          ),
-          const SizedBox(height: 16),
-          _buildSettingCard(
-            'Booking Notifications',
-            'Alerts for new bookings, cancellations, and updates',
-            _bookingNotifications,
-            (value) => setState(() => _bookingNotifications = value),
-          ),
-          _buildSettingCard(
-            'Payment Notifications',
-            'Alerts for payment processing and receipts',
-            _paymentNotifications,
-            (value) => setState(() => _paymentNotifications = value),
-          ),
-          _buildSettingCard(
-            'Message Notifications',
-            'Alerts for new messages and conversations',
-            _messageNotifications,
-            (value) => setState(() => _messageNotifications = value),
-          ),
-          _buildSettingCard(
-            'Review Notifications',
-            'Alerts for new reviews and ratings',
-            _reviewNotifications,
-            (value) => setState(() => _reviewNotifications = value),
-          ),
-          _buildSettingCard(
-            'System Notifications',
-            'Important system updates and maintenance alerts',
-            _systemNotifications,
-            (value) => setState(() => _systemNotifications = value),
-          ),
-          const SizedBox(height: 32),
-          ElevatedButton(
-            onPressed: _saveSettings,
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 48),
-            ),
-            child: const Text('Save Settings'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSendTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Send Bulk Notification',
-            style: AppTheme.headlineSmall,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Send notifications to multiple users at once',
-            style: AppTheme.bodyMedium.copyWith(color: AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 24),
-          TextFormField(
-            controller: _titleController,
-            decoration: const InputDecoration(
-              labelText: 'Notification Title',
-              border: OutlineInputBorder(),
-            ),
-            validator: (value) {
-              if (value?.isEmpty ?? true) {
-                return 'Please enter a title';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _messageController,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Notification Message',
-              border: OutlineInputBorder(),
-            ),
-            validator: (value) {
-              if (value?.isEmpty ?? true) {
-                return 'Please enter a message';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<NotificationType>(
-                  value: _selectedType,
-                  decoration: const InputDecoration(
-                    labelText: 'Notification Type',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: NotificationType.values.map((type) {
-                    return DropdownMenuItem(
-                      value: type,
-                      child:
-                          Text(type.toString().split('.').last.toUpperCase()),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _selectedType = value);
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: DropdownButtonFormField<NotificationPriority>(
-                  value: _selectedPriority,
-                  decoration: const InputDecoration(
-                    labelText: 'Priority',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: NotificationPriority.values.map((priority) {
-                    return DropdownMenuItem(
-                      value: priority,
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(
+        title: const Text('Admin Notifications'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          StreamBuilder<int>(
+            stream: _notificationService.getUnreadCount(_currentUserId!),
+            builder: (context, snapshot) {
+              final unreadCount = snapshot.data ?? 0;
+              return unreadCount > 0
+                  ? Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor,
+                        shape: BoxShape.circle,
+                      ),
                       child: Text(
-                          priority.toString().split('.').last.toUpperCase()),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _selectedPriority = value);
-                    }
-                  },
-                ),
+                        unreadCount.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink();
+            },
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              switch (value) {
+                case 'mark_all_read':
+                  _markAllAsRead();
+                  break;
+                case 'settings':
+                  _openNotificationSettings();
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'mark_all_read',
+                child: Text('Mark all as read'),
+              ),
+              const PopupMenuItem(
+                value: 'settings',
+                child: Text('Notification settings'),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          CheckboxListTile(
-            title: const Text('Send to all users'),
-            subtitle:
-                const Text('Send this notification to every registered user'),
-            value: _sendToAllUsers,
-            onChanged: (value) {
-              setState(() => _sendToAllUsers = value ?? false);
+        ],
+      ),
+      body: StreamBuilder<List<NotificationModel>>(
+        stream: _notificationService.getUserNotifications(_currentUserId!),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Text('Error loading notifications: ${snapshot.error}'),
+            );
+          }
+
+          final notifications = snapshot.data ?? [];
+
+          if (notifications.isEmpty) {
+            return _buildEmptyState();
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: notifications.length,
+            itemBuilder: (context, index) {
+              final notification = notifications[index];
+              return _buildNotificationItem(notification);
             },
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: _sendBulkNotification,
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 48),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withOpacity(0.1),
+              shape: BoxShape.circle,
             ),
-            child: const Text('Send Notification'),
+            child: Icon(
+              Icons.notifications_none,
+              size: 40,
+              color: AppTheme.primaryColor,
+            ),
           ),
           const SizedBox(height: 16),
-          OutlinedButton(
-            onPressed: _previewNotification,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 48),
+          Text(
+            'No notifications yet',
+            style: AppTheme.headlineSmall,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'You\'ll see updates about admin actions and system events here',
+            style: AppTheme.bodyMedium.copyWith(
+              color: AppTheme.textSecondary,
             ),
-            child: const Text('Preview Notification'),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHistoryTab() {
-    return StreamBuilder<List<NotificationModel>>(
-      stream: _notificationService.getUserNotifications(_currentUserId ?? ''),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (snapshot.hasError) {
-          return Center(
-            child: Text('Error loading notifications: ${snapshot.error}'),
-          );
-        }
-
-        final notifications = snapshot.data ?? [];
-
-        if (notifications.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.notifications_none,
-                  size: 64,
-                  color: AppTheme.textSecondary.withOpacity(0.5),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No notifications sent yet',
-                  style: AppTheme.headlineSmall,
-                ),
-              ],
+  Widget _buildNotificationItem(NotificationModel notification) {
+    return Dismissible(
+      key: Key(notification.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(
+          Icons.delete,
+          color: Colors.white,
+        ),
+      ),
+      onDismissed: (direction) {
+        _deleteNotification(notification.id);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Notification deleted'),
+            action: SnackBarAction(
+              label: 'Undo',
+              onPressed: () {
+                // In a real app, you'd restore the notification
+              },
             ),
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: notifications.length,
-          itemBuilder: (context, index) {
-            final notification = notifications[index];
-            return Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: notification.color.withOpacity(0.1),
-                  child: Icon(notification.icon, color: notification.color),
-                ),
-                title: Text(notification.title),
-                subtitle:
-                    Text('${notification.message}\n${notification.timeAgo}'),
-                isThreeLine: true,
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () => _deleteNotification(notification.id),
-                ),
-              ),
-            );
-          },
+          ),
         );
       },
-    );
-  }
-
-  Widget _buildSettingCard(
-      String title, String subtitle, bool value, Function(bool) onChanged) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: SwitchListTile(
-        title: Text(title,
-            style: AppTheme.bodyLarge.copyWith(fontWeight: FontWeight.w600)),
-        subtitle: Text(subtitle, style: AppTheme.bodySmall),
-        value: value,
-        onChanged: onChanged,
-        activeColor: AppTheme.primaryColor,
-      ),
-    );
-  }
-
-  void _saveSettings() {
-    // Save notification settings to Firebase
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Notification settings saved successfully')),
-    );
-  }
-
-  void _sendBulkNotification() async {
-    if (_titleController.text.isEmpty || _messageController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all fields')),
-      );
-      return;
-    }
-
-    try {
-      // Get all user IDs from database or selected user IDs
-      final userIds =
-          _sendToAllUsers ? await _getAllUserIds() : _selectedUserIds;
-
-      await _notificationService.sendBulkNotification(
-        userIds: userIds,
-        title: _titleController.text,
-        message: _messageController.text,
-        type: _selectedType,
-        priority: _selectedPriority,
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bulk notification sent successfully')),
-      );
-
-      // Clear form
-      _titleController.clear();
-      _messageController.clear();
-      setState(() {
-        _selectedType = NotificationType.system;
-        _selectedPriority = NotificationPriority.normal;
-        _sendToAllUsers = false;
-        _selectedUserIds = [];
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error sending notification: $e')),
-      );
-    }
-  }
-
-  Future<List<String>> _getAllUserIds() async {
-    try {
-      final snapshot =
-          await FirebaseFirestore.instance.collection('users').get();
-      return snapshot.docs.map((doc) => doc.id).toList();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading user IDs: $e')),
-      );
-      return [];
-    }
-  }
-
-  void _previewNotification() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Notification Preview'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Title: ${_titleController.text}', style: AppTheme.bodyLarge),
-            const SizedBox(height: 8),
-            Text('Message: ${_messageController.text}',
-                style: AppTheme.bodyMedium),
-            const SizedBox(height: 8),
-            Text('Type: ${_selectedType.toString().split('.').last}',
-                style: AppTheme.bodySmall),
-            Text('Priority: ${_selectedPriority.toString().split('.').last}',
-                style: AppTheme.bodySmall),
-          ],
+      child: Card(
+        elevation: notification.isRead ? 1 : 3,
+        margin: const EdgeInsets.only(bottom: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+        child: InkWell(
+          onTap: () => _markAsRead(notification),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Notification Icon
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: notification.color.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    notification.icon,
+                    color: notification.color,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // Notification Content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              notification.title,
+                              style: AppTheme.bodyLarge.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: notification.isRead
+                                    ? AppTheme.textSecondary
+                                    : AppTheme.textPrimary,
+                              ),
+                            ),
+                          ),
+                          if (notification.isUrgent)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'URGENT',
+                                style: AppTheme.bodySmall.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        notification.message,
+                        style: AppTheme.bodyMedium.copyWith(
+                          color: notification.isRead
+                              ? AppTheme.textSecondary
+                              : AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Text(
+                            notification.timeAgo,
+                            style: AppTheme.bodySmall.copyWith(
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                          if (!notification.isRead) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Priority Indicator
+                if (notification.isHighPriority)
+                  Icon(
+                    Icons.priority_high,
+                    color: notification.color,
+                    size: 16,
+                  ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
+  }
+
+  void _markAsRead(NotificationModel notification) async {
+    if (!notification.isRead) {
+      await _notificationService.markAsRead(notification.id);
+    }
+
+    // Navigate based on notification type
+    switch (notification.type) {
+      case NotificationType.booking:
+        // Navigate to bookings screen
+        Navigator.of(context).pushNamed('/admin/bookings');
+        break;
+      case NotificationType.verification:
+        // Navigate to guide verification screen
+        Navigator.of(context).pushNamed('/admin/guide-verification');
+        break;
+      case NotificationType.review:
+        // Navigate to review moderation screen
+        Navigator.of(context).pushNamed('/admin/reviews');
+        break;
+      case NotificationType.system:
+        // Navigate to user management screen
+        Navigator.of(context).pushNamed('/admin/users');
+        break;
+      default:
+        // Stay on current screen
+        break;
+    }
+  }
+
+  void _markAllAsRead() async {
+    if (_currentUserId != null) {
+      await _notificationService.markAllAsRead(_currentUserId!);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('All notifications marked as read')),
+      );
+    }
   }
 
   void _deleteNotification(String notificationId) async {
-    try {
-      await _notificationService.deleteNotification(notificationId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Notification deleted')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting notification: $e')),
-      );
-    }
+    await _notificationService.deleteNotification(notificationId);
+  }
+
+  void _openNotificationSettings() {
+    // Navigate to notification settings screen
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const NotificationSettingsScreen(),
+      ),
+    );
   }
 }

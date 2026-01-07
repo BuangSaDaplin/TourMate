@@ -1,5 +1,6 @@
 class NotificationSettingsModel {
   final String userId;
+  final bool masterNotificationsEnabled; // Master toggle for all notifications
   final bool pushNotifications;
   final bool emailNotifications;
   final bool bookingNotifications;
@@ -13,6 +14,7 @@ class NotificationSettingsModel {
 
   const NotificationSettingsModel({
     required this.userId,
+    this.masterNotificationsEnabled = true,
     this.pushNotifications = true,
     this.emailNotifications = false,
     this.bookingNotifications = true,
@@ -28,6 +30,7 @@ class NotificationSettingsModel {
   factory NotificationSettingsModel.fromMap(Map<String, dynamic> map) {
     return NotificationSettingsModel(
       userId: map['userId'] ?? '',
+      masterNotificationsEnabled: map['masterNotificationsEnabled'] ?? true,
       pushNotifications: map['pushNotifications'] ?? true,
       emailNotifications: map['emailNotifications'] ?? false,
       bookingNotifications: map['bookingNotifications'] ?? true,
@@ -44,6 +47,7 @@ class NotificationSettingsModel {
   Map<String, dynamic> toMap() {
     return {
       'userId': userId,
+      'masterNotificationsEnabled': masterNotificationsEnabled,
       'pushNotifications': pushNotifications,
       'emailNotifications': emailNotifications,
       'bookingNotifications': bookingNotifications,
@@ -59,6 +63,7 @@ class NotificationSettingsModel {
 
   NotificationSettingsModel copyWith({
     String? userId,
+    bool? masterNotificationsEnabled,
     bool? pushNotifications,
     bool? emailNotifications,
     bool? bookingNotifications,
@@ -72,6 +77,8 @@ class NotificationSettingsModel {
   }) {
     return NotificationSettingsModel(
       userId: userId ?? this.userId,
+      masterNotificationsEnabled:
+          masterNotificationsEnabled ?? this.masterNotificationsEnabled,
       pushNotifications: pushNotifications ?? this.pushNotifications,
       emailNotifications: emailNotifications ?? this.emailNotifications,
       bookingNotifications: bookingNotifications ?? this.bookingNotifications,
@@ -79,7 +86,8 @@ class NotificationSettingsModel {
       messageNotifications: messageNotifications ?? this.messageNotifications,
       reviewNotifications: reviewNotifications ?? this.reviewNotifications,
       systemNotifications: systemNotifications ?? this.systemNotifications,
-      marketingNotifications: marketingNotifications ?? this.marketingNotifications,
+      marketingNotifications:
+          marketingNotifications ?? this.marketingNotifications,
       quietHours: quietHours ?? this.quietHours,
       emailAddress: emailAddress ?? this.emailAddress,
     );
@@ -87,7 +95,7 @@ class NotificationSettingsModel {
 
   // Check if notifications should be sent based on current time and quiet hours
   bool shouldSendNotification() {
-    if (!pushNotifications) return false;
+    if (!masterNotificationsEnabled || !pushNotifications) return false;
 
     final now = DateTime.now();
     final dayName = _getDayName(now.weekday);

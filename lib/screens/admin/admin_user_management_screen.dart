@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/user_model.dart';
 import '../../services/database_service.dart';
+import '../../services/notification_service.dart';
 import '../../utils/app_theme.dart';
 
 class AdminUserManagementScreen extends StatefulWidget {
@@ -16,6 +17,7 @@ class AdminUserManagementScreen extends StatefulWidget {
 class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   final DatabaseService _databaseService = DatabaseService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final NotificationService _notificationService = NotificationService();
 
   String _selectedRole = 'All';
   String _searchQuery = '';
@@ -91,11 +93,18 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     try {
       final newStatus =
           status == 'Active' ? UserStatus.approved : UserStatus.suspended;
+      final newIsActive = status == 'Active';
+
+      // Update both status and isActive fields
       await _databaseService.updateUserField(userId, 'status', newStatus.index);
+      await _databaseService.updateUserField(userId, 'isActive', newIsActive);
+
+      // Find the user object
+      final userIndex = _users.indexWhere((user) => user.uid == userId);
+      final user = userIndex != -1 ? _users[userIndex] : null;
 
       // Update local state
       setState(() {
-        final userIndex = _users.indexWhere((user) => user.uid == userId);
         if (userIndex != -1) {
           final updatedUser = UserModel(
             uid: _users[userIndex].uid,
@@ -112,11 +121,46 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
             favoriteDestination: _users[userIndex].favoriteDestination,
             specializations: _users[userIndex].specializations,
             status: newStatus,
+            isActive: newIsActive,
           );
           _users[userIndex] = updatedUser;
           _applyFilters();
         }
       });
+
+      // Create notifications for both admin and affected user if user was found
+      if (user != null) {
+        final currentAdmin = FirebaseAuth.instance.currentUser;
+        if (currentAdmin != null) {
+          // Create notification for admin
+          final adminNotification = newStatus == UserStatus.approved
+              ? _notificationService.createUserReactivatedNotification(
+                  userId: currentAdmin.uid,
+                  userName: user.displayName ?? user.email,
+                )
+              : _notificationService.createUserSuspendedNotification(
+                  userId: currentAdmin.uid,
+                  userName: user.displayName ?? user.email,
+                  reason: 'Administrative action',
+                );
+
+          await _notificationService.createNotification(adminNotification);
+
+          // Create notification for the affected user
+          final userNotification = newStatus == UserStatus.approved
+              ? _notificationService.createUserReactivatedNotification(
+                  userId: user.uid,
+                  userName: user.displayName ?? user.email,
+                )
+              : _notificationService.createUserSuspendedNotification(
+                  userId: user.uid,
+                  userName: user.displayName ?? user.email,
+                  reason: 'Administrative action',
+                );
+
+          await _notificationService.createNotification(userNotification);
+        }
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('User status updated to $status')),

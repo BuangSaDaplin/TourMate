@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tourmate_app/models/guide_verification_model.dart';
 import 'package:tourmate_app/services/database_service.dart';
+import 'package:tourmate_app/services/notification_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../utils/app_theme.dart';
 
@@ -15,6 +17,7 @@ class AdminGuideVerificationScreen extends StatefulWidget {
 class _AdminGuideVerificationScreenState
     extends State<AdminGuideVerificationScreen> {
   final DatabaseService _databaseService = DatabaseService();
+  final NotificationService _notificationService = NotificationService();
   List<GuideVerification> _verifications = [];
   bool _isLoading = false;
   String? _errorMessage;
@@ -582,6 +585,23 @@ class _AdminGuideVerificationScreenState
               approve ? AppTheme.successColor : AppTheme.errorColor,
         ),
       );
+
+      // Create notification for admin
+      final currentAdmin = FirebaseAuth.instance.currentUser;
+      if (currentAdmin != null) {
+        final adminNotification = approve
+            ? _notificationService.createGuideVerificationApprovedNotification(
+                userId: currentAdmin.uid,
+                guideName: verification.guideName,
+              )
+            : _notificationService.createGuideVerificationRejectedNotification(
+                userId: currentAdmin.uid,
+                guideName: verification.guideName,
+                reason: reason ?? 'No reason provided',
+              );
+
+        await _notificationService.createNotification(adminNotification);
+      }
 
       // TODO: Send notification to guide
       // TODO: Update user role if approved
