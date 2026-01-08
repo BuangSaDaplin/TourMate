@@ -18,12 +18,17 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
 
   // Real data from Firestore
   Map<String, dynamic> _analyticsData = {};
+  List<Map<String, dynamic>> _recentActivities = [];
   bool _isLoadingAnalytics = true;
 
   // Real time series data from Firestore
   List<Map<String, dynamic>> _bookingTrends = [];
   List<Map<String, dynamic>> _ratingTrends = [];
   bool _isLoadingTrends = true;
+
+  // Booking trends by tour data
+  List<Map<String, dynamic>> _bookingTrendsByTour = [];
+  bool _isLoadingBookingTrendsByTour = true;
 
   Map<String, int> _categoryDistribution = {};
   Map<String, int> _userTypeDistribution = {};
@@ -38,27 +43,48 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     setState(() {
       _isLoadingAnalytics = true;
       _isLoadingTrends = true;
+      _isLoadingBookingTrendsByTour = true;
     });
     try {
+      print('_loadAnalyticsData: Starting data fetch');
       final data = await _fetchAnalyticsData();
+      print('_loadAnalyticsData: Analytics data fetched: $data');
       final bookingTrends = await _fetchBookingTrends();
+      print('_loadAnalyticsData: Booking trends fetched: $bookingTrends');
       final ratingTrends = await _fetchRatingTrends();
-      final categoryDistribution = await _fetchCategoryDistribution();
-      final userTypeDistribution = await _fetchUserTypeDistribution();
+      print('_loadAnalyticsData: Rating trends fetched: $ratingTrends');
+      final bookingTrendsByTour = await _fetchBookingTrendsByTour();
+      print(
+          '_loadAnalyticsData: Booking trends by tour fetched: $bookingTrendsByTour');
+      final recentActivities = await _fetchRecentActivities();
+      print('_loadAnalyticsData: Recent activities fetched: $recentActivities');
 
+      // Temporarily comment out problematic fetches
+      // final categoryDistribution = await _fetchCategoryDistribution();
+      // print('_loadAnalyticsData: Category distribution fetched: $categoryDistribution');
+      // final userTypeDistribution = await _fetchUserTypeDistribution();
+      // print('_loadAnalyticsData: User type distribution fetched: $userTypeDistribution');
+
+      print('Setting booking trends data: $bookingTrendsByTour');
       setState(() {
         _analyticsData = data;
         _bookingTrends = bookingTrends;
         _ratingTrends = ratingTrends;
-        _categoryDistribution = categoryDistribution;
-        _userTypeDistribution = userTypeDistribution;
+        _bookingTrendsByTour = bookingTrendsByTour;
+        _recentActivities = recentActivities;
+        // _categoryDistribution = categoryDistribution;
+        // _userTypeDistribution = userTypeDistribution;
         _isLoadingAnalytics = false;
         _isLoadingTrends = false;
+        _isLoadingBookingTrendsByTour = false;
       });
+      print('After setState, _bookingTrendsByTour: $_bookingTrendsByTour');
     } catch (e) {
+      print('_loadAnalyticsData: Error occurred: $e');
       setState(() {
         _isLoadingAnalytics = false;
         _isLoadingTrends = false;
+        _isLoadingBookingTrendsByTour = false;
       });
       // Handle error - could show snackbar
     }
@@ -73,15 +99,16 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     final bookingsSnapshot = await _firestore.collection('bookings').get();
     final totalBookings = bookingsSnapshot.docs.length;
 
-    // Calculate total revenue from payments
-    final paymentsSnapshot = await _firestore
-        .collection('payments')
-        .where('status', isEqualTo: 'completed')
-        .get();
+    // Calculate total revenue from bookings where status is paid (2) or completed (4)
     double totalRevenue = 0;
-    for (var doc in paymentsSnapshot.docs) {
-      final amount = doc.data()['amount'] ?? 0;
-      totalRevenue += amount.toDouble();
+    for (var doc in bookingsSnapshot.docs) {
+      final data = doc.data();
+      final status = data['status'] ?? 0;
+      if (status == 2 || status == 4) {
+        // paid or completed
+        final totalPrice = data['totalPrice'] ?? 0;
+        totalRevenue += totalPrice.toDouble();
+      }
     }
 
     // Fetch active tours
@@ -257,9 +284,130 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     return userTypeCount;
   }
 
+  Future<List<Map<String, dynamic>>> _fetchBookingTrendsByTour() async {
+    // Fetch all bookings
+    final bookingsSnapshot = await _firestore.collection('bookings').get();
+
+    // Group bookings by tourId
+    final Map<String, Map<String, dynamic>> tourBookings = {};
+
+    for (var doc in bookingsSnapshot.docs) {
+      final data = doc.data();
+      final tourId = data['tourId'] as String?;
+      final tourTitle = data['tourTitle'] as String?;
+
+      if (tourId != null &&
+          tourId.isNotEmpty &&
+          tourTitle != null &&
+          tourTitle.isNotEmpty) {
+        if (tourBookings.containsKey(tourId)) {
+          tourBookings[tourId]!['count'] =
+              (tourBookings[tourId]!['count'] ?? 0) + 1;
+        } else {
+          tourBookings[tourId] = {
+            'tourId': tourId,
+            'tourTitle': tourTitle,
+            'count': 1,
+          };
+        }
+      }
+    }
+
+    // Convert to list and sort by count descending
+    final result = tourBookings.values.toList();
+    result.sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
+
+    return result;
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchRecentActivities() async {
+    List<Map<String, dynamic>> activities = [];
+
+    try {
+      // Fetch recent user registrations
+      final usersSnapshot = await _firestore
+          .collection('users')
+          .orderBy('createdAt', descending: true)
+          .limit(5)
+          .get();
+
+      for (var doc in usersSnapshot.docs) {
+        final userData = doc.data();
+        final displayName =
+            userData['displayName'] ?? userData['email'] ?? 'Unknown User';
+        final role = userData['role'] ?? 'tourist';
+        final capitalizedRole =
+            role.isNotEmpty ? role[0].toUpperCase() + role.substring(1) : role;
+
+        activities.add({
+          'title': 'New user registration',
+          'subtitle': '$displayName registered as a $capitalizedRole',
+          'timestamp': userData['createdAt'] as Timestamp?,
+          'icon': Icons.person_add,
+        });
+      }
+
+      // Fetch recent bookings
+      final bookingsSnapshot = await _firestore
+          .collection('bookings')
+          .orderBy('bookingDate', descending: true)
+          .limit(5)
+          .get();
+
+      for (var doc in bookingsSnapshot.docs) {
+        final bookingData = doc.data();
+        final tourTitle = bookingData['tourTitle'] ??
+            'Tour ${bookingData['tourId'] ?? 'Unknown'}';
+
+        activities.add({
+          'title': 'Tour booked',
+          'subtitle': '$tourTitle was booked',
+          'timestamp': bookingData['bookingDate'] as Timestamp?,
+          'icon': Icons.book_online,
+        });
+      }
+
+      // Fetch recent payments
+      final paymentsSnapshot = await _firestore
+          .collection('payments')
+          .orderBy('createdAt', descending: true)
+          .limit(5)
+          .get();
+
+      for (var doc in paymentsSnapshot.docs) {
+        final paymentData = doc.data();
+        final amount = paymentData['amount'] ?? 0;
+        final bookingId = paymentData['bookingId'] ?? 'Unknown';
+
+        activities.add({
+          'title': 'Payment processed',
+          'subtitle':
+              'Booking #$bookingId payment of ₱${amount.toStringAsFixed(2)} completed',
+          'timestamp': paymentData['createdAt'] as Timestamp?,
+          'icon': Icons.payment,
+        });
+      }
+
+      // Sort all activities by timestamp (most recent first)
+      activities.sort((a, b) {
+        final aTime = a['timestamp'] as Timestamp?;
+        final bTime = b['timestamp'] as Timestamp?;
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+        return bTime.compareTo(aTime);
+      });
+
+      // Return only the 10 most recent activities
+      return activities.take(10).toList();
+    } catch (e) {
+      print('Error fetching recent activities: $e');
+      return [];
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // MOCK DATA FOR DEMO - Remove all Firebase dependencies
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
@@ -289,30 +437,41 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
             const SizedBox(height: 24),
 
             // Stat Cards
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                      'Users', '1,248', Icons.people, Colors.blue),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                      'Bookings', '856', Icons.book_online, Colors.green),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                      'Revenue', '₱485,200', Icons.attach_money, Colors.orange),
-                ),
-              ],
-            ),
+            _isLoadingAnalytics
+                ? const Center(child: CircularProgressIndicator())
+                : Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatCard(
+                            'Users',
+                            _analyticsData['totalUsers']?.toString() ?? '0',
+                            Icons.people,
+                            Colors.blue),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildStatCard(
+                            'Bookings',
+                            _analyticsData['totalBookings']?.toString() ?? '0',
+                            Icons.book_online,
+                            Colors.green),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildStatCard(
+                            'Revenue',
+                            '₱${(_analyticsData['totalRevenue'] as double?)?.toStringAsFixed(0) ?? '0'}',
+                            Icons.attach_money,
+                            Colors.orange),
+                      ),
+                    ],
+                  ),
 
             const SizedBox(height: 24),
 
-            // Chart: 7-day trend
+            // Chart: Booking Trends
             Text(
-              '7-Day Performance Trend',
+              'Booking Trends',
               style: AppTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
@@ -330,7 +489,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                   ),
                 ],
               ),
-              child: _buildMockBarChart(),
+              child: _isLoadingBookingTrendsByTour
+                  ? const Center(child: CircularProgressIndicator())
+                  : _buildBookingTrendsBarChart(),
             ),
 
             const SizedBox(height: 24),
@@ -341,7 +502,43 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               style: AppTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
-            _buildRecentActivity(),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_recentActivities.isEmpty)
+                    const Center(
+                      child: Text('No recent activity'),
+                    )
+                  else
+                    ..._recentActivities.map((activity) {
+                      final timestamp = activity['timestamp'] as Timestamp?;
+                      final timeAgo = timestamp != null
+                          ? _formatTimeAgo(timestamp.toDate())
+                          : 'Unknown time';
+
+                      return _buildActivityItem(
+                        activity['title'] as String,
+                        activity['subtitle'] as String,
+                        timeAgo,
+                        activity['icon'] as IconData,
+                      );
+                    }),
+                ],
+              ),
+            ),
 
             const SizedBox(height: 24),
 
@@ -476,67 +673,92 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     );
   }
 
-  Widget _buildRecentActivity() {
-    final recentBookings = [
-      {'name': 'Juan', 'tour': 'Kawasan Falls', 'time': '2 hours ago'},
-      {'name': 'Maria', 'tour': 'Oslob Whale Shark', 'time': '5 hours ago'},
-      {'name': 'Carlos', 'tour': 'Chocolate Hills', 'time': '1 day ago'},
-    ];
+  Widget _buildBookingTrendsBarChart() {
+    print(
+        '_buildBookingTrendsBarChart called with data: $_bookingTrendsByTour');
+    if (_bookingTrendsByTour.isEmpty) {
+      print(
+          '_buildBookingTrendsBarChart: Data is empty, showing no data message');
+      return const Center(
+        child: Text('No booking data available'),
+      );
+    }
+    print('_buildBookingTrendsBarChart: Data is not empty, building chart');
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    // Take top 10 tours or all if less than 10
+    final displayData = _bookingTrendsByTour.take(10).toList();
+    final maxCount = displayData.isNotEmpty
+        ? displayData
+            .map((e) => e['count'] as int)
+            .reduce((a, b) => a > b ? a : b)
+        : 1;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Bookings by Tour',
+          style: AppTheme.bodyMedium.copyWith(
+            fontWeight: FontWeight.w600,
           ),
-        ],
-      ),
-      child: Column(
-        children: recentBookings.map((booking) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Icon(Icons.check_circle,
-                      color: AppTheme.primaryColor, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${booking['name']!} booked ${booking['tour']!}',
-                        style: AppTheme.bodyMedium.copyWith(
-                          fontWeight: FontWeight.w600,
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: displayData.map((tourData) {
+              final count = tourData['count'] as int;
+              final tourTitle = tourData['tourTitle'] as String;
+              final height = (count / maxCount) * 120.0; // Max height of 120
+
+              return Column(
+                children: [
+                  Expanded(
+                    child: Container(
+                      width: 40,
+                      alignment: Alignment.bottomCenter,
+                      child: Container(
+                        width: 30,
+                        height: height,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor,
+                          borderRadius: BorderRadius.circular(4),
                         ),
                       ),
-                      Text(
-                        booking['time']!,
-                        style: AppTheme.bodySmall.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: 60,
+                    child: Text(
+                      tourTitle,
+                      style: AppTheme.bodySmall.copyWith(fontSize: 10),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    count.toString(),
+                    style: AppTheme.bodySmall.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Most Booked', style: AppTheme.bodySmall),
+            Text('Least Booked', style: AppTheme.bodySmall),
+          ],
+        ),
+      ],
     );
   }
 
@@ -932,5 +1154,56 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       default:
         return '7 Days';
     }
+  }
+
+  String _formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
+    } else {
+      return 'Just now';
+    }
+  }
+
+  Widget _buildActivityItem(
+      String title, String subtitle, String time, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+            child: Icon(icon, color: AppTheme.primaryColor, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style:
+                      AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  subtitle,
+                  style: AppTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          Text(
+            time,
+            style: AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
+          ),
+        ],
+      ),
+    );
   }
 }
