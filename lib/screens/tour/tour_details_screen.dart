@@ -9,6 +9,8 @@ import 'package:tourmate_app/models/itinerary_model.dart';
 import 'package:tourmate_app/services/auth_service.dart';
 import 'package:tourmate_app/screens/booking/booking_screen.dart';
 import 'package:tourmate_app/screens/itinerary/itinerary_screen.dart';
+import 'package:tourmate_app/data/cebu_graph_data.dart';
+import 'package:tourmate_app/data/tour_spot_model.dart';
 import '../../utils/app_theme.dart';
 
 class TourDetailsScreen extends StatefulWidget {
@@ -21,29 +23,12 @@ class TourDetailsScreen extends StatefulWidget {
 }
 
 class _TourDetailsScreenState extends State<TourDetailsScreen> {
-  // Mock tour data - in real app, fetch based on tourId
-  TourModel tourData = TourModel(
-    id: '1',
-    title: 'Kawasan Falls Canyoneering',
-    description:
-        'Experience the thrill of jumping, swimming, and trekking through the stunning Kawasan Falls canyon. This adventure takes you through crystal-clear turquoise waters, natural rock formations, and breathtaking waterfalls.',
-    price: 2500.0,
-    category: ['Adventure'],
-    maxParticipants: 10,
-    currentParticipants: 0,
-    startTime: DateTime.now(),
-    endTime: DateTime.now(),
-    meetingPoint: 'Badian, Cebu',
-    mediaURL: ['kawasan1.jpg', 'kawasan2.jpg', 'kawasan3.jpg'],
-    createdBy: 'guide1',
-    shared: true,
-    itinerary: [],
-    status: 'published',
-    duration: 8,
-    languages: ['English'],
-    specializations: ['Hiking', 'Snorkeling'],
-  );
+  late TourModel tourData; // Changed from hardcoded to 'late'
+  bool isLoading = true;
+  TourSpot?
+      currentSpot; // Store the original spot data for highlights/inclusions
 
+  // Guide variables
   List<UserModel> guides = [];
   bool isLoadingGuides = false;
   UserModel? selectedGuide;
@@ -51,7 +36,90 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
   @override
   void initState() {
     super.initState();
+    _loadTourData(); // NEW: Load data dynamically
     _fetchGuides();
+  }
+
+  // LOGIC: Fetch the specific tour from our Mock Repo using the ID
+  void _loadTourData() {
+    // 1. Try to find the spot in our Repository
+    final spot = CebuGraphData.getSpotById(widget.tourId);
+
+    if (spot != null) {
+      // 2. Convert Repo Data (TourSpot) to UI Data (TourModel)
+      setState(() {
+        currentSpot = spot; // Store the spot for highlights/inclusions
+        tourData = TourModel(
+          id: spot.id,
+          title: spot.name, // Map 'name' to 'title'
+          description: spot.description,
+          // If price is 0 (like Heritage Tour), assume a base guide fee of 1500
+          price: (spot.entranceFee ?? 0) > 0
+              ? (spot.entranceFee ?? 0) + 1500.0
+              : 1500.0,
+          category: [spot.category.toString().split('.').last],
+          maxParticipants: 12,
+          currentParticipants: 0,
+          startTime: DateTime.now().add(const Duration(days: 1)),
+          endTime: DateTime.now().add(const Duration(days: 1, hours: 8)),
+          meetingPoint: '${spot.name} Entrance',
+          // Use the network image we added in Step 1
+          mediaURL: [
+            spot.imageUrl ??
+                'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?q=80&w=1000'
+          ],
+          createdBy: 'guide_1',
+          shared: true,
+          itinerary: [],
+          status: 'published',
+          duration: spot.estimatedDurationMinutes ~/ 60,
+          languages: ['English', 'Tagalog'],
+          specializations: ['Culture', 'History'],
+          highlights: spot.highlights ??
+              [
+                'Explore ${spot.name}',
+                'Learn about local culture',
+                'Enjoy scenic views'
+              ],
+        );
+        isLoading = false;
+      });
+    } else {
+      // Fallback if ID not found (Safety Net)
+      setState(() {
+        currentSpot = null;
+        tourData = TourModel(
+          id: '1',
+          title: 'Kawasan Falls (Default)',
+          description: 'Could not load tour details.',
+          price: 2500.0,
+          category: ['Adventure'],
+          maxParticipants: 12,
+          currentParticipants: 0,
+          startTime: DateTime.now(),
+          endTime: DateTime.now(),
+          meetingPoint: 'Cebu',
+          mediaURL: [
+            'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?q=80&w=1000'
+          ],
+          createdBy: 'guide1',
+          shared: true,
+          itinerary: [],
+          status: 'published',
+          duration: 8,
+          languages: ['English'],
+          specializations: ['Hiking'],
+          highlights: [
+            'Jump from heights up to 10 meters',
+            'Swim in natural pools',
+            'Trek through tropical canyon',
+            'Professional guide and safety equipment',
+            'Lunch included',
+          ],
+        );
+        isLoading = false;
+      });
+    }
   }
 
   Future<void> _fetchGuides() async {
@@ -169,20 +237,13 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
                 children: [
                   Container(
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          AppTheme.primaryColor.withOpacity(0.7),
-                          AppTheme.accentColor.withOpacity(0.7),
-                        ],
-                      ),
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.image,
-                        size: 100,
-                        color: Colors.white30,
+                      image: DecorationImage(
+                        image: tourData.mediaURL.first.startsWith('http')
+                            ? NetworkImage(tourData.mediaURL.first)
+                            : AssetImage(
+                                    'assets/images/${tourData.mediaURL.first}')
+                                as ImageProvider,
+                        fit: BoxFit.cover,
                       ),
                     ),
                   ),
@@ -415,31 +476,41 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
                   // Highlights
                   Text('Highlights', style: AppTheme.headlineSmall),
                   const SizedBox(height: 12),
-                  ...[
-                    'Jump from heights up to 10 meters',
-                    'Swim in natural pools',
-                    'Trek through tropical canyon',
-                    'Professional guide and safety equipment',
-                    'Lunch included',
-                  ].map<Widget>((highlight) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(
-                            Icons.check_circle,
-                            size: 20,
-                            color: AppTheme.successColor,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(highlight, style: AppTheme.bodyMedium),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
+                  Column(
+                    children: tourData.highlights.map((highlight) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF4CAF50).withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.check,
+                                size: 16,
+                                color: Color(0xFF4CAF50),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                highlight, // <--- THIS MUST BE DYNAMIC
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.black87,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
                   const SizedBox(height: 24),
                   // Itinerary Button
                   ElevatedButton(

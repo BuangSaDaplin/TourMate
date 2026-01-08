@@ -200,11 +200,24 @@ class CebuGraphData {
           'Experience swimming with gentle whale sharks in their natural habitat.',
       coordinate: GeoCoordinate(latitude: 9.4415, longitude: 123.2435),
       category: TourSpotCategory.natural,
-      imageUrl: 'assets/images/whale_shark.jpg',
+      imageUrl:
+          'https://images.unsplash.com/photo-1582967788606-a171f1080ca8?q=80&w=1000&auto=format&fit=crop',
       estimatedDurationMinutes: 120,
       isOpen: true,
       operatingHours: '06:00-11:00',
       entranceFee: 500,
+      highlights: [
+        'Swim with gentle whale sharks in their natural habitat',
+        'Snorkel in crystal clear waters',
+        'Safety briefing and professional guide included',
+        'Morning activity for best viewing experience',
+      ],
+      inclusions: [
+        'Boat ride to interaction area',
+        'Snorkeling gear (mask and snorkel)',
+        'Life vest',
+        'Local guide fee',
+      ],
     ),
     TourSpot(
       id: 'sumilon_bluewater',
@@ -218,6 +231,61 @@ class CebuGraphData {
       isOpen: true,
       operatingHours: '06:00-18:00',
       entranceFee: 150,
+    ),
+
+    // --- NEW DEMO SPOTS ---
+    TourSpot(
+      id: 'kawasan_falls',
+      name: 'Kawasan Falls Canyoneering',
+      description:
+          'Experience the thrill of jumping, swimming, and trekking through the stunning Kawasan Falls canyon.',
+      coordinate: GeoCoordinate(latitude: 9.8038, longitude: 123.3735),
+      category: TourSpotCategory.natural,
+      imageUrl:
+          'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?q=80&w=1000&auto=format&fit=crop',
+      estimatedDurationMinutes: 240,
+      isOpen: true,
+      operatingHours: '06:00-15:00',
+      entranceFee: 1500,
+    ),
+    TourSpot(
+      id: 'moalboal_sardines',
+      name: 'Moalboal Sardine Run',
+      description:
+          'Snorkel with millions of sardines in the world-famous sardine run just off the shore.',
+      coordinate: GeoCoordinate(latitude: 9.9546, longitude: 123.3999),
+      category: TourSpotCategory.natural,
+      imageUrl:
+          'https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=1000&auto=format&fit=crop',
+      estimatedDurationMinutes: 120,
+      isOpen: true,
+      operatingHours: '06:00-17:00',
+      entranceFee: 0,
+    ),
+    TourSpot(
+      id: 'bantayan_island',
+      name: 'Bantayan Island Paradise',
+      description:
+          'Pristine white sand beaches, crystal clear waters, and a relaxed island atmosphere.',
+      coordinate: GeoCoordinate(latitude: 11.1667, longitude: 123.7167),
+      category: TourSpotCategory.beach,
+      imageUrl:
+          'https://images.unsplash.com/photo-1602088113235-229c19758e9f?q=80&w=1000&auto=format&fit=crop',
+      estimatedDurationMinutes: 360,
+      isOpen: true,
+      operatingHours: '00:00-24:00',
+      entranceFee: 0,
+      highlights: [
+        'Pristine white sand beaches',
+        'Crystal clear turquoise waters',
+        'Relaxed island atmosphere',
+        'Perfect for swimming and sunbathing',
+      ],
+      inclusions: [
+        'Beach access',
+        'Sun loungers and umbrellas',
+        'Local island hopping tours available',
+      ],
     ),
   ];
 

@@ -45,6 +45,12 @@ class TourSpot {
   /// Entrance fee in PHP (null if free)
   final double? entranceFee;
 
+  /// Highlights of the tourist spot
+  final List<String>? highlights;
+
+  /// What's included in the tour/experience
+  final List<String>? inclusions;
+
   /// Creates a new [TourSpot] instance.
   const TourSpot({
     required this.id,
@@ -57,6 +63,8 @@ class TourSpot {
     this.isOpen = true,
     this.operatingHours,
     this.entranceFee,
+    this.highlights,
+    this.inclusions,
   });
 
   /// Creates a [TourSpot] from a Firestore document map.
@@ -77,6 +85,12 @@ class TourSpot {
       isOpen: map['isOpen'] as bool? ?? true,
       operatingHours: map['operatingHours'] as String?,
       entranceFee: map['entranceFee'] as double?,
+      highlights: map['highlights'] != null
+          ? List<String>.from(map['highlights'])
+          : null,
+      inclusions: map['inclusions'] != null
+          ? List<String>.from(map['inclusions'])
+          : null,
     );
   }
 
@@ -93,6 +107,8 @@ class TourSpot {
       'isOpen': isOpen,
       'operatingHours': operatingHours,
       'entranceFee': entranceFee,
+      'highlights': highlights,
+      'inclusions': inclusions,
     };
   }
 

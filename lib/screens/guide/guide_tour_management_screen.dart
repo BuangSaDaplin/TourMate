@@ -44,6 +44,13 @@ class _GuideTourManagementScreenState extends State<GuideTourManagementScreen> {
       duration: 8,
       languages: ['English'],
       specializations: ['Hiking', 'Snorkeling'],
+      highlights: [
+        'Jump from heights up to 10 meters',
+        'Swim in natural pools',
+        'Trek through tropical canyon',
+        'Professional guide and safety equipment',
+        'Lunch included',
+      ],
     ),
     TourModel(
       id: '2',
@@ -70,6 +77,13 @@ class _GuideTourManagementScreenState extends State<GuideTourManagementScreen> {
       duration: 4,
       languages: ['English', 'Cebuano'],
       specializations: ['History', 'Local Culture'],
+      highlights: [
+        'Visit Magellan\'s Cross',
+        'Explore Fort San Pedro',
+        'Discover Basilica del Santo Niño',
+        'Learn about Cebu\'s rich history',
+        'Professional guide included',
+      ],
     ),
   ];
 

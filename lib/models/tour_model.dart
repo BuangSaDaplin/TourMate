@@ -17,6 +17,7 @@ class TourModel {
   final int duration;
   final List<String> languages;
   final List<String> specializations;
+  final List<String> highlights;
 
   TourModel({
     required this.id,
@@ -37,6 +38,7 @@ class TourModel {
     required this.duration,
     required this.languages,
     required this.specializations,
+    required this.highlights,
   });
 
   factory TourModel.fromMap(Map<String, dynamic> data) {
@@ -61,6 +63,7 @@ class TourModel {
           : int.tryParse(data['duration']?.toString() ?? '0') ?? 0,
       languages: List<String>.from(data['languages'] ?? []),
       specializations: List<String>.from(data['specializations'] ?? []),
+      highlights: List<String>.from(data['highlights'] ?? []),
     );
   }
 
@@ -84,6 +87,7 @@ class TourModel {
       'duration': duration,
       'languages': languages,
       'specializations': specializations,
+      'highlights': highlights,
     };
   }
 
@@ -106,6 +110,7 @@ class TourModel {
     int? duration,
     List<String>? languages,
     List<String>? specializations,
+    List<String>? highlights,
   }) {
     return TourModel(
       id: id ?? this.id,
@@ -126,6 +131,7 @@ class TourModel {
       duration: duration ?? this.duration,
       languages: languages ?? this.languages,
       specializations: specializations ?? this.specializations,
+      highlights: highlights ?? this.highlights,
     );
   }
 }

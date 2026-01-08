@@ -609,6 +609,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           duration: duration,
           languages: _selectedLanguages,
           specializations: _selectedSpecializations,
+          highlights: [],
         );
         await _db.createTour(newTour);
         ScaffoldMessenger.of(context).showSnackBar(

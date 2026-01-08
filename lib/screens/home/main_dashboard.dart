@@ -33,31 +33,44 @@ class _MainDashboardState extends State<MainDashboard> {
     ];
   }
 
-  // Cebu-specific recommended tours
+  // Cebu-specific recommended tours with Real Network Images
   final List<Map<String, dynamic>> _recommendedTours = [
     {
-      'id': '1',
+      'id': 'kawasan_falls', // Matches cebu_graph_data.dart
       'title': 'Kawasan Falls Canyoneering',
       'location': 'Badian, Cebu',
       'price': 2500.0,
       'rating': 4.9,
-      'image': 'kawasan.jpg',
+      'image':
+          'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?q=80&w=1000&auto=format&fit=crop',
       'duration': '8 hours',
       'guide': 'Juan dela Cruz',
       'description':
-          'Experience the thrill of jumping, swimming, and trekking through the stunning Kawasan Falls canyon.',
+          'Experience the thrill of jumping, swimming, and trekking.',
     },
     {
-      'id': '2',
+      'id': 'oslob_whale_shark', // Matches cebu_graph_data.dart
       'title': 'Oslob Whale Shark Encounter',
       'location': 'Oslob, Cebu',
       'price': 3500.0,
       'rating': 4.8,
-      'image': 'whaleshark.jpg',
+      'image':
+          'https://images.unsplash.com/photo-1582967788606-a171f1080ca8?q=80&w=1000&auto=format&fit=crop',
       'duration': '10 hours',
       'guide': 'Maria Santos',
-      'description':
-          'Swim with gentle whale sharks in the crystal-clear waters of Oslob.',
+      'description': 'Swim with gentle whale sharks in crystal-clear waters.',
+    },
+    {
+      'id': 'moalboal_sardines', // Matches cebu_graph_data.dart
+      'title': 'Moalboal Sardine Run',
+      'location': 'Moalboal, Cebu',
+      'price': 1800.0,
+      'rating': 4.7,
+      'image':
+          'https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=1000&auto=format&fit=crop',
+      'duration': '4 hours',
+      'guide': 'Pedro Penduko',
+      'description': 'Snorkel with millions of sardines.',
     },
   ];
 
@@ -292,17 +305,30 @@ class _MainDashboardState extends State<MainDashboard> {
                                 borderRadius: const BorderRadius.vertical(
                                   top: Radius.circular(16),
                                 ),
+                                image: DecorationImage(
+                                  // Logic: If string starts with http, use NetworkImage, else use AssetImage
+                                  image: (tour['image'] as String)
+                                          .startsWith('http')
+                                      ? NetworkImage(tour['image'])
+                                      : AssetImage(
+                                              'assets/images/${tour['image']}')
+                                          as ImageProvider,
+                                  fit: BoxFit.cover,
+                                ),
                               ),
                               child: Stack(
                                 children: [
-                                  Center(
-                                    child: Icon(
-                                      Icons.image,
-                                      size: 60,
-                                      color: AppTheme.primaryColor
-                                          .withOpacity(0.5),
+                                  // Only show icon if using asset image (no network URL)
+                                  if (!(tour['image'] as String)
+                                      .startsWith('http'))
+                                    Center(
+                                      child: Icon(
+                                        Icons.image,
+                                        size: 60,
+                                        color: AppTheme.primaryColor
+                                            .withOpacity(0.5),
+                                      ),
                                     ),
-                                  ),
                                   Positioned(
                                     top: 12,
                                     right: 12,
