@@ -18,6 +18,13 @@ class _ToursManagementScreenState extends State<ToursManagementScreen> {
   List<TourModel> _tours = [];
   bool _isLoading = true;
 
+  final Map<String, String> _tabToStatus = {
+    'Pending': 'pending',
+    'Approved': 'active',
+    'Rejected': 'rejected',
+    'Suspended': 'suspended',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -44,7 +51,8 @@ class _ToursManagementScreenState extends State<ToursManagementScreen> {
 
   List<TourModel> get _filteredTours {
     if (_selectedFilter == 'All') return _tours;
-    return _tours.where((tour) => tour.status == _selectedFilter).toList();
+    final status = _tabToStatus[_selectedFilter] ?? _selectedFilter;
+    return _tours.where((tour) => tour.status == status).toList();
   }
 
   @override
@@ -62,6 +70,8 @@ class _ToursManagementScreenState extends State<ToursManagementScreen> {
               _buildFilterTab('Approved'),
               const SizedBox(width: 8),
               _buildFilterTab('Rejected'),
+              const SizedBox(width: 8),
+              _buildFilterTab('Suspended'),
             ],
           ),
         ),
@@ -288,12 +298,14 @@ class _ToursManagementScreenState extends State<ToursManagementScreen> {
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'Pending':
+      case 'pending':
         return AppTheme.accentColor;
-      case 'Approved':
+      case 'active':
         return AppTheme.successColor;
-      case 'Rejected':
+      case 'rejected':
         return AppTheme.errorColor;
+      case 'suspended':
+        return AppTheme.errorColor; // Using error color for suspended as well
       default:
         return AppTheme.textSecondary;
     }

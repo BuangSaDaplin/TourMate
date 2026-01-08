@@ -1,15 +1,7 @@
-# TODO: Make Recent Activity Functional in Tour Guide Dashboard
+# Admin Tour Moderation Screen Updates
 
 ## Tasks
-- [ ] Convert TourGuideDashboardTab to StatefulWidget
-- [ ] Add AuthService and DatabaseService dependencies
-- [ ] Create ActivityItem data model for activities
-- [ ] Implement fetchRecentActivities method
-- [ ] Update build method to display dynamic activities
-- [ ] Add loading and error states
-- [ ] Test the functionality
-
-## Completed
-- [x] Analyze current hardcoded implementation
-- [x] Understand data models and services available
-- [x] Create implementation plan
+- [x] Update `_buildTourModerationCard` to conditionally show buttons based on `tourData['moderationStatus']`
+- [x] Modify `_showModerationDialog` to handle 'reject', 'suspend', 'reactivate' actions, requiring reason only for 'reject'
+- [x] Update `_processModeration` to set correct statuses for 'reject' (to 'rejected') and 'reactivate' (to 'active')
+- [x] Adjust local state updates for new moderation statuses

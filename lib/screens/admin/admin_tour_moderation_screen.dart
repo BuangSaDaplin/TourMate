@@ -13,19 +13,19 @@ class AdminTourModerationScreen extends StatefulWidget {
       _AdminTourModerationScreenState();
 }
 
-class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
+class _AdminTourModerationScreenState extends State<AdminTourModerationScreen>
+    with TickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
-  String _selectedFilter = 'All';
+  late TabController _tabController;
   String _selectedSort = 'Newest';
   bool _isLoading = true;
   final DatabaseService _databaseService = DatabaseService();
 
-  final List<String> _filterOptions = [
-    'All',
-    'Pending Review',
+  final List<String> _tabLabels = [
+    'Pending',
     'Approved',
-    'Suspended',
-    'Reported'
+    'Rejected',
+    'Suspended'
   ];
   final List<String> _sortOptions = [
     'Newest',
@@ -36,10 +36,10 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
 
   List<Map<String, dynamic>> _toursForModeration = [];
 
-  List<Map<String, dynamic>> get _filteredTours {
+  List<Map<String, dynamic>> _filteredTours() {
     return _toursForModeration.where((tourData) {
-      final matchesFilter = _selectedFilter == 'All' ||
-          tourData['moderationStatus'] == _selectedFilter;
+      final matchesTab =
+          _getTabStatus(_tabController.index) == tourData['moderationStatus'];
       final matchesSearch = _searchController.text.isEmpty ||
           tourData['tour']
               .title
@@ -48,7 +48,7 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
           tourData['guideName']
               .toLowerCase()
               .contains(_searchController.text.toLowerCase());
-      return matchesFilter && matchesSearch;
+      return matchesTab && matchesSearch;
     }).toList()
       ..sort((a, b) {
         switch (_selectedSort) {
@@ -65,14 +65,32 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
       });
   }
 
+  String _getTabStatus(int tabIndex) {
+    switch (tabIndex) {
+      case 0:
+        return 'Pending';
+      case 1:
+        return 'Approved';
+      case 2:
+        return 'Rejected';
+      case 3:
+        return 'Suspended';
+      default:
+        return 'Pending';
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() => setState(() {}));
     _fetchToursForModeration();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -94,8 +112,10 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
           moderationStatus = 'Approved';
         } else if (tour.status == 'suspended') {
           moderationStatus = 'Suspended';
+        } else if (tour.status == 'rejected') {
+          moderationStatus = 'Rejected';
         } else {
-          moderationStatus = 'Pending Review';
+          moderationStatus = 'Pending';
         }
 
         moderationData.add({
@@ -147,7 +167,7 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '${_filteredTours.length} tours',
+                  '${_filteredTours().length} tours',
                   style: AppTheme.bodyMedium.copyWith(
                     color: AppTheme.accentColor,
                     fontWeight: FontWeight.w600,
@@ -163,7 +183,7 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
           ),
           const SizedBox(height: 32),
 
-          // Search and Filters
+          // Search and Sort
           Row(
             children: [
               Expanded(
@@ -177,30 +197,6 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
                     ),
                   ),
                   onChanged: (value) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppTheme.dividerColor),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: DropdownButton<String>(
-                  value: _selectedFilter,
-                  underline: Container(),
-                  items: _filterOptions.map((filter) {
-                    return DropdownMenuItem(
-                      value: filter,
-                      child: Text(filter),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _selectedFilter = value);
-                    }
-                  },
                 ),
               ),
               const SizedBox(width: 16),
@@ -229,15 +225,22 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+
+          // Tabs
+          TabBar(
+            controller: _tabController,
+            tabs: _tabLabels.map((label) => Tab(text: label)).toList(),
+          ),
           const SizedBox(height: 24),
 
           // Statistics Cards
           Row(
             children: [
               _buildStatCard(
-                  'Pending Review',
+                  'Pending',
                   _toursForModeration
-                      .where((t) => t['moderationStatus'] == 'Pending Review')
+                      .where((t) => t['moderationStatus'] == 'Pending')
                       .length,
                   Icons.pending,
                   AppTheme.accentColor),
@@ -251,18 +254,19 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
                   AppTheme.successColor),
               const SizedBox(width: 16),
               _buildStatCard(
-                  'Suspended',
+                  'Rejected',
                   _toursForModeration
-                      .where((t) => t['moderationStatus'] == 'Suspended')
+                      .where((t) => t['moderationStatus'] == 'Rejected')
                       .length,
                   Icons.block,
                   AppTheme.errorColor),
               const SizedBox(width: 16),
               _buildStatCard(
-                  'Total Reports',
-                  _toursForModeration.fold(
-                      0, (sum, t) => sum + (t['reports'] as int)),
-                  Icons.report,
+                  'Suspended',
+                  _toursForModeration
+                      .where((t) => t['moderationStatus'] == 'Suspended')
+                      .length,
+                  Icons.pause,
                   AppTheme.primaryColor),
             ],
           ),
@@ -272,13 +276,13 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _filteredTours.isEmpty
+                : _filteredTours().isEmpty
                     ? _buildEmptyState()
                     : ListView.builder(
-                        itemCount: _filteredTours.length,
+                        itemCount: _filteredTours().length,
                         itemBuilder: (context, index) {
                           return _buildTourModerationCard(
-                              _filteredTours[index]);
+                              _filteredTours()[index]);
                         },
                       ),
           ),
@@ -527,7 +531,7 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                if (tourData['moderationStatus'] == 'Pending Review')
+                if (tourData['moderationStatus'] == 'Pending') ...[
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () =>
@@ -540,30 +544,48 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
                       ),
                     ),
                   ),
-                if (tourData['moderationStatus'] == 'Pending Review')
                   const SizedBox(width: 12),
-                if (tourData['moderationStatus'] == 'Pending Review')
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () =>
-                          _showModerationDialog(context, tourData, 'suspend'),
+                          _showModerationDialog(context, tourData, 'reject'),
                       icon: const Icon(Icons.block),
-                      label: const Text('Suspend'),
+                      label: const Text('Reject'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.errorColor,
                         foregroundColor: Colors.white,
                       ),
                     ),
                   ),
-                if (tourData['moderationStatus'] != 'Pending Review')
+                ],
+                if (tourData['moderationStatus'] == 'Approved') ...[
                   Expanded(
-                    child: OutlinedButton.icon(
+                    child: ElevatedButton.icon(
                       onPressed: () =>
-                          _showModerationDialog(context, tourData, 'review'),
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Review Again'),
+                          _showModerationDialog(context, tourData, 'suspend'),
+                      icon: const Icon(Icons.pause),
+                      label: const Text('Suspend'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ),
+                ],
+                if (tourData['moderationStatus'] == 'Suspended') ...[
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _showModerationDialog(
+                          context, tourData, 'reactivate'),
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text('Reactivate'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.successColor,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ],
@@ -581,7 +603,7 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
         color = AppTheme.successColor;
         icon = Icons.check_circle;
         break;
-      case 'Suspended':
+      case 'Rejected':
         color = AppTheme.errorColor;
         icon = Icons.block;
         break;
@@ -766,27 +788,60 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
       BuildContext context, Map<String, dynamic> tourData, String action) {
     final TextEditingController reasonController = TextEditingController();
 
+    String title;
+    String confirmText;
+    String buttonText;
+    Color buttonColor;
+
+    switch (action) {
+      case 'approve':
+        title = 'Approve Tour';
+        confirmText = 'approve';
+        buttonText = 'Approve';
+        buttonColor = AppTheme.successColor;
+        break;
+      case 'reject':
+        title = 'Reject Tour';
+        confirmText = 'reject';
+        buttonText = 'Reject';
+        buttonColor = AppTheme.errorColor;
+        break;
+      case 'suspend':
+        title = 'Suspend Tour';
+        confirmText = 'suspend';
+        buttonText = 'Suspend';
+        buttonColor = AppTheme.primaryColor;
+        break;
+      case 'reactivate':
+        title = 'Reactivate Tour';
+        confirmText = 'reactivate';
+        buttonText = 'Reactivate';
+        buttonColor = AppTheme.successColor;
+        break;
+      default:
+        title = 'Review Tour';
+        confirmText = 'review';
+        buttonText = 'Review';
+        buttonColor = AppTheme.accentColor;
+    }
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text(action == 'approve'
-              ? 'Approve Tour'
-              : action == 'suspend'
-                  ? 'Suspend Tour'
-                  : 'Review Tour'),
+          title: Text(title),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Are you sure you want to ${action == 'approve' ? 'approve' : action == 'suspend' ? 'suspend' : 'review'} "${tourData['tour'].title}"?',
+                'Are you sure you want to $confirmText "${tourData['tour'].title}"?',
               ),
-              if (action == 'suspend') ...[
+              if (action == 'reject') ...[
                 const SizedBox(height: 16),
                 TextField(
                   controller: reasonController,
                   decoration: const InputDecoration(
-                    labelText: 'Suspension Reason (Required)',
+                    labelText: 'Rejection Reason (Required)',
                     border: OutlineInputBorder(),
                   ),
                   maxLines: 3,
@@ -805,15 +860,9 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
                 _processModeration(tourData, action, reasonController.text);
               },
               style: TextButton.styleFrom(
-                foregroundColor: action == 'approve'
-                    ? AppTheme.successColor
-                    : AppTheme.errorColor,
+                foregroundColor: buttonColor,
               ),
-              child: Text(action == 'approve'
-                  ? 'Approve'
-                  : action == 'suspend'
-                      ? 'Suspend'
-                      : 'Review'),
+              child: Text(buttonText),
             ),
           ],
         );
@@ -829,6 +878,8 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
 
       if (action == 'approve') {
         newStatus = 'active';
+      } else if (action == 'reject') {
+        newStatus = 'rejected';
       } else if (action == 'suspend') {
         newStatus = 'suspended';
       } else {
@@ -853,8 +904,11 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen> {
 
       // Update local state
       setState(() {
-        tourData['moderationStatus'] =
-            action == 'approve' ? 'Approved' : 'Suspended';
+        tourData['moderationStatus'] = action == 'approve'
+            ? 'Approved'
+            : action == 'suspend'
+                ? 'Suspended'
+                : 'Rejected';
         tourData['lastReviewed'] = DateTime.now();
       });
     } catch (e) {
