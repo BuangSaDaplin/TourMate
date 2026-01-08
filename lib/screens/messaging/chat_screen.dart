@@ -9,11 +9,13 @@ import '../../utils/app_theme.dart';
 class ChatScreen extends StatefulWidget {
   final ChatRoomModel chatRoom;
   final String currentUserId;
+  final bool isAdminMonitoring;
 
   const ChatScreen({
     super.key,
     required this.chatRoom,
     required this.currentUserId,
+    this.isAdminMonitoring = false,
   });
 
   @override
@@ -238,7 +240,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
 
-          // Message Input
+          // Message Input or Read-Only Indicator
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -251,47 +253,49 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ],
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: InputDecoration(
-                      hintText: 'Type a message...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
+            child: widget.isAdminMonitoring
+                ? _buildReadOnlyIndicator()
+                : Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _messageController,
+                          decoration: InputDecoration(
+                            hintText: 'Type a message...',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            fillColor: AppTheme.backgroundColor,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                          ),
+                          maxLines: null,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _sendMessage(),
+                          onChanged: (text) {
+                            setState(() {
+                              _isTyping = text.trim().isNotEmpty;
+                            });
+                          },
+                        ),
                       ),
-                      filled: true,
-                      fillColor: AppTheme.backgroundColor,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+                      const SizedBox(width: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: AppTheme.primaryGradient,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.send, color: Colors.white),
+                          onPressed: _sendMessage,
+                        ),
                       ),
-                    ),
-                    maxLines: null,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _sendMessage(),
-                    onChanged: (text) {
-                      setState(() {
-                        _isTyping = text.trim().isNotEmpty;
-                      });
-                    },
+                    ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: AppTheme.primaryGradient,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white),
-                    onPressed: _sendMessage,
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
@@ -442,6 +446,26 @@ class _ChatScreenState extends State<ChatScreen> {
     // Implement clear history functionality
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Clear history functionality coming soon')),
+    );
+  }
+
+  Widget _buildReadOnlyIndicator() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: Text(
+          'Read-Only View - Monitoring Mode',
+          style: AppTheme.bodyMedium.copyWith(
+            color: AppTheme.textSecondary,
+            fontWeight: FontWeight.w600,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      ),
     );
   }
 }

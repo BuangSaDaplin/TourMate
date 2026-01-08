@@ -9,10 +9,12 @@ class AdminMessagingMonitorScreen extends StatefulWidget {
   const AdminMessagingMonitorScreen({super.key});
 
   @override
-  State<AdminMessagingMonitorScreen> createState() => _AdminMessagingMonitorScreenState();
+  State<AdminMessagingMonitorScreen> createState() =>
+      _AdminMessagingMonitorScreenState();
 }
 
-class _AdminMessagingMonitorScreenState extends State<AdminMessagingMonitorScreen>
+class _AdminMessagingMonitorScreenState
+    extends State<AdminMessagingMonitorScreen>
     with SingleTickerProviderStateMixin {
   final DatabaseService _db = DatabaseService();
   late TabController _tabController;
@@ -158,7 +160,8 @@ class _AdminMessagingMonitorScreenState extends State<AdminMessagingMonitorScree
             .where((chat) =>
                 chat.isBlocked ||
                 (chat.lastMessageTime != null &&
-                 DateTime.now().difference(chat.lastMessageTime!).inDays > 7))
+                    DateTime.now().difference(chat.lastMessageTime!).inDays >
+                        7))
             .toList();
 
         if (issueChats.isEmpty) {
@@ -194,14 +197,16 @@ class _AdminMessagingMonitorScreenState extends State<AdminMessagingMonitorScree
         return ListView.builder(
           itemCount: issueChats.length,
           itemBuilder: (context, index) {
-            return _buildChatRoomCard(issueChats[index], showIssueIndicator: true);
+            return _buildChatRoomCard(issueChats[index],
+                showIssueIndicator: true);
           },
         );
       },
     );
   }
 
-  Widget _buildChatRoomCard(ChatRoomModel chatRoom, {bool showIssueIndicator = false}) {
+  Widget _buildChatRoomCard(ChatRoomModel chatRoom,
+      {bool showIssueIndicator = false}) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       elevation: 2,
@@ -226,7 +231,8 @@ class _AdminMessagingMonitorScreenState extends State<AdminMessagingMonitorScree
                   ),
                   if (showIssueIndicator)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.red.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
@@ -242,7 +248,8 @@ class _AdminMessagingMonitorScreenState extends State<AdminMessagingMonitorScree
                     ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: chatRoom.statusColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
@@ -300,7 +307,8 @@ class _AdminMessagingMonitorScreenState extends State<AdminMessagingMonitorScree
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                     ),
                   ),
                   PopupMenuButton<String>(
@@ -343,6 +351,7 @@ class _AdminMessagingMonitorScreenState extends State<AdminMessagingMonitorScree
         builder: (context) => ChatScreen(
           chatRoom: chatRoom,
           currentUserId: adminUserId,
+          isAdminMonitoring: true, // Enable read-only mode for admin monitoring
         ),
       ),
     );
@@ -390,7 +399,8 @@ class _AdminMessagingMonitorScreenState extends State<AdminMessagingMonitorScree
               Text('Participants: ${chatRoom.participants.length}'),
               Text('Created: ${_formatDateTime(chatRoom.createdAt)}'),
               if (chatRoom.lastMessageTime != null)
-                Text('Last Activity: ${_formatDateTime(chatRoom.lastMessageTime!)}'),
+                Text(
+                    'Last Activity: ${_formatDateTime(chatRoom.lastMessageTime!)}'),
             ],
           ),
         ),

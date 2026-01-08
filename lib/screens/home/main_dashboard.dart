@@ -8,6 +8,7 @@ import '../bookings/bookings_screen.dart';
 import '../favorites/favorites_screen.dart';
 import '../notifications/notification_screen.dart';
 import '../messaging/tourist_messages_screen.dart';
+import '../../widgets/auto_translated_text.dart';
 
 class MainDashboard extends StatefulWidget {
   const MainDashboard({super.key});
@@ -133,7 +134,7 @@ class _MainDashboardState extends State<MainDashboard> {
               },
               backgroundColor: AppTheme.buttonHighlight,
               icon: const Icon(Icons.calendar_today),
-              label: const Text('Book Now'),
+              label: const AutoTranslatedText('Book Now'),
             )
           : null,
       bottomNavigationBar: BottomNavigationBar(
@@ -223,11 +224,15 @@ class _MainDashboardState extends State<MainDashboard> {
               PopupMenuButton<String>(
                 icon: const Icon(Icons.language),
                 onSelected: (value) {
-                  // Handle language change
+                  if (value == 'tl') {
+                    isTagalogNotifier.value = true; // Switch to Tagalog
+                  } else {
+                    isTagalogNotifier.value = false; // Switch to English
+                  }
                 },
                 itemBuilder: (context) => [
                   const PopupMenuItem(value: 'en', child: Text('English')),
-                  const PopupMenuItem(value: 'ceb', child: Text('Cebuano')),
+                  // const PopupMenuItem(value: 'ceb', child: Text('Cebuano')), // Hide if not supported
                   const PopupMenuItem(value: 'tl', child: Text('Tagalog')),
                 ],
               ),
@@ -264,7 +269,7 @@ class _MainDashboardState extends State<MainDashboard> {
                 // Recommended Tours Carousel
                 Padding(
                   padding: const EdgeInsets.only(left: 16, bottom: 8),
-                  child: Text(
+                  child: AutoTranslatedText(
                     'Recommended Cebu Tours',
                     style: AppTheme.headlineSmall,
                   ),
@@ -428,7 +433,7 @@ class _MainDashboardState extends State<MainDashboard> {
                 // Categories
                 Padding(
                   padding: const EdgeInsets.only(left: 16, bottom: 16),
-                  child: Text(
+                  child: AutoTranslatedText(
                     'Explore Categories',
                     style: AppTheme.headlineSmall,
                   ),
@@ -470,7 +475,7 @@ class _MainDashboardState extends State<MainDashboard> {
                 // Nearby Destinations
                 Padding(
                   padding: const EdgeInsets.only(left: 16, bottom: 16),
-                  child: Text(
+                  child: AutoTranslatedText(
                     'Nearby Cebu Destinations',
                     style: AppTheme.headlineSmall,
                   ),
@@ -554,7 +559,7 @@ class _MainDashboardState extends State<MainDashboard> {
                 // Alternative Destinations
                 Padding(
                   padding: const EdgeInsets.only(left: 16, bottom: 16),
-                  child: Text(
+                  child: AutoTranslatedText(
                     'Alternative Cebu Destinations',
                     style: AppTheme.headlineSmall,
                   ),

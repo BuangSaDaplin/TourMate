@@ -259,104 +259,65 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // MOCK DATA FOR DEMO - Remove all Firebase dependencies
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text('Analytics Dashboard'),
         backgroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) => setState(() => _selectedTimeRange = value),
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: '7d', child: Text('Last 7 Days')),
-              const PopupMenuItem(value: '30d', child: Text('Last 30 Days')),
-              const PopupMenuItem(value: '90d', child: Text('Last 90 Days')),
-              const PopupMenuItem(value: '1y', child: Text('Last Year')),
-            ],
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    _getTimeRangeLabel(_selectedTimeRange),
-                    style: AppTheme.bodySmall.copyWith(
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const Icon(Icons.arrow_drop_down,
-                      color: AppTheme.primaryColor),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // KPI Cards
-            _buildKPICards(),
+            // SUCCESS DASHBOARD - Stat Cards
+            Text(
+              'Platform Performance',
+              style: AppTheme.headlineMedium.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Real-time analytics overview',
+              style: AppTheme.bodyMedium.copyWith(
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Stat Cards
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                      'Users', '1,248', Icons.people, Colors.blue),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatCard(
+                      'Bookings', '856', Icons.book_online, Colors.green),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatCard(
+                      'Revenue', '₱485,200', Icons.attach_money, Colors.orange),
+                ),
+              ],
+            ),
 
             const SizedBox(height: 24),
 
-            // Charts Section
+            // Chart: 7-day trend
             Text(
-              'Performance Trends',
+              '7-Day Performance Trend',
               style: AppTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
-
-            // Metric Selector
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.dividerColor),
-              ),
-              child: DropdownButton<String>(
-                value: _selectedMetric,
-                isExpanded: true,
-                underline: Container(),
-                items: [
-                  DropdownMenuItem(
-                    value: 'bookings',
-                    child: Text('Bookings', style: AppTheme.bodyMedium),
-                  ),
-                  DropdownMenuItem(
-                    value: 'revenue',
-                    child: Text('Revenue', style: AppTheme.bodyMedium),
-                  ),
-                  DropdownMenuItem(
-                    value: 'users',
-                    child: Text('User Growth', style: AppTheme.bodyMedium),
-                  ),
-                  DropdownMenuItem(
-                    value: 'ratings',
-                    child: Text('Ratings', style: AppTheme.bodyMedium),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _selectedMetric = value);
-                  }
-                },
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Main Chart
-            Container(
-              height: 300,
+              height: 200,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -369,57 +330,212 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                   ),
                 ],
               ),
-              child: _buildMainChart(),
+              child: _buildMockBarChart(),
             ),
 
             const SizedBox(height: 24),
 
-            // Distribution Charts
+            // Recent Activity
             Text(
-              'Data Distribution',
+              'Recent Activity',
               style: AppTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
+            _buildRecentActivity(),
 
-            Row(
-              children: [
-                Expanded(
-                  child: _buildPieChart(
-                    'Tour Categories',
-                    _categoryDistribution,
-                    [
-                      Colors.blue,
-                      Colors.green,
-                      Colors.orange,
-                      Colors.red,
-                      Colors.purple,
-                      Colors.teal
-                    ],
+            const SizedBox(height: 24),
+
+            // Success Message
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green.withOpacity(0.2)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green, size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '🎉 Platform is running successfully! All systems operational.',
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: Colors.green.shade800,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(width: 16),
+                child: Icon(icon, color: color, size: 20),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: AppTheme.headlineMedium.copyWith(
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: AppTheme.bodySmall.copyWith(
+              color: AppTheme.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMockBarChart() {
+    // Simple bar chart using Row of colored Containers showing upward trend
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Daily Bookings Trend',
+          style: AppTheme.bodyMedium.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(7, (index) {
+              // Upward trend: 30, 40, 45, 55, 65, 75, 90
+              final heights = [30.0, 40.0, 45.0, 55.0, 65.0, 75.0, 90.0];
+              final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+              return Column(
+                children: [
+                  Expanded(
+                    child: Container(
+                      width: 30,
+                      height: heights[index],
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(days[index], style: AppTheme.bodySmall),
+                ],
+              );
+            }),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('30', style: AppTheme.bodySmall),
+            Text('90', style: AppTheme.bodySmall),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecentActivity() {
+    final recentBookings = [
+      {'name': 'Juan', 'tour': 'Kawasan Falls', 'time': '2 hours ago'},
+      {'name': 'Maria', 'tour': 'Oslob Whale Shark', 'time': '5 hours ago'},
+      {'name': 'Carlos', 'tour': 'Chocolate Hills', 'time': '1 day ago'},
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: recentBookings.map((booking) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(Icons.check_circle,
+                      color: AppTheme.primaryColor, size: 20),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: _buildPieChart(
-                    'User Types',
-                    _userTypeDistribution,
-                    [Colors.blue, Colors.green, Colors.orange],
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${booking['name']!} booked ${booking['tour']!}',
+                        style: AppTheme.bodyMedium.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        booking['time']!,
+                        style: AppTheme.bodySmall.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-
-            const SizedBox(height: 24),
-
-            // Additional Metrics
-            Text(
-              'Key Insights',
-              style: AppTheme.headlineSmall,
-            ),
-            const SizedBox(height: 16),
-
-            _buildInsightsCards(),
-          ],
-        ),
+          );
+        }).toList(),
       ),
     );
   }

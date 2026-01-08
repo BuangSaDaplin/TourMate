@@ -6,6 +6,7 @@ import '../guide/bookings_management_screen.dart';
 import '../guide/messages_screen.dart';
 import '../guide/tour_guide_profile_screen.dart';
 import '../guide/tour_guide_notifications_screen.dart';
+import '../../widgets/auto_translated_text.dart';
 
 class TourGuideMainDashboard extends StatefulWidget {
   const TourGuideMainDashboard({super.key});
@@ -44,7 +45,7 @@ class _TourGuideMainDashboardState extends State<TourGuideMainDashboard> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: Text(_titles[_selectedIndex]),
+        title: AutoTranslatedText(_titles[_selectedIndex]),
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: AppTheme.primaryColor,
@@ -63,11 +64,15 @@ class _TourGuideMainDashboardState extends State<TourGuideMainDashboard> {
           PopupMenuButton<String>(
             icon: const Icon(Icons.language),
             onSelected: (value) {
-              // Handle language change
+              if (value == 'tl') {
+                isTagalogNotifier.value = true; // Switch to Tagalog
+              } else {
+                isTagalogNotifier.value = false; // Switch to English
+              }
             },
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'en', child: Text('English')),
-              const PopupMenuItem(value: 'ceb', child: Text('Cebuano')),
+              // const PopupMenuItem(value: 'ceb', child: Text('Cebuano')), // Hide if not supported
               const PopupMenuItem(value: 'tl', child: Text('Tagalog')),
             ],
           ),
