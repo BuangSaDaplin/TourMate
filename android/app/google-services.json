@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "333895864153",
+    "firebase_url": "https://tourmate-bd9e8-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "tourmate-bd9e8",
+    "storage_bucket": "tourmate-bd9e8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:333895864153:android:4c595e9b80321a49bb8648",
+        "android_client_info": {
+          "package_name": "com.example.tourmate_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "333895864153-d7l4a8he87lubjhvqgg5magkjag9vg6a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDi_WWSTXU_oXIIaCxbdHmvOMShvrsS3lE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "333895864153-d7l4a8he87lubjhvqgg5magkjag9vg6a.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

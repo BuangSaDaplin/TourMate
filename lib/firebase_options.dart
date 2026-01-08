@@ -21,15 +21,9 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for android - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for macos - '
@@ -55,6 +49,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '333895864153',
     projectId: 'tourmate-bd9e8',
     authDomain: 'tourmate-bd9e8.firebaseapp.com',
+    databaseURL: 'https://tourmate-bd9e8-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'tourmate-bd9e8.firebasestorage.app',
     measurementId: 'G-BWKYF8VL8C',
   );
@@ -65,7 +60,29 @@ class DefaultFirebaseOptions {
     messagingSenderId: '333895864153',
     projectId: 'tourmate-bd9e8',
     authDomain: 'tourmate-bd9e8.firebaseapp.com',
+    databaseURL: 'https://tourmate-bd9e8-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'tourmate-bd9e8.firebasestorage.app',
     measurementId: 'G-BTBJYMQ2LG',
   );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyBQ1KSwSc5soaDrvte2RyaELBt9_CumwjY',
+    appId: '1:333895864153:ios:f688fa18e260e223bb8648',
+    messagingSenderId: '333895864153',
+    projectId: 'tourmate-bd9e8',
+    databaseURL: 'https://tourmate-bd9e8-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'tourmate-bd9e8.firebasestorage.app',
+    iosClientId: '333895864153-9f2hromj2pvl2ohoahafk9214f68dk5f.apps.googleusercontent.com',
+    iosBundleId: 'com.example.tourmateApp',
+  );
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyDi_WWSTXU_oXIIaCxbdHmvOMShvrsS3lE',
+    appId: '1:333895864153:android:4c595e9b80321a49bb8648',
+    messagingSenderId: '333895864153',
+    projectId: 'tourmate-bd9e8',
+    databaseURL: 'https://tourmate-bd9e8-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'tourmate-bd9e8.firebasestorage.app',
+  );
+
 }
