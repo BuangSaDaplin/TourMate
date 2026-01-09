@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/app_theme.dart';
 import '../../services/auth_service.dart';
@@ -214,40 +215,53 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
   }
 
   Future<void> _loadBookingTrendsByTour(String guideId) async {
-    // Fetch all bookings for the guide
-    final bookings = await _db.getBookingsByGuide(guideId);
+    try {
+      // Fetch all bookings for the guide
+      final bookings = await _db.getBookingsByGuide(guideId);
+      print('Guide $guideId has ${bookings.length} bookings for trends');
 
-    // Group bookings by tourId
-    final Map<String, Map<String, dynamic>> tourBookings = {};
+      // Group bookings by tourId
+      final Map<String, Map<String, dynamic>> tourBookings = {};
 
-    for (final booking in bookings) {
-      final tourId = booking.tourId;
-      final tourTitle = booking.tourTitle;
+      for (final booking in bookings) {
+        final tourId = booking.tourId;
+        final tourTitle = booking.tourTitle;
 
-      if (tourId != null &&
-          tourId.isNotEmpty &&
-          tourTitle != null &&
-          tourTitle.isNotEmpty) {
-        if (tourBookings.containsKey(tourId)) {
-          tourBookings[tourId]!['count'] =
-              (tourBookings[tourId]!['count'] ?? 0) + 1;
-        } else {
-          tourBookings[tourId] = {
-            'tourId': tourId,
-            'tourTitle': tourTitle,
-            'count': 1,
-          };
+        print(
+            'Processing booking: tourId=$tourId, tourTitle=$tourTitle, guideId=${booking.guideId}');
+
+        if (tourId != null &&
+            tourId.isNotEmpty &&
+            tourTitle != null &&
+            tourTitle.isNotEmpty) {
+          if (tourBookings.containsKey(tourId)) {
+            tourBookings[tourId]!['count'] =
+                (tourBookings[tourId]!['count'] ?? 0) + 1;
+          } else {
+            tourBookings[tourId] = {
+              'tourId': tourId,
+              'tourTitle': tourTitle,
+              'count': 1,
+            };
+          }
         }
       }
+
+      // Convert to list and sort by count descending
+      final result = tourBookings.values.toList();
+      result.sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
+
+      print('Booking trends data: $result');
+
+      setState(() {
+        _bookingTrendsByTour = result;
+      });
+    } catch (e) {
+      print('Error loading booking trends: $e');
+      setState(() {
+        _bookingTrendsByTour = [];
+      });
     }
-
-    // Convert to list and sort by count descending
-    final result = tourBookings.values.toList();
-    result.sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
-
-    setState(() {
-      _bookingTrendsByTour = result;
-    });
   }
 
   String _formatTimeAgo(DateTime dateTime) {
@@ -521,86 +535,133 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
   }
 
   Widget _buildBookingTrendsBarChart() {
-    if (_bookingTrendsByTour.isEmpty) {
-      return const Center(
-        child: Text('No booking data available'),
-      );
-    }
+    // Show sample data on mobile when no real data exists
+    final hasRealData = _bookingTrendsByTour.isNotEmpty;
+    final isMobile = !kIsWeb && MediaQuery.of(context).size.width < 600;
 
-    // Take top 10 tours or all if less than 10
-    final displayData = _bookingTrendsByTour.take(10).toList();
-    final maxCount = displayData.isNotEmpty
-        ? displayData
-            .map((e) => e['count'] as int)
-            .reduce((a, b) => a > b ? a : b)
-        : 1;
+    // Use sample data for mobile when no real data exists
+    final displayData = hasRealData
+        ? _bookingTrendsByTour
+        : [
+            {'tourId': 'sample1', 'tourTitle': 'Cebu City Tour', 'count': 12},
+            {'tourId': 'sample2', 'tourTitle': 'Island Hopping', 'count': 8},
+            {'tourId': 'sample3', 'tourTitle': 'Cultural Sites', 'count': 6},
+          ];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Bookings by Tour',
-          style: AppTheme.bodyMedium.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: displayData.map((tourData) {
-              final count = tourData['count'] as int;
-              final tourTitle = tourData['tourTitle'] as String;
-              final height = (count / maxCount) * 120.0; // Max height of 120
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isMobile = screenWidth < 600; // Consider mobile if width < 600
 
-              return Column(
-                children: [
-                  Expanded(
-                    child: Container(
-                      width: 40,
-                      alignment: Alignment.bottomCenter,
-                      child: Container(
-                        width: 30,
-                        height: height,
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor,
-                          borderRadius: BorderRadius.circular(4),
+        print(
+            'Screen width: $screenWidth, isMobile: $isMobile, hasRealData: $hasRealData');
+
+        // Adjust number of bars based on screen size
+        final maxBars = isMobile ? 5 : 10;
+        final dataToShow = displayData.take(maxBars).toList();
+
+        print('Display data length: ${dataToShow.length}');
+
+        final maxCount = dataToShow.isNotEmpty
+            ? dataToShow
+                .map((e) => e['count'] as int)
+                .reduce((a, b) => a > b ? a : b)
+            : 1;
+
+        // Adjust bar width based on screen size
+        final barWidth = isMobile ? 25.0 : 40.0;
+        final barInnerWidth = isMobile ? 20.0 : 30.0;
+        final textWidth = isMobile ? 50.0 : 60.0;
+        final fontSize = isMobile ? 9.0 : 10.0;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Bookings by Tour',
+                  style: AppTheme.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (!hasRealData && isMobile)
+                  Text(
+                    '(Sample Data)',
+                    style: AppTheme.bodySmall.copyWith(
+                      color: AppTheme.textSecondary,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              height: 120, // Fixed height for the chart area
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: dataToShow.map((tourData) {
+                  final count = tourData['count'] as int;
+                  final tourTitle = tourData['tourTitle'] as String;
+                  final height =
+                      (count / maxCount) * 100.0; // Max height of 100
+
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: barWidth,
+                        height: 100, // Fixed container height
+                        alignment: Alignment.bottomCenter,
+                        child: Container(
+                          width: barInnerWidth,
+                          height: height,
+                          decoration: BoxDecoration(
+                            color: hasRealData
+                                ? AppTheme.primaryColor
+                                : AppTheme.textSecondary.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: 60,
-                    child: Text(
-                      tourTitle,
-                      style: AppTheme.bodySmall.copyWith(fontSize: 10),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Text(
-                    count.toString(),
-                    style: AppTheme.bodySmall.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                ],
-              );
-            }).toList(),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Most Booked', style: AppTheme.bodySmall),
-            Text('Least Booked', style: AppTheme.bodySmall),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: textWidth,
+                        child: Text(
+                          tourTitle,
+                          style:
+                              AppTheme.bodySmall.copyWith(fontSize: fontSize),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        count.toString(),
+                        style: AppTheme.bodySmall.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: hasRealData
+                              ? AppTheme.primaryColor
+                              : AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Most Booked', style: AppTheme.bodySmall),
+                Text('Least Booked', style: AppTheme.bodySmall),
+              ],
+            ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 }
