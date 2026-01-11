@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/database_service.dart';
@@ -214,40 +213,41 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
   }
 
   Future<void> _loadBookingTrendsByTour(String guideId) async {
-    // Fetch all bookings for the guide
-    final bookings = await _db.getBookingsByGuide(guideId);
+    try {
+      // Fetch bookings for this guide
+      final bookings = await _db.getBookingsByGuide(guideId);
 
-    // Group bookings by tourId
-    final Map<String, Map<String, dynamic>> tourBookings = {};
+      // Group bookings by tour title
+      final Map<String, Map<String, dynamic>> tourBookings = {};
 
-    for (final booking in bookings) {
-      final tourId = booking.tourId;
-      final tourTitle = booking.tourTitle;
-
-      if (tourId != null &&
-          tourId.isNotEmpty &&
-          tourTitle != null &&
-          tourTitle.isNotEmpty) {
-        if (tourBookings.containsKey(tourId)) {
-          tourBookings[tourId]!['count'] =
-              (tourBookings[tourId]!['count'] ?? 0) + 1;
-        } else {
-          tourBookings[tourId] = {
-            'tourId': tourId,
-            'tourTitle': tourTitle,
-            'count': 1,
-          };
+      for (final booking in bookings) {
+        final tourTitle = booking.tourTitle;
+        if (tourTitle.isNotEmpty) {
+          if (tourBookings.containsKey(tourTitle)) {
+            tourBookings[tourTitle]!['count'] =
+                (tourBookings[tourTitle]!['count'] ?? 0) + 1;
+          } else {
+            tourBookings[tourTitle] = {
+              'tourTitle': tourTitle,
+              'count': 1,
+            };
+          }
         }
       }
+
+      // Convert to list and sort by count descending
+      final result = tourBookings.values.toList();
+      result.sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
+
+      setState(() {
+        _bookingTrendsByTour = result;
+      });
+    } catch (e) {
+      print('Error loading booking trends by tour: $e');
+      setState(() {
+        _bookingTrendsByTour = [];
+      });
     }
-
-    // Convert to list and sort by count descending
-    final result = tourBookings.values.toList();
-    result.sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
-
-    setState(() {
-      _bookingTrendsByTour = result;
-    });
   }
 
   String _formatTimeAgo(DateTime dateTime) {
@@ -515,6 +515,41 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildBookingTrends() {
+    final trends = [
+      {'name': 'Kawasan Falls Canyoonering', 'rating': '4.9'},
+      {'name': 'Oslob Whale Shark Encounter', 'rating': '4.8'},
+      {'name': 'Sumilon Island Snorkeling', 'rating': '4.7'},
+      {'name': 'Chocolate Hills Adventure', 'rating': '4.6'},
+      {'name': 'Bohol Countryside Tour', 'rating': '4.5'},
+    ];
+
+    return trends
+        .map(
+            (trend) => _buildBookingTrendItem(trend['name']!, trend['rating']!))
+        .toList();
+  }
+
+  Widget _buildBookingTrendItem(String tourName, String rating) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: AppTheme.cardDecoration,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(tourName, style: AppTheme.bodyMedium),
+          ),
+          Icon(Icons.star, color: Colors.amber, size: 16),
+          const SizedBox(width: 4),
+          Text(rating,
+              style:
+                  AppTheme.bodyMedium.copyWith(color: AppTheme.textSecondary)),
         ],
       ),
     );
