@@ -31,7 +31,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders["com.google.android.geo.API_KEY"] = "AIzaSyDi_WWSTXU_oXIIaCxbdHmvOMShvrsS3lE"
+        manifestPlaceholders["com.google.android.geo.API_KEY"] = "AIzaSyA7o0OenLGu9XHaO7g1_SOu_Wm41tHMgHE"
     }
 
     buildTypes {
