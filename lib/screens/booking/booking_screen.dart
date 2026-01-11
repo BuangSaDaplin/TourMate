@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tourmate_app/models/tour_model.dart';
+import 'package:tourmate_app/models/user_model.dart';
 import 'package:tourmate_app/services/auth_service.dart';
 import 'package:tourmate_app/services/database_service.dart';
 import 'package:tourmate_app/services/notification_service.dart';
 import 'package:tourmate_app/models/booking_model.dart';
 import 'package:tourmate_app/screens/bookings/bookings_screen.dart';
+import 'package:tourmate_app/screens/tour/tour_details_screen.dart';
 import '../../utils/app_theme.dart';
 
 class BookingScreen extends StatefulWidget {
-  final TourModel tour;
+  final TourModel? tour;
+  final DateTime? initialDate;
 
-  const BookingScreen({super.key, required this.tour});
+  const BookingScreen({super.key, this.tour, this.initialDate});
 
   @override
   State<BookingScreen> createState() => _BookingScreenState();
@@ -22,6 +26,90 @@ class _BookingScreenState extends State<BookingScreen> {
   final DatabaseService _db = DatabaseService();
   final NotificationService _notificationService = NotificationService();
   final _formKey = GlobalKey<FormState>();
+
+  // User data
+  UserModel? currentUser;
+  bool isLoadingUser = true;
+
+  // Guide selection
+  List<UserModel> guides = [];
+  bool isLoadingGuides = false;
+  UserModel? selectedGuide;
+
+  // Tour selection
+  TourModel? selectedTour;
+  final TextEditingController _searchController = TextEditingController();
+  List<TourModel> _filteredTours = [];
+
+  // Mock tour data for selection
+  final List<TourModel> _availableTours = [
+    TourModel(
+        id: '1',
+        title: 'Kawasan Falls Canyoneering Adventure',
+        description:
+            'Experience the thrill of canyoneering at one of Cebu\'s most beautiful waterfalls. Navigate through crystal-clear waters, natural rock formations, and breathtaking landscapes.',
+        price: 2500.0,
+        category: ['Adventure', 'Water Sports'],
+        maxParticipants: 12,
+        currentParticipants: 0,
+        startTime: DateTime(2024, 12, 15, 8, 0),
+        endTime: DateTime(2024, 12, 15, 17, 0),
+        meetingPoint: 'Kawasan Falls Entrance, Badian, Cebu',
+        mediaURL: ['kawasan_falls.jpg'],
+        createdBy: 'guide1',
+        shared: false,
+        itinerary: [
+          {'time': '8:00 AM', 'activity': 'Meeting point and safety briefing'},
+          {'time': '9:00 AM', 'activity': 'Begin canyoneering descent'},
+          {'time': '12:00 PM', 'activity': 'Lunch break at waterfall base'},
+          {'time': '1:00 PM', 'activity': 'Continue exploration'},
+          {'time': '4:00 PM', 'activity': 'Return journey'},
+          {'time': '5:00 PM', 'activity': 'End of tour'}
+        ],
+        status: 'active',
+        duration: 8,
+        languages: ['English', 'Filipino'],
+        specializations: ['Canyoneering', 'Water Safety'],
+        highlights: [
+          'Crystal clear waters',
+          'Natural rock formations',
+          'Professional guides',
+          'Safety equipment provided'
+        ]),
+    TourModel(
+        id: '2',
+        title: 'Cebu City Historical Walking Tour',
+        description:
+            'Discover the rich history and culture of Cebu City through a guided walking tour of its most significant landmarks and heritage sites.',
+        price: 800.0,
+        category: ['Cultural', 'Historical'],
+        maxParticipants: 15,
+        currentParticipants: 0,
+        startTime: DateTime(2024, 12, 20, 9, 0),
+        endTime: DateTime(2024, 12, 20, 13, 0),
+        meetingPoint: 'Magellan\'s Cross, Cebu City',
+        mediaURL: ['cebu_city_tour.jpg'],
+        createdBy: 'guide2',
+        shared: false,
+        itinerary: [
+          {'time': '9:00 AM', 'activity': 'Start at Magellan\'s Cross'},
+          {'time': '9:30 AM', 'activity': 'Visit Fort San Pedro'},
+          {'time': '10:30 AM', 'activity': 'Explore Basilica del Santo Niño'},
+          {'time': '11:30 AM', 'activity': 'Walk through Parian district'},
+          {'time': '12:30 PM', 'activity': 'Visit Taoist Temple'},
+          {'time': '1:00 PM', 'activity': 'End of tour'}
+        ],
+        status: 'active',
+        duration: 4,
+        languages: ['English', 'Filipino'],
+        specializations: ['History', 'Culture'],
+        highlights: [
+          'Historical landmarks',
+          'Cultural insights',
+          'Local stories',
+          'Photo opportunities'
+        ]),
+  ];
 
   // Booking details
   int _numberOfParticipants = 1;
@@ -35,11 +123,15 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedDate = widget.tour.startTime;
+    selectedTour = widget.tour;
+    _selectedDate = widget.initialDate ?? selectedTour?.startTime;
+    _filteredTours = List.from(_availableTours);
     // Initialize participant name controllers
     for (int i = 0; i < _numberOfParticipants; i++) {
       _participantControllers.add(TextEditingController());
     }
+    _fetchCurrentUser();
+    _fetchGuides();
   }
 
   @override
@@ -48,7 +140,56 @@ class _BookingScreenState extends State<BookingScreen> {
       controller.dispose();
     }
     _contactController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchCurrentUser() async {
+    try {
+      final user = _authService.getCurrentUser();
+      if (user != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        if (userDoc.exists) {
+          setState(() {
+            currentUser = UserModel.fromFirestore(userDoc.data()!);
+            isLoadingUser = false;
+          });
+        }
+      }
+    } catch (e) {
+      setState(() {
+        isLoadingUser = false;
+      });
+      print('Error fetching current user: $e');
+    }
+  }
+
+  Future<void> _fetchGuides() async {
+    setState(() {
+      isLoadingGuides = true;
+    });
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'guide')
+          .get();
+
+      setState(() {
+        guides = snapshot.docs
+            .map((doc) => UserModel.fromFirestore(doc.data()))
+            .toList();
+        isLoadingGuides = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoadingGuides = false;
+      });
+      print('Error fetching guides: $e');
+    }
   }
 
   void _updateParticipantControllers(int newCount) {
@@ -66,7 +207,7 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
-  double get _totalPrice => widget.tour.price * _numberOfParticipants;
+  double get _totalPrice => (selectedTour?.price ?? 0) * _numberOfParticipants;
   double get _serviceFee => _totalPrice * 0.05; // 5% service fee
   double get _finalTotal => _totalPrice + _serviceFee;
 
@@ -86,8 +227,13 @@ class _BookingScreenState extends State<BookingScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Tour Summary Card
-              _buildTourSummaryCard(),
+              // Select Tour
+              _buildSelectTourSection(),
+
+              const SizedBox(height: 24),
+
+              // Select Guide
+              _buildSelectGuideSection(),
 
               const SizedBox(height: 24),
 
@@ -125,91 +271,500 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
-  Widget _buildTourSummaryCard() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    image: DecorationImage(
-                      image: AssetImage(
-                          'assets/images/${widget.tour.mediaURL.isNotEmpty ? widget.tour.mediaURL[0] : 'default_tour.jpg'}'),
-                      fit: BoxFit.cover,
+  void _showTourSelectionDialog() {
+    final TextEditingController searchController = TextEditingController();
+    List<TourModel> filteredTours = List.from(_availableTours);
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, dialogSetState) {
+            void updateFilteredTours(String query) {
+              dialogSetState(() {
+                filteredTours = _availableTours.where((tour) {
+                  return tour.title
+                          .toLowerCase()
+                          .contains(query.toLowerCase()) ||
+                      tour.description
+                          .toLowerCase()
+                          .contains(query.toLowerCase()) ||
+                      tour.category.any((cat) =>
+                          cat.toLowerCase().contains(query.toLowerCase()));
+                }).toList();
+              });
+            }
+
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Container(
+                width: double.maxFinite,
+                height: MediaQuery.of(context).size.height * 0.8,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Select a Tour',
+                          style: AppTheme.headlineMedium,
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search tours...',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey[100],
+                      ),
+                      onChanged: updateFilteredTours,
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: filteredTours.length,
+                        itemBuilder: (context, index) {
+                          final tour = filteredTours[index];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: InkWell(
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                // Use the main screen's setState, not the dialog's
+                                if (mounted) {
+                                  setState(() {
+                                    selectedTour = tour;
+                                  });
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            tour.title,
+                                            style:
+                                                AppTheme.headlineSmall.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    TourDetailsScreen(
+                                                        tourId: tour.id),
+                                              ),
+                                            );
+                                          },
+                                          child: const Text('View Details'),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Icon(Icons.calendar_today,
+                                            size: 16,
+                                            color: AppTheme.textSecondary),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${tour.startTime.day}/${tour.startTime.month}/${tour.startTime.year}',
+                                          style: AppTheme.bodySmall,
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Icon(Icons.location_on,
+                                            size: 16,
+                                            color: AppTheme.textSecondary),
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                          child: Text(
+                                            tour.meetingPoint,
+                                            style: AppTheme.bodySmall,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        _buildInfoChip(
+                                            '${tour.maxParticipants} max',
+                                            Icons.people),
+                                        const SizedBox(width: 8),
+                                        _buildInfoChip(
+                                          tour.category.isNotEmpty
+                                              ? tour.category[0]
+                                              : 'No Category',
+                                          Icons.category,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _buildInfoChip('${tour.duration} hours',
+                                            Icons.schedule),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSelectTourSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Select a Tour', style: AppTheme.headlineSmall),
+        const SizedBox(height: 16),
+        if (selectedTour == null)
+          InkWell(
+            onTap: _showTourSelectionDialog,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(color: AppTheme.dividerColor),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.search, color: AppTheme.primaryColor),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Select a Tour',
+                    style: AppTheme.bodyLarge,
+                  ),
+                  const Spacer(),
+                  Icon(Icons.arrow_forward_ios,
+                      size: 16, color: AppTheme.textSecondary),
+                ],
+              ),
+            ),
+          )
+        else
+          Card(
+            elevation: 4,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Text(
-                        widget.tour.title,
-                        style: AppTheme.headlineSmall
-                            .copyWith(fontWeight: FontWeight.w600),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.calendar_today,
-                              size: 16, color: AppTheme.textSecondary),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${widget.tour.startTime.day}/${widget.tour.startTime.month}/${widget.tour.startTime.year}',
-                            style: AppTheme.bodySmall,
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          image: DecorationImage(
+                            image: AssetImage(
+                                'assets/images/${selectedTour!.mediaURL.isNotEmpty ? selectedTour!.mediaURL[0] : 'default_tour.jpg'}'),
+                            fit: BoxFit.cover,
                           ),
-                        ],
+                        ),
                       ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Icon(Icons.location_on,
-                              size: 16, color: AppTheme.textSecondary),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              widget.tour.meetingPoint,
-                              style: AppTheme.bodySmall,
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              selectedTour!.title,
+                              style: AppTheme.headlineSmall
+                                  .copyWith(fontWeight: FontWeight.w600),
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(Icons.calendar_today,
+                                    size: 16, color: AppTheme.textSecondary),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${selectedTour!.startTime.day}/${selectedTour!.startTime.month}/${selectedTour!.startTime.year}',
+                                  style: AppTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Icon(Icons.location_on,
+                                    size: 16, color: AppTheme.textSecondary),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    selectedTour!.meetingPoint,
+                                    style: AppTheme.bodySmall,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Column(
+                        children: [
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => TourDetailsScreen(
+                                      tourId: selectedTour!.id),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppTheme.primaryColor,
+                              side: BorderSide(color: AppTheme.primaryColor),
+                            ),
+                            child: const Text('View Details'),
+                          ),
+                          const SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: _showTourSelectionDialog,
+                            child: const Text('Select Tour'),
                           ),
                         ],
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      _buildInfoChip(
+                          '${selectedTour!.maxParticipants} max', Icons.people),
+                      const SizedBox(width: 8),
+                      _buildInfoChip(
+                          selectedTour!.category.isNotEmpty
+                              ? selectedTour!.category[0]
+                              : 'No Category',
+                          Icons.category),
+                      const SizedBox(width: 8),
+                      _buildInfoChip(
+                          '${selectedTour!.duration} hours', Icons.schedule),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                _buildInfoChip(
-                    '${widget.tour.maxParticipants} max', Icons.people),
-                const SizedBox(width: 8),
-                _buildInfoChip(
-                    widget.tour.category.isNotEmpty
-                        ? widget.tour.category[0]
-                        : 'No Category',
-                    Icons.category),
-                const SizedBox(width: 8),
-                _buildInfoChip('${widget.tour.duration} hours', Icons.schedule),
-              ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSelectGuideSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Select a Guide', style: AppTheme.headlineSmall),
+        const SizedBox(height: 16),
+        if (selectedTour == null)
+          Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 30,
+                    backgroundColor: Colors.grey[300],
+                    child: const Icon(
+                      Icons.person,
+                      size: 30,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      'Please select a tour first to choose a guide',
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          Card(
+            elevation: 4,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 30,
+                    backgroundColor: AppTheme.primaryColor.withOpacity(0.2),
+                    child: const Icon(
+                      Icons.person,
+                      size: 30,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          selectedGuide?.displayName ?? 'No guide selected',
+                          style: AppTheme.bodyLarge.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        if (selectedGuide != null)
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.star,
+                                size: 16,
+                                color: Colors.amber,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${selectedGuide!.averageRating?.toStringAsFixed(1) ?? 'N/A'} • ${selectedGuide!.toursCompleted ?? 0} tours',
+                                style: AppTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (selectedGuide != null)
+                    TextButton(
+                      onPressed: () {},
+                      child: const Text('View Profile'),
+                    ),
+                  TextButton(
+                    onPressed: _showGuideSelectionDialog,
+                    child: const Text('Select Guide'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _showGuideSelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Select a Guide'),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 400,
+            child: isLoadingGuides
+                ? const Center(child: CircularProgressIndicator())
+                : guides.isEmpty
+                    ? const Center(child: Text('No guides available'))
+                    : ListView.builder(
+                        itemCount: guides.length,
+                        itemBuilder: (context, index) {
+                          final guide = guides[index];
+                          final isOnline = guide.activeStatus == 1;
+                          final color = isOnline ? Colors.black : Colors.grey;
+
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor:
+                                  AppTheme.primaryColor.withOpacity(0.2),
+                              child: Icon(
+                                Icons.person,
+                                color: isOnline
+                                    ? AppTheme.primaryColor
+                                    : Colors.grey,
+                              ),
+                            ),
+                            title: Text(
+                              guide.displayName ?? guide.email,
+                              style: TextStyle(color: color),
+                            ),
+                            subtitle: Row(
+                              children: [
+                                Icon(Icons.star,
+                                    size: 16,
+                                    color:
+                                        isOnline ? Colors.amber : Colors.grey),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${guide.averageRating?.toStringAsFixed(1) ?? 'N/A'} • ${guide.toursCompleted ?? 0} tours',
+                                  style: TextStyle(color: color),
+                                ),
+                              ],
+                            ),
+                            onTap: () {
+                              setState(() {
+                                selectedGuide = guide;
+                              });
+                              Navigator.of(context).pop();
+                            },
+                          );
+                        },
+                      ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
             ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -244,68 +799,44 @@ class _BookingScreenState extends State<BookingScreen> {
         Text('Participants', style: AppTheme.headlineSmall),
         const SizedBox(height: 16),
 
-        // Number of Participants
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Number of Participants', style: AppTheme.bodyLarge),
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: AppTheme.dividerColor),
-                borderRadius: BorderRadius.circular(8),
+        // User's name (read-only)
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.dividerColor),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.person, color: AppTheme.primaryColor),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  currentUser?.displayName ?? 'Loading...',
+                  style:
+                      AppTheme.bodyLarge.copyWith(fontWeight: FontWeight.w600),
+                ),
               ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.remove),
-                    onPressed: _numberOfParticipants > 1
-                        ? () {
-                            setState(() {
-                              _numberOfParticipants--;
-                              _updateParticipantControllers(
-                                  _numberOfParticipants);
-                            });
-                          }
-                        : null,
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Text(
-                      '$_numberOfParticipants',
-                      style: AppTheme.bodyLarge
-                          .copyWith(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.add),
-                    onPressed:
-                        _numberOfParticipants < widget.tour.maxParticipants
-                            ? () {
-                                setState(() {
-                                  _numberOfParticipants++;
-                                  _updateParticipantControllers(
-                                      _numberOfParticipants);
-                                });
-                              }
-                            : null,
-                  ),
-                ],
+              Text(
+                '(You)',
+                style:
+                    AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
 
         const SizedBox(height: 16),
 
-        // Participant Names
-        ...List.generate(_numberOfParticipants, (index) {
+        // Additional Participant Names
+        ...List.generate(_numberOfParticipants - 1, (index) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: TextFormField(
               controller: _participantControllers[index],
               decoration: InputDecoration(
-                labelText: 'Participant ${index + 1} Full Name',
+                labelText: 'Participant ${index + 2} Full Name',
                 hintText: 'Enter full name',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -320,6 +851,28 @@ class _BookingScreenState extends State<BookingScreen> {
             ),
           );
         }),
+
+        // Add Participant Button
+        if (selectedTour != null &&
+            _numberOfParticipants < selectedTour!.maxParticipants)
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _numberOfParticipants++;
+                  _updateParticipantControllers(_numberOfParticipants);
+                });
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Add Participant'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                side: BorderSide(color: AppTheme.primaryColor),
+                foregroundColor: AppTheme.primaryColor,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -346,8 +899,8 @@ class _BookingScreenState extends State<BookingScreen> {
             if (value == null || value.isEmpty) {
               return 'Please enter contact number';
             }
-            if (value.length < 10) {
-              return 'Please enter a valid phone number';
+            if (value.length != 11) {
+              return 'Please enter exactly 11 digits';
             }
             return null;
           },
@@ -456,6 +1009,19 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Widget _buildBookingSummary() {
+    if (selectedTour == null) {
+      return Card(
+        elevation: 2,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            'Select a tour to see booking summary',
+            style: AppTheme.bodyMedium,
+          ),
+        ),
+      );
+    }
+
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -466,35 +1032,19 @@ class _BookingScreenState extends State<BookingScreen> {
           children: [
             Text('Booking Summary', style: AppTheme.headlineSmall),
             const SizedBox(height: 16),
-            _buildSummaryRow('Tour Price',
-                '₱${widget.tour.price.toStringAsFixed(2)} × $_numberOfParticipants'),
-            _buildSummaryRow('Subtotal', '₱${_totalPrice.toStringAsFixed(2)}'),
             _buildSummaryRow(
-                'Service Fee (5%)', '₱${_serviceFee.toStringAsFixed(2)}'),
+              'Tour Price',
+              '₱${selectedTour!.price.toStringAsFixed(2)} × $_numberOfParticipants',
+            ),
+            _buildSummaryRow(
+              'Subtotal',
+              '₱${_totalPrice.toStringAsFixed(2)}',
+            ),
             const Divider(),
             _buildSummaryRow(
-                'Total Amount', '₱${_finalTotal.toStringAsFixed(2)}',
-                isTotal: true),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.accentColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: AppTheme.accentColor),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Payment will be collected after guide approval. Free cancellation up to 24 hours before tour.',
-                      style: AppTheme.bodySmall
-                          .copyWith(color: AppTheme.accentColor),
-                    ),
-                  ),
-                ],
-              ),
+              'Total Amount',
+              '₱${_finalTotal.toStringAsFixed(2)}',
+              isTotal: true,
             ),
           ],
         ),
@@ -532,7 +1082,12 @@ class _BookingScreenState extends State<BookingScreen> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: (_isLoading || !_agreeToTerms) ? null : _submitBooking,
+        onPressed: (_isLoading ||
+                !_agreeToTerms ||
+                selectedTour == null ||
+                selectedGuide == null)
+            ? null
+            : _submitBooking,
         style: ElevatedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
@@ -575,62 +1130,70 @@ class _BookingScreenState extends State<BookingScreen> {
 
     try {
       final user = _authService.getCurrentUser();
-      if (user != null) {
-        final participantNames = _participantControllers
-            .map((controller) => controller.text.trim())
-            .where((name) => name.isNotEmpty)
-            .toList();
-
-        final selectedDate = _selectedDate ?? widget.tour.startTime;
-        final tourStartDate = DateTime(
-          selectedDate.year,
-          selectedDate.month,
-          selectedDate.day,
-          widget.tour.startTime.hour,
-          widget.tour.startTime.minute,
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please log in to submit booking'),
+            backgroundColor: Colors.red,
+          ),
         );
+        return;
+      }
 
-        final newBooking = BookingModel(
-          tourTitle: widget.tour.title,
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          tourId: widget.tour.id,
-          touristId: user.uid,
-          guideId: widget.tour.createdBy,
-          bookingDate: DateTime.now(),
-          tourStartDate: tourStartDate,
-          numberOfParticipants: _numberOfParticipants,
-          totalPrice: _finalTotal,
-          specialRequests: null,
-          participantNames: participantNames,
-          contactNumber: _contactController.text.trim(),
-          emergencyContact: null,
-          duration: widget.tour.duration,
+      final participantNames = _participantControllers
+          .map((controller) => controller.text.trim())
+          .where((name) => name.isNotEmpty)
+          .toList();
+
+      final selectedDate = _selectedDate ?? selectedTour!.startTime;
+      final tourStartDate = DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+        selectedTour!.startTime.hour,
+        selectedTour!.startTime.minute,
+      );
+
+      final newBooking = BookingModel(
+        tourTitle: selectedTour!.title,
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        tourId: selectedTour!.id,
+        touristId: user.uid,
+        guideId: selectedGuide!.uid,
+        bookingDate: DateTime.now(),
+        tourStartDate: tourStartDate,
+        numberOfParticipants: _numberOfParticipants,
+        totalPrice: _finalTotal,
+        specialRequests: null,
+        participantNames: participantNames,
+        contactNumber: _contactController.text.trim(),
+        emergencyContact: null,
+        duration: selectedTour!.duration,
+      );
+
+      await _db.createBooking(newBooking);
+
+      // Create notification for booking submission
+      final bookingNotification =
+          _notificationService.createBookingSubmittedNotification(
+        userId: user.uid,
+        tourTitle: selectedTour!.title,
+      );
+      await _notificationService.createNotification(bookingNotification);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Booking request submitted successfully!'),
+            backgroundColor: Colors.green,
+          ),
         );
-
-        await _db.createBooking(newBooking);
-
-        // Create notification for booking submission
-        final bookingNotification =
-            _notificationService.createBookingSubmittedNotification(
-          userId: user.uid,
-          tourTitle: widget.tour.title,
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const BookingsScreen(initialTab: 0),
+          ),
         );
-        await _notificationService.createNotification(bookingNotification);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Booking request submitted successfully!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const BookingsScreen(initialTab: 0),
-            ),
-          );
-        }
       }
     } catch (e) {
       if (mounted) {

@@ -7,6 +7,7 @@ import 'firebase_options.dart'; // ✅ Import the generated file
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:tourmate_app/l10n/app_localizations.dart';
 import 'package:tourmate_app/screens/root_screen.dart';
+import 'package:tourmate_app/screens/app_preview_screen.dart';
 import 'package:tourmate_app/services/tour_reminder_service.dart';
 import 'package:tourmate_app/providers/language_provider.dart';
 import 'utils/app_theme.dart';
@@ -74,7 +75,7 @@ class TourMateApp extends StatelessWidget {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: AppLocalizations.supportedLocales,
-          home: const RootScreen(),
+          home: const AppPreviewScreen(),
         );
       },
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tourmate_app/models/guide_verification_model.dart';
+import 'package:tourmate_app/models/user_model.dart';
 import 'package:tourmate_app/services/database_service.dart';
 import 'package:tourmate_app/services/notification_service.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -560,6 +561,12 @@ class _AdminGuideVerificationScreenState
         'Admin User', // TODO: Get actual admin user name
         rejectionReason: reason,
       );
+
+      // Update user status if approved
+      if (approve) {
+        await _databaseService.updateUserField(
+            verification.guideId, 'status', UserStatus.approved.index);
+      }
 
       // Update local state
       setState(() {

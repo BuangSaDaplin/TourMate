@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tourmate_app/models/tour_model.dart';
 import 'package:tourmate_app/models/booking_model.dart';
-import 'package:tourmate_app/models/user_model.dart';
 import 'package:tourmate_app/services/itinerary_service.dart';
 import 'package:tourmate_app/models/itinerary_model.dart';
 import 'package:tourmate_app/services/auth_service.dart';
-import 'package:tourmate_app/screens/booking/booking_screen.dart';
 import 'package:tourmate_app/screens/itinerary/itinerary_screen.dart';
 import 'package:tourmate_app/data/cebu_graph_data.dart';
 import 'package:tourmate_app/data/tour_spot_model.dart';
+import 'package:tourmate_app/screens/tour/tour_map_screen.dart';
 import '../../utils/app_theme.dart';
 
 class TourDetailsScreen extends StatefulWidget {
   final String tourId;
+  final bool isPreview;
 
-  const TourDetailsScreen({super.key, required this.tourId});
+  const TourDetailsScreen(
+      {super.key, required this.tourId, this.isPreview = false});
 
   @override
   State<TourDetailsScreen> createState() => _TourDetailsScreenState();
@@ -28,16 +28,10 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
   TourSpot?
       currentSpot; // Store the original spot data for highlights/inclusions
 
-  // Guide variables
-  List<UserModel> guides = [];
-  bool isLoadingGuides = false;
-  UserModel? selectedGuide;
-
   @override
   void initState() {
     super.initState();
     _loadTourData(); // NEW: Load data dynamically
-    _fetchGuides();
   }
 
   // LOGIC: Fetch the specific tour from our Mock Repo using the ID
@@ -91,7 +85,8 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
         tourData = TourModel(
           id: '1',
           title: 'Kawasan Falls (Default)',
-          description: 'Could not load tour details.',
+          description:
+              'Experience the thrill of jumping, swimming, and trekking through the stunning Kawasan Falls canyon.',
           price: 2500.0,
           category: ['Adventure'],
           maxParticipants: 12,
@@ -122,107 +117,10 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
     }
   }
 
-  Future<void> _fetchGuides() async {
-    setState(() {
-      isLoadingGuides = true;
-    });
-
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .where('role', isEqualTo: 'guide')
-          .where('status', isEqualTo: 1)
-          .get();
-
-      setState(() {
-        guides = snapshot.docs
-            .map((doc) => UserModel.fromFirestore(doc.data()))
-            .toList();
-        isLoadingGuides = false;
-      });
-    } catch (e) {
-      setState(() {
-        isLoadingGuides = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load guides: $e')),
-      );
-    }
-  }
-
-  void _showGuideSelectionDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Select a Guide'),
-          content: SizedBox(
-            width: double.maxFinite,
-            height: 400,
-            child: isLoadingGuides
-                ? const Center(child: CircularProgressIndicator())
-                : guides.isEmpty
-                    ? const Center(child: Text('No guides available'))
-                    : ListView.builder(
-                        itemCount: guides.length,
-                        itemBuilder: (context, index) {
-                          final guide = guides[index];
-                          final isOnline = guide.activeStatus == 1;
-                          final color = isOnline ? Colors.black : Colors.grey;
-
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor:
-                                  AppTheme.primaryColor.withOpacity(0.2),
-                              child: Icon(
-                                Icons.person,
-                                color: isOnline
-                                    ? AppTheme.primaryColor
-                                    : Colors.grey,
-                              ),
-                            ),
-                            title: Text(
-                              guide.displayName ?? guide.email,
-                              style: TextStyle(color: color),
-                            ),
-                            subtitle: Row(
-                              children: [
-                                Icon(Icons.star,
-                                    size: 16,
-                                    color:
-                                        isOnline ? Colors.amber : Colors.grey),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${guide.averageRating?.toStringAsFixed(1) ?? 'N/A'} • ${guide.toursCompleted ?? 0} tours',
-                                  style: TextStyle(color: color),
-                                ),
-                              ],
-                            ),
-                            onTap: () {
-                              setState(() {
-                                tourData =
-                                    tourData.copyWith(createdBy: guide.uid);
-                                selectedGuide = guide;
-                              });
-                              Navigator.of(context).pop();
-                            },
-                          );
-                        },
-                      ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final authService = AuthService();
+    final user = authService.getCurrentUser();
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: CustomScrollView(
@@ -270,7 +168,13 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
                     right: 16,
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        // TODO: Implement map view functionality
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                TourMapScreen(tourId: widget.tourId),
+                          ),
+                        );
                       },
                       icon: const Icon(Icons.location_on),
                       label: const Text('View Map'),
@@ -403,68 +307,7 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
                           style: AppTheme.bodyMedium),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  // Guide Info
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: AppTheme.cardDecoration,
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 30,
-                          backgroundColor: AppTheme.primaryColor.withOpacity(
-                            0.2,
-                          ),
-                          child: const Icon(
-                            Icons.person,
-                            size: 30,
-                            color: AppTheme.primaryColor,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                selectedGuide?.displayName ??
-                                    'No guide selected',
-                                style: AppTheme.bodyLarge.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              if (selectedGuide != null)
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.star,
-                                      size: 16,
-                                      color: Colors.amber,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${selectedGuide!.averageRating?.toStringAsFixed(1) ?? 'N/A'} • ${selectedGuide!.toursCompleted ?? 0} tours',
-                                      style: AppTheme.bodySmall,
-                                    ),
-                                  ],
-                                ),
-                            ],
-                          ),
-                        ),
-                        if (selectedGuide != null)
-                          TextButton(
-                            onPressed: () {},
-                            child: const Text('View Profile'),
-                          ),
-                        TextButton(
-                          onPressed: _showGuideSelectionDialog,
-                          child: const Text('Select Guide'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
+
                   // Description
                   Text('About this tour', style: AppTheme.headlineSmall),
                   const SizedBox(height: 12),
@@ -695,47 +538,6 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
             ),
           ),
         ],
-      ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: ElevatedButton(
-            onPressed: selectedGuide != null
-                ? () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => BookingScreen(tour: tourData),
-                      ),
-                    );
-                  }
-                : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  selectedGuide != null ? AppTheme.primaryColor : Colors.grey,
-              foregroundColor:
-                  selectedGuide != null ? Colors.white : Colors.black,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text(
-              'Book Now',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
       ),
     );
   }

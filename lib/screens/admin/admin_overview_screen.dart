@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../../utils/app_theme.dart';
 import '../../models/user_model.dart';
 
@@ -18,6 +19,10 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
   List<Map<String, dynamic>> _recentActivities = [];
   bool _isLoading = true;
 
+  // Booking trends by tour data
+  List<Map<String, dynamic>> _bookingTrendsByTour = [];
+  bool _isLoadingBookingTrendsByTour = true;
+
   @override
   void initState() {
     super.initState();
@@ -25,17 +30,31 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
   }
 
   Future<void> _loadOverviewData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _isLoadingBookingTrendsByTour = true;
+    });
     try {
       final data = await _fetchOverviewData();
       final activities = await _fetchRecentActivities();
+      final bookingTrendsByTour = await _fetchBookingTrendsByTour();
+      print('Overview data: $data');
+      print('Activities: $activities');
+      print('Setting booking trends data: $bookingTrendsByTour');
       setState(() {
         _overviewData = data;
         _recentActivities = activities;
+        _bookingTrendsByTour = bookingTrendsByTour;
         _isLoading = false;
+        _isLoadingBookingTrendsByTour = false;
       });
+      print('Successfully set overview data');
     } catch (e) {
-      setState(() => _isLoading = false);
+      print('Error in _loadOverviewData: $e');
+      setState(() {
+        _isLoading = false;
+        _isLoadingBookingTrendsByTour = false;
+      });
       // Handle error - could show snackbar
     }
   }
@@ -122,6 +141,42 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
         'averageRating': 0.0,
       };
     }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchBookingTrendsByTour() async {
+    // Fetch all bookings
+    final bookingsSnapshot = await _firestore.collection('bookings').get();
+
+    // Group bookings by tourId
+    final Map<String, Map<String, dynamic>> tourBookings = {};
+
+    for (var doc in bookingsSnapshot.docs) {
+      final data = doc.data();
+      final tourId = data['tourId'] as String?;
+      final tourTitle = data['tourTitle'] as String?;
+
+      if (tourId != null &&
+          tourId.isNotEmpty &&
+          tourTitle != null &&
+          tourTitle.isNotEmpty) {
+        if (tourBookings.containsKey(tourId)) {
+          tourBookings[tourId]!['count'] =
+              (tourBookings[tourId]!['count'] ?? 0) + 1;
+        } else {
+          tourBookings[tourId] = {
+            'tourId': tourId,
+            'tourTitle': tourTitle,
+            'count': 1,
+          };
+        }
+      }
+    }
+
+    // Convert to list and sort by count descending
+    final result = tourBookings.values.toList();
+    result.sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
+
+    return result;
   }
 
   Future<List<Map<String, dynamic>>> _fetchRecentActivities() async {
@@ -337,38 +392,28 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Icon(Icons.show_chart,
-                                color: AppTheme.primaryColor),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Bookings Trend',
-                              style: AppTheme.headlineSmall,
-                            ),
-                          ],
+                        Text(
+                          'Booking Trends',
+                          style: AppTheme.headlineSmall,
                         ),
                         const SizedBox(height: 24),
-                        // Placeholder for chart
                         Container(
                           height: 200,
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
-                          child: const Center(
-                            child: Text(
-                              '📊 Chart Placeholder\n\nTODO: Integrate with charting library\n(fl_chart or syncfusion_charts)',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Last 30 days booking activity',
-                          style: AppTheme.bodySmall
-                              .copyWith(color: AppTheme.textSecondary),
+                          child: _isLoadingBookingTrendsByTour
+                              ? const Center(child: CircularProgressIndicator())
+                              : _buildBookingTrendsBarChart(),
                         ),
                       ],
                     ),
@@ -497,6 +542,95 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
           Icon(Icons.arrow_forward_ios, size: 16, color: color),
         ],
       ),
+    );
+  }
+
+  Widget _buildBookingTrendsBarChart() {
+    print(
+        '_buildBookingTrendsBarChart called with data: $_bookingTrendsByTour');
+    if (_bookingTrendsByTour.isEmpty) {
+      print(
+          '_buildBookingTrendsBarChart: Data is empty, showing no data message');
+      return const Center(
+        child: Text('No booking data available'),
+      );
+    }
+    print('_buildBookingTrendsBarChart: Data is not empty, building chart');
+
+    // Take top 10 tours or all if less than 10
+    final displayData = _bookingTrendsByTour.take(10).toList();
+    final maxCount = displayData.isNotEmpty
+        ? displayData
+            .map((e) => e['count'] as int)
+            .reduce((a, b) => a > b ? a : b)
+        : 1;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Bookings by Tour',
+          style: AppTheme.bodyMedium.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: displayData.map((tourData) {
+              final count = tourData['count'] as int;
+              final tourTitle = tourData['tourTitle'] as String;
+              final height = (count / maxCount) * 120.0; // Max height of 120
+
+              return Column(
+                children: [
+                  Expanded(
+                    child: Container(
+                      width: 40,
+                      alignment: Alignment.bottomCenter,
+                      child: Container(
+                        width: 30,
+                        height: height,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: 60,
+                    child: Text(
+                      tourTitle,
+                      style: AppTheme.bodySmall.copyWith(fontSize: 10),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    count.toString(),
+                    style: AppTheme.bodySmall.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Most Booked', style: AppTheme.bodySmall),
+            Text('Least Booked', style: AppTheme.bodySmall),
+          ],
+        ),
+      ],
     );
   }
 

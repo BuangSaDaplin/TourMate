@@ -31,6 +31,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["com.google.android.geo.API_KEY"] = "AIzaSyDi_WWSTXU_oXIIaCxbdHmvOMShvrsS3lE"
     }
 
     buildTypes {
@@ -56,4 +57,7 @@ dependencies {
 
     // Add the dependencies for any other desired Firebase products
     // https://firebase.google.com/docs/android/setup#available-libraries
+
+    // Google Maps
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
 }

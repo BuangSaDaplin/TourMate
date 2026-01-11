@@ -3,6 +3,8 @@ import 'package:carousel_slider/carousel_slider.dart' as carousel;
 import '../../utils/app_theme.dart';
 import '../tour/tour_details_screen.dart';
 import '../tour/tour_browse_screen.dart';
+import '../tour/category_based_tours_screen.dart';
+import '../booking/booking_screen.dart';
 import '../profile/profile_screen.dart';
 import '../bookings/bookings_screen.dart';
 import '../favorites/favorites_screen.dart';
@@ -48,6 +50,7 @@ class _MainDashboardState extends State<MainDashboard> {
       'guide': 'Juan dela Cruz',
       'description':
           'Experience the thrill of jumping, swimming, and trekking.',
+      'category': 'Adventure',
     },
     {
       'id': 'oslob_whale_shark', // Matches cebu_graph_data.dart
@@ -60,6 +63,7 @@ class _MainDashboardState extends State<MainDashboard> {
       'duration': '10 hours',
       'guide': 'Maria Santos',
       'description': 'Swim with gentle whale sharks in crystal-clear waters.',
+      'category': 'Beach',
     },
     {
       'id': 'moalboal_sardines', // Matches cebu_graph_data.dart
@@ -72,6 +76,7 @@ class _MainDashboardState extends State<MainDashboard> {
       'duration': '4 hours',
       'guide': 'Pedro Penduko',
       'description': 'Snorkel with millions of sardines.',
+      'category': 'Beach',
     },
   ];
 
@@ -81,6 +86,10 @@ class _MainDashboardState extends State<MainDashboard> {
     {'name': 'Culture', 'icon': Icons.museum, 'color': Colors.purple},
     {'name': 'Food', 'icon': Icons.restaurant, 'color': Colors.red},
     {'name': 'Nature', 'icon': Icons.park, 'color': Colors.green},
+    {'name': 'Beach', 'icon': Icons.beach_access, 'color': Colors.blue},
+    {'name': 'City', 'icon': Icons.location_city, 'color': Colors.teal},
+    {'name': 'Historical', 'icon': Icons.history, 'color': Colors.brown},
+    {'name': 'Religious', 'icon': Icons.church, 'color': Colors.deepPurple},
   ];
 
   // Nearby Cebu destinations
@@ -122,6 +131,99 @@ class _MainDashboardState extends State<MainDashboard> {
     });
   }
 
+  DateTime? _selectedTourDate;
+
+  void _showBookNowModal(BuildContext context) {
+    _selectedTourDate = null;
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const AutoTranslatedText(
+                'Book a Tour',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const AutoTranslatedText(
+                    'Select a tour schedule date:',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 16),
+                  InkWell(
+                    onTap: () async {
+                      final DateTime? picked = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          _selectedTourDate = picked;
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppTheme.dividerColor),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.calendar_today,
+                              color: AppTheme.primaryColor),
+                          const SizedBox(width: 12),
+                          Text(
+                            _selectedTourDate != null
+                                ? '${_selectedTourDate!.day}/${_selectedTourDate!.month}/${_selectedTourDate!.year}'
+                                : 'Select Date',
+                            style: AppTheme.bodyLarge,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: const AutoTranslatedText('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: _selectedTourDate == null
+                      ? null
+                      : () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => BookingScreen(
+                                initialDate: _selectedTourDate,
+                              ),
+                            ),
+                          );
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.buttonHighlight,
+                  ),
+                  child: const AutoTranslatedText('Book Tour'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -129,9 +231,7 @@ class _MainDashboardState extends State<MainDashboard> {
       body: _pages[_selectedIndex],
       floatingActionButton: _selectedIndex == 0
           ? FloatingActionButton.extended(
-              onPressed: () {
-                // Handle book now
-              },
+              onPressed: () => _showBookNowModal(context),
               backgroundColor: AppTheme.buttonHighlight,
               icon: const Icon(Icons.calendar_today),
               label: const AutoTranslatedText('Book Now'),
@@ -446,26 +546,38 @@ class _MainDashboardState extends State<MainDashboard> {
                     itemCount: _categories.length,
                     itemBuilder: (context, index) {
                       final category = _categories[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 16),
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 64,
-                              height: 64,
-                              decoration: BoxDecoration(
-                                color: category['color'].withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Icon(
-                                category['icon'],
-                                color: category['color'],
-                                size: 32,
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CategoryBasedToursScreen(
+                                category: category['name'],
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            Text(category['name'], style: AppTheme.bodySmall),
-                          ],
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 16),
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 64,
+                                height: 64,
+                                decoration: BoxDecoration(
+                                  color: category['color'].withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Icon(
+                                  category['icon'],
+                                  color: category['color'],
+                                  size: 32,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(category['name'], style: AppTheme.bodySmall),
+                            ],
+                          ),
                         ),
                       );
                     },

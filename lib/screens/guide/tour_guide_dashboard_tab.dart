@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/database_service.dart';
@@ -46,6 +47,10 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
   double _rating = 0.0;
   int _requests = 0;
 
+  // Booking trends by tour data
+  List<Map<String, dynamic>> _bookingTrendsByTour = [];
+  bool _isLoadingBookingTrendsByTour = true;
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +61,7 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _isLoadingBookingTrendsByTour = true;
     });
 
     try {
@@ -64,6 +70,7 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
         setState(() {
           _error = 'User not authenticated';
           _isLoading = false;
+          _isLoadingBookingTrendsByTour = false;
         });
         return;
       }
@@ -80,9 +87,13 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
       // Load recent activities
       await _loadRecentActivities(currentUser.uid);
 
+      // Load booking trends by tour
+      await _loadBookingTrendsByTour(currentUser.uid);
+
       setState(() {
         _userName = userName;
         _isLoading = false;
+        _isLoadingBookingTrendsByTour = false;
       });
     } catch (e) {
       print('Error loading dashboard data: $e');
@@ -90,6 +101,7 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
         _error =
             'Failed to load dashboard data. Please check your connection and try again.';
         _isLoading = false;
+        _isLoadingBookingTrendsByTour = false;
       });
     }
   }
@@ -113,7 +125,7 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
         .where((booking) =>
             booking.status == BookingStatus.paid ||
             booking.status == BookingStatus.completed)
-        .fold<double>(0.0, (sum, booking) => sum + booking.totalPrice);
+        .fold<double>(0.0, (total, booking) => total + booking.totalPrice);
 
     // Rating: average rating from bookings that contain a rating value
     final ratedBookings = bookings.where((booking) => booking.rating != null);
@@ -140,13 +152,13 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
   Future<void> _loadRecentActivities(String guideId) async {
     // Fetch recent data
     final bookings = await _db.getBookingsByGuide(guideId);
-    print('Found ${bookings.length} bookings');
+    // print('Found ${bookings.length} bookings');
 
     final payments = await _db.getPaymentsByGuide(guideId);
-    print('Found ${payments.length} payments');
+    // print('Found ${payments.length} payments');
 
     final reviews = await _db.getRecentGuideReviews(guideId);
-    print('Found ${reviews.length} reviews');
+    // print('Found ${reviews.length} reviews');
 
     // Combine and sort activities
     final activities = <ActivityItem>[];
@@ -198,6 +210,43 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
 
     setState(() {
       _recentActivities = recentActivities;
+    });
+  }
+
+  Future<void> _loadBookingTrendsByTour(String guideId) async {
+    // Fetch all bookings for the guide
+    final bookings = await _db.getBookingsByGuide(guideId);
+
+    // Group bookings by tourId
+    final Map<String, Map<String, dynamic>> tourBookings = {};
+
+    for (final booking in bookings) {
+      final tourId = booking.tourId;
+      final tourTitle = booking.tourTitle;
+
+      if (tourId != null &&
+          tourId.isNotEmpty &&
+          tourTitle != null &&
+          tourTitle.isNotEmpty) {
+        if (tourBookings.containsKey(tourId)) {
+          tourBookings[tourId]!['count'] =
+              (tourBookings[tourId]!['count'] ?? 0) + 1;
+        } else {
+          tourBookings[tourId] = {
+            'tourId': tourId,
+            'tourTitle': tourTitle,
+            'count': 1,
+          };
+        }
+      }
+    }
+
+    // Convert to list and sort by count descending
+    final result = tourBookings.values.toList();
+    result.sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
+
+    setState(() {
+      _bookingTrendsByTour = result;
     });
   }
 
@@ -354,7 +403,24 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
           // Booking Trends
           Text('Booking Trends', style: AppTheme.headlineSmall),
           const SizedBox(height: 16),
-          ..._buildBookingTrends(),
+          Container(
+            height: 200,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: _isLoadingBookingTrendsByTour
+                ? const Center(child: CircularProgressIndicator())
+                : _buildBookingTrendsBarChart(),
+          ),
           const SizedBox(height: 24),
 
           // Recent Activity
@@ -421,24 +487,6 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
     );
   }
 
-  Widget _buildActionButton(
-      String title, IconData icon, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, size: 24),
-          const SizedBox(height: 8),
-          Text(title, style: const TextStyle(fontSize: 12)),
-        ],
-      ),
-    );
-  }
-
   Widget _buildActivityItem(String title, String time, IconData icon) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -472,38 +520,87 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
     );
   }
 
-  List<Widget> _buildBookingTrends() {
-    final trends = [
-      {'name': 'Kawasan Falls Canyoonering', 'rating': '4.9'},
-      {'name': 'Oslob Whale Shark Encounter', 'rating': '4.8'},
-      {'name': 'Sumilon Island Snorkeling', 'rating': '4.7'},
-      {'name': 'Chocolate Hills Adventure', 'rating': '4.6'},
-      {'name': 'Bohol Countryside Tour', 'rating': '4.5'},
-    ];
+  Widget _buildBookingTrendsBarChart() {
+    if (_bookingTrendsByTour.isEmpty) {
+      return const Center(
+        child: Text('No booking data available'),
+      );
+    }
 
-    return trends
-        .map(
-            (trend) => _buildBookingTrendItem(trend['name']!, trend['rating']!))
-        .toList();
-  }
+    // Take top 10 tours or all if less than 10
+    final displayData = _bookingTrendsByTour.take(10).toList();
+    final maxCount = displayData.isNotEmpty
+        ? displayData
+            .map((e) => e['count'] as int)
+            .reduce((a, b) => a > b ? a : b)
+        : 1;
 
-  Widget _buildBookingTrendItem(String tourName, String rating) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: AppTheme.cardDecoration,
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(tourName, style: AppTheme.bodyMedium),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Bookings by Tour',
+          style: AppTheme.bodyMedium.copyWith(
+            fontWeight: FontWeight.w600,
           ),
-          Icon(Icons.star, color: Colors.amber, size: 16),
-          const SizedBox(width: 4),
-          Text(rating,
-              style:
-                  AppTheme.bodyMedium.copyWith(color: AppTheme.textSecondary)),
-        ],
-      ),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: displayData.map((tourData) {
+              final count = tourData['count'] as int;
+              final tourTitle = tourData['tourTitle'] as String;
+              final height = (count / maxCount) * 120.0; // Max height of 120
+
+              return Column(
+                children: [
+                  Expanded(
+                    child: Container(
+                      width: 40,
+                      alignment: Alignment.bottomCenter,
+                      child: Container(
+                        width: 30,
+                        height: height,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: 60,
+                    child: Text(
+                      tourTitle,
+                      style: AppTheme.bodySmall.copyWith(fontSize: 10),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    count.toString(),
+                    style: AppTheme.bodySmall.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Most Booked', style: AppTheme.bodySmall),
+            Text('Least Booked', style: AppTheme.bodySmall),
+          ],
+        ),
+      ],
     );
   }
 }

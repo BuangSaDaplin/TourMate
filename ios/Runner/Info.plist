@@ -57,5 +57,7 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs access to location to show tour maps and provide location-based services.</string>
 </dict>
 </plist>
