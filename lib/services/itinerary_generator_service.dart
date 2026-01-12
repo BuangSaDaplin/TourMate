@@ -2,6 +2,8 @@ import 'dart:math';
 import 'package:tourmate_app/models/itinerary_model.dart';
 import 'package:tourmate_app/data/tour_spot_model.dart';
 import 'package:tourmate_app/models/geo_coordinate.dart';
+import 'package:tourmate_app/services/pathfinding_service.dart';
+import 'package:tourmate_app/data/cebu_graph_data.dart';
 
 class UserContext {
   final GeoCoordinate? currentLocation;
@@ -168,20 +170,41 @@ class ItineraryGeneratorService {
       List<TourSpot> spots, GeoCoordinate startLocation) {
     if (spots.isEmpty) return spots;
 
-    // Find optimal starting point closest to user location
+    // Get the graph data for pathfinding
+    final graph = CebuGraphData.getGraphNodes();
+    final pathfindingService = PathfindingService();
+
+    // Find optimal starting point closest to user location using graph distances
     TourSpot bestStart = spots.first;
     double minDistance = double.infinity;
 
     for (final spot in spots) {
-      final distance = startLocation.distanceTo(spot.coordinate);
-
-      if (distance < minDistance) {
-        minDistance = distance;
-        bestStart = spot;
+      // Try to find path from start location to spot using graph
+      if (graph.containsKey(spot.id)) {
+        final pathResult = pathfindingService.findPath(
+          startNodeId: spot.id,
+          goalNodeId: spot.id, // Same node for distance from start
+          graph: graph,
+        );
+        if (pathResult.found) {
+          // For distance from start location, use straight-line as approximation
+          final distance = startLocation.distanceTo(spot.coordinate);
+          if (distance < minDistance) {
+            minDistance = distance;
+            bestStart = spot;
+          }
+        }
+      } else {
+        // Fallback to straight-line distance if spot not in graph
+        final distance = startLocation.distanceTo(spot.coordinate);
+        if (distance < minDistance) {
+          minDistance = distance;
+          bestStart = spot;
+        }
       }
     }
 
-    // Use nearest neighbor algorithm for TSP approximation
+    // Use graph-based pathfinding for TSP approximation
     final optimizedRoute = <TourSpot>[bestStart];
     final remainingSpots = spots.where((s) => s != bestStart).toList();
 
@@ -190,8 +213,27 @@ class ItineraryGeneratorService {
       TourSpot nextSpot = remainingSpots.first;
       double minDist = double.infinity;
 
+      // Find the remaining spot with shortest path from current spot
       for (final spot in remainingSpots) {
-        final distance = lastSpot.coordinate.distanceTo(spot.coordinate);
+        double distance = 0.0;
+
+        // Try to use graph-based pathfinding
+        if (graph.containsKey(lastSpot.id) && graph.containsKey(spot.id)) {
+          final pathResult = pathfindingService.findPath(
+            startNodeId: lastSpot.id,
+            goalNodeId: spot.id,
+            graph: graph,
+          );
+          if (pathResult.found) {
+            distance = pathResult.totalDistance;
+          } else {
+            // Fallback to straight-line if no path found
+            distance = lastSpot.coordinate.distanceTo(spot.coordinate);
+          }
+        } else {
+          // Fallback to straight-line distance if spots not in graph
+          distance = lastSpot.coordinate.distanceTo(spot.coordinate);
+        }
 
         if (distance < minDist) {
           minDist = distance;
@@ -270,7 +312,8 @@ class ItineraryGeneratorService {
 
     // Generate itinerary events
     final events = <ItineraryEvent>[];
-    DateTime currentTime = context.startTime;
+    DateTime currentTime = context.startTime
+        .add(Duration(minutes: 10)); // Start after meet guide (10 mins)
 
     for (int i = 0; i < filteredSpots.length; i++) {
       final spot = filteredSpots[i];
@@ -280,6 +323,7 @@ class ItineraryGeneratorService {
         continue; // Skip if closed
       }
 
+      // For attractions, set end time to allow exploration (arrival + base duration)
       final visitDuration =
           Duration(minutes: getVisitDurationMinutes(spot, context.pace));
       final departureTime = currentTime.add(visitDuration);
@@ -294,8 +338,32 @@ class ItineraryGeneratorService {
 
       if (i < filteredSpots.length - 1) {
         final nextSpot = filteredSpots[i + 1];
-        travelDistanceToNext = spot.coordinate.distanceTo(nextSpot.coordinate);
-        travelTimeToNext = estimateTravelTime(travelDistanceToNext);
+
+        // Use graph-based distance if available, fallback to straight-line
+        final graph = CebuGraphData.getGraphNodes();
+        final pathfindingService = PathfindingService();
+
+        if (graph.containsKey(spot.id) && graph.containsKey(nextSpot.id)) {
+          final pathResult = pathfindingService.findPath(
+            startNodeId: spot.id,
+            goalNodeId: nextSpot.id,
+            graph: graph,
+          );
+          if (pathResult.found) {
+            travelDistanceToNext = pathResult.totalDistance;
+          } else {
+            travelDistanceToNext =
+                spot.coordinate.distanceTo(nextSpot.coordinate);
+          }
+        } else {
+          travelDistanceToNext =
+              spot.coordinate.distanceTo(nextSpot.coordinate);
+        }
+
+        final estimatedTravelTime = estimateTravelTime(travelDistanceToNext);
+        travelTimeToNext = estimatedTravelTime > Duration.zero
+            ? estimatedTravelTime
+            : Duration(minutes: 5); // Minimum 5 minutes for travel
       }
 
       events.add(ItineraryEvent(
@@ -310,25 +378,122 @@ class ItineraryGeneratorService {
       currentTime = departureTime.add(travelTimeToNext);
     }
 
-    // Convert events to itinerary items
-    final items = events.map((event) {
-      return ItineraryItemModel(
-        id: 'event_${event.spot.id}_${DateTime.now().millisecondsSinceEpoch}',
+    // Create a combined list for transportation and attractions
+    final List<ItineraryItemModel> items = [];
+    int orderCounter = 0;
+
+    // Add tour start - meet with guide activity as first item (always 10 minutes)
+    final meetGuideEndTime = context.startTime.add(Duration(minutes: 10));
+    items.add(ItineraryItemModel(
+      id: 'meet_guide',
+      title: 'Tour Start - Meet with Guide',
+      description:
+          'Meet your tour guide at the starting location to begin the tour',
+      type: ActivityType.attraction,
+      startTime: context.startTime,
+      endTime: meetGuideEndTime,
+      order: orderCounter++,
+    ));
+
+    // Calculate travel from meeting point to first spot
+    final userStartLocation = context.currentLocation ??
+        GeoCoordinate(latitude: 10.3157, longitude: 123.8854);
+    DateTime itemCurrentTime =
+        meetGuideEndTime; // Track current time cumulatively for items
+    if (events.isNotEmpty) {
+      final firstSpot = events.first.spot;
+      final distanceToFirst =
+          userStartLocation.distanceTo(firstSpot.coordinate);
+      final travelTimeToFirst = estimateTravelTime(distanceToFirst);
+
+      if (travelTimeToFirst > Duration.zero) {
+        final travelEndTime = meetGuideEndTime.add(travelTimeToFirst);
+        itemCurrentTime = travelEndTime; // Update current time
+        final etaFormatted =
+            '${travelEndTime.hour.toString().padLeft(2, '0')}:${travelEndTime.minute.toString().padLeft(2, '0')}';
+        items.add(ItineraryItemModel(
+          id: 'trans_0',
+          title: 'Travel to ${firstSpot.name}',
+          description:
+              'Commute via car/walking (${distanceToFirst.toStringAsFixed(1)} km, ETA: $etaFormatted)',
+          type: ActivityType.transportation,
+          startTime: meetGuideEndTime,
+          endTime: travelEndTime,
+          order: orderCounter++,
+        ));
+      }
+    }
+
+    for (int i = 0; i < events.length; i++) {
+      final event = events[i];
+
+      // Use cumulative current time for arrival
+      final actualArrivalTime = itemCurrentTime;
+      final visitDuration = event.departureTime.difference(event.arrivalTime);
+      final actualDepartureTime = actualArrivalTime.add(visitDuration);
+
+      // Attraction visit item
+      items.add(ItineraryItemModel(
+        id: 'spot_$i',
         title: event.spot.name,
         description: event.spot.description,
         type: ActivityType.attraction,
-        startTime: event.arrivalTime,
-        endTime: event.departureTime,
+        startTime: actualArrivalTime,
+        endTime: actualDepartureTime,
         location: event.spot.name,
         cost: event.spot.entranceFee,
-        order: events.indexOf(event),
+        order: orderCounter++,
         metadata: {
           'travelTimeToNext': event.travelTimeToNext.inMinutes,
           'travelDistanceToNext': event.travelDistanceToNext,
           'spotId': event.spot.id,
         },
-      );
-    }).toList();
+      ));
+
+      // Transportation item to next spot (if not the last spot)
+      if (i < events.length - 1) {
+        final nextEvent = events[i + 1];
+        final travelTime = event.travelTimeToNext > Duration.zero
+            ? event.travelTimeToNext
+            : Duration(minutes: 5); // Minimum 5 minutes for travel
+        final travelStartTime = actualDepartureTime;
+        final travelEndTime = travelStartTime.add(travelTime);
+        itemCurrentTime =
+            travelEndTime; // Update current time for next activity
+        final etaFormatted =
+            '${travelEndTime.hour.toString().padLeft(2, '0')}:${travelEndTime.minute.toString().padLeft(2, '0')}';
+        items.add(ItineraryItemModel(
+          id: 'trans_${i + 1}',
+          title: 'Travel to ${nextEvent.spot.name}',
+          description:
+              'Commute via car/walking (${event.travelDistanceToNext.toStringAsFixed(1)} km, ETA: $etaFormatted)',
+          type: ActivityType.transportation,
+          startTime: travelStartTime,
+          endTime: travelEndTime,
+          order: orderCounter++,
+        ));
+      } else {
+        // Update current time for the last activity
+        itemCurrentTime = actualDepartureTime;
+      }
+    }
+
+    // Add tour end activity as last item
+    final lastItemEndTime =
+        items.isNotEmpty ? items.last.endTime : context.startTime;
+    final tourEndStartTime = lastItemEndTime.isBefore(context.endTime)
+        ? lastItemEndTime
+        : context.endTime.subtract(Duration(minutes: 15));
+    final tourEndEndTime = tourEndStartTime.add(Duration(minutes: 15));
+    items.add(ItineraryItemModel(
+      id: 'tour_end',
+      title: 'Tour End',
+      description: 'End of the tour - thank you for joining!',
+      type: ActivityType.attraction,
+      startTime: tourEndStartTime,
+      endTime: tourEndEndTime,
+      order: orderCounter++,
+    ));
 
     // Create itinerary model
     final itineraryId =

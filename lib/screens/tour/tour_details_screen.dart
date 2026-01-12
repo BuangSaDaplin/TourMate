@@ -5,10 +5,10 @@ import 'package:tourmate_app/models/booking_model.dart';
 import 'package:tourmate_app/services/itinerary_service.dart';
 import 'package:tourmate_app/models/itinerary_model.dart';
 import 'package:tourmate_app/services/auth_service.dart';
+import 'package:tourmate_app/services/database_service.dart';
 import 'package:tourmate_app/screens/itinerary/itinerary_screen.dart';
-import 'package:tourmate_app/data/cebu_graph_data.dart';
-import 'package:tourmate_app/data/tour_spot_model.dart';
 import 'package:tourmate_app/screens/tour/tour_map_screen.dart';
+import 'package:intl/intl.dart';
 import '../../utils/app_theme.dart';
 
 class TourDetailsScreen extends StatefulWidget {
@@ -25,8 +25,7 @@ class TourDetailsScreen extends StatefulWidget {
 class _TourDetailsScreenState extends State<TourDetailsScreen> {
   late TourModel tourData; // Changed from hardcoded to 'late'
   bool isLoading = true;
-  TourSpot?
-      currentSpot; // Store the original spot data for highlights/inclusions
+  List<TourModel> alternativeTours = [];
 
   @override
   void initState() {
@@ -34,86 +33,52 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
     _loadTourData(); // NEW: Load data dynamically
   }
 
-  // LOGIC: Fetch the specific tour from our Mock Repo using the ID
-  void _loadTourData() {
-    // 1. Try to find the spot in our Repository
-    final spot = CebuGraphData.getSpotById(widget.tourId);
+  void _loadTourData() async {
+    final db = DatabaseService();
+    try {
+      final tour = await db.getTour(widget.tourId);
+      if (tour != null) {
+        setState(() {
+          tourData = tour;
+          isLoading = false;
+        });
+        _loadAlternativeTours();
+      } else {
+        // Handle tour not found
+        setState(() {
+          isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tour not found')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load tour: $e')),
+      );
+    }
+  }
 
-    if (spot != null) {
-      // 2. Convert Repo Data (TourSpot) to UI Data (TourModel)
+  void _loadAlternativeTours() async {
+    final db = DatabaseService();
+    try {
+      final approvedTours = await db.getApprovedTours();
+      final alternatives = approvedTours
+          .where((tour) =>
+              tour.category.any((cat) => tourData.category.contains(cat)) &&
+              tour.id != tourData.id)
+          .take(3)
+          .toList();
       setState(() {
-        currentSpot = spot; // Store the spot for highlights/inclusions
-        tourData = TourModel(
-          id: spot.id,
-          title: spot.name, // Map 'name' to 'title'
-          description: spot.description,
-          // If price is 0 (like Heritage Tour), assume a base guide fee of 1500
-          price: (spot.entranceFee ?? 0) > 0
-              ? (spot.entranceFee ?? 0) + 1500.0
-              : 1500.0,
-          category: [spot.category.toString().split('.').last],
-          maxParticipants: 12,
-          currentParticipants: 0,
-          startTime: DateTime.now().add(const Duration(days: 1)),
-          endTime: DateTime.now().add(const Duration(days: 1, hours: 8)),
-          meetingPoint: '${spot.name} Entrance',
-          // Use the network image we added in Step 1
-          mediaURL: [
-            spot.imageUrl ??
-                'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?q=80&w=1000'
-          ],
-          createdBy: 'guide_1',
-          shared: true,
-          itinerary: [],
-          status: 'published',
-          duration: spot.estimatedDurationMinutes ~/ 60,
-          languages: ['English', 'Tagalog'],
-          specializations: ['Culture', 'History'],
-          highlights: spot.highlights ??
-              [
-                'Explore ${spot.name}',
-                'Learn about local culture',
-                'Enjoy scenic views'
-              ],
-        );
-        isLoading = false;
+        alternativeTours = alternatives;
       });
-    } else {
-      // Fallback if ID not found (Safety Net)
-      setState(() {
-        currentSpot = null;
-        tourData = TourModel(
-          id: '1',
-          title: 'Kawasan Falls (Default)',
-          description:
-              'Experience the thrill of jumping, swimming, and trekking through the stunning Kawasan Falls canyon.',
-          price: 2500.0,
-          category: ['Adventure'],
-          maxParticipants: 12,
-          currentParticipants: 0,
-          startTime: DateTime.now(),
-          endTime: DateTime.now(),
-          meetingPoint: 'Cebu',
-          mediaURL: [
-            'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?q=80&w=1000'
-          ],
-          createdBy: 'guide1',
-          shared: true,
-          itinerary: [],
-          status: 'published',
-          duration: 8,
-          languages: ['English'],
-          specializations: ['Hiking'],
-          highlights: [
-            'Jump from heights up to 10 meters',
-            'Swim in natural pools',
-            'Trek through tropical canyon',
-            'Professional guide and safety equipment',
-            'Lunch included',
-          ],
-        );
-        isLoading = false;
-      });
+    } catch (e) {
+      // Handle error silently for alternative tours
+      print('Failed to load alternative tours: $e');
     }
   }
 
@@ -121,6 +86,25 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
   Widget build(BuildContext context) {
     final authService = AuthService();
     final user = authService.getCurrentUser();
+
+    // Show loading screen while data is being fetched
+    if (isLoading) {
+      return Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: CustomScrollView(
@@ -135,15 +119,29 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
                 children: [
                   Container(
                     decoration: BoxDecoration(
-                      image: DecorationImage(
-                        image: tourData.mediaURL.first.startsWith('http')
-                            ? NetworkImage(tourData.mediaURL.first)
-                            : AssetImage(
-                                    'assets/images/${tourData.mediaURL.first}')
-                                as ImageProvider,
-                        fit: BoxFit.cover,
-                      ),
+                      image: tourData.mediaURL.isNotEmpty
+                          ? DecorationImage(
+                              image: tourData.mediaURL.first.startsWith('http')
+                                  ? NetworkImage(tourData.mediaURL.first)
+                                  : AssetImage(
+                                          'assets/images/${tourData.mediaURL.first}')
+                                      as ImageProvider,
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                      color: tourData.mediaURL.isEmpty
+                          ? AppTheme.primaryColor.withOpacity(0.2)
+                          : null,
                     ),
+                    child: tourData.mediaURL.isEmpty
+                        ? Center(
+                            child: Icon(
+                              Icons.image,
+                              size: 80,
+                              color: AppTheme.primaryColor.withOpacity(0.5),
+                            ),
+                          )
+                        : null,
                   ),
                   Positioned(
                     bottom: 0,
@@ -285,7 +283,7 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
                   Row(
                     children: [
                       RatingBarIndicator(
-                        rating: 4.9,
+                        rating: tourData.rating,
                         itemBuilder: (context, index) =>
                             const Icon(Icons.star, color: Colors.amber),
                         itemCount: 5,
@@ -293,7 +291,7 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '4.9 (234 reviews)',
+                        '${tourData.rating.toStringAsFixed(1)} ',
                         style: AppTheme.bodyMedium,
                       ),
                       const Spacer(),
@@ -358,10 +356,7 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
                   // Itinerary Button
                   ElevatedButton(
                     onPressed: () async {
-                      // Create a preview itinerary for this tour
-                      final itineraryService = ItineraryService();
                       final authService = AuthService();
-
                       final user = authService.getCurrentUser();
                       if (user == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -373,24 +368,116 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
                       }
 
                       try {
-                        // Create a mock booking for itinerary generation
-                        final mockBooking = BookingModel(
-                          tourTitle: tourData.title,
-                          id: 'preview_${tourData.id}',
-                          tourId: tourData.id,
-                          touristId: user.uid,
-                          guideId: tourData.createdBy,
-                          bookingDate: DateTime.now(),
-                          tourStartDate: tourData.startTime,
-                          numberOfParticipants: 1,
-                          totalPrice: tourData.price,
-                          status: BookingStatus.confirmed,
-                        );
+                        // Create itinerary from tour's actual itinerary data
+                        final List<ItineraryItemModel> items = [];
+                        DateTime currentTime = tourData.startTime;
 
-                        final previewItinerary =
-                            await itineraryService.generateItineraryFromBooking(
-                          mockBooking,
-                          tourData,
+                        for (int i = 0; i < tourData.itinerary.length; i++) {
+                          final item = tourData.itinerary[i];
+                          final title = item['activity'] ??
+                              item['title'] ??
+                              'Activity ${i + 1}';
+                          final description = item['description'] ?? '';
+                          final timeStr = item['time'];
+
+                          DateTime startTime = currentTime;
+                          if (timeStr != null) {
+                            // Parse time string, assume it's HH:mm format
+                            final timeParts = timeStr.split(':');
+                            if (timeParts.length == 2) {
+                              final hour = int.tryParse(timeParts[0]) ?? 0;
+                              final minute = int.tryParse(timeParts[1]) ?? 0;
+                              startTime = DateTime(
+                                  currentTime.year,
+                                  currentTime.month,
+                                  currentTime.day,
+                                  hour,
+                                  minute);
+                            }
+                          }
+
+                          DateTime endTime = startTime
+                              .add(const Duration(hours: 1)); // Default 1 hour
+
+                          if (i < tourData.itinerary.length - 1) {
+                            final nextItem = tourData.itinerary[i + 1];
+                            final nextTimeStr = nextItem['time'];
+                            if (nextTimeStr != null) {
+                              final timeParts = nextTimeStr.split(':');
+                              if (timeParts.length == 2) {
+                                final hour = int.tryParse(timeParts[0]) ?? 0;
+                                final minute = int.tryParse(timeParts[1]) ?? 0;
+                                endTime = DateTime(
+                                    currentTime.year,
+                                    currentTime.month,
+                                    currentTime.day,
+                                    hour,
+                                    minute);
+                              }
+                            }
+                          } else {
+                            endTime = tourData.endTime;
+                          }
+
+                          items.add(ItineraryItemModel(
+                            id: 'tour_item_$i',
+                            title: title,
+                            description: description,
+                            type: ActivityType.tour,
+                            startTime: startTime,
+                            endTime: endTime,
+                            order: i,
+                          ));
+
+                          currentTime = endTime;
+                        }
+
+                        final tourStartDate =
+                            DateTime.now().add(const Duration(days: 3));
+                        final tourEndDate = tourStartDate.add(
+                            tourData.endTime.difference(tourData.startTime));
+
+                        final previewItinerary = ItineraryModel(
+                          id: 'preview_${tourData.id}',
+                          userId: user.uid,
+                          title: '${tourData.title} Itinerary',
+                          description: 'Tour Itinerary Preview',
+                          startDate: tourStartDate,
+                          endDate: tourEndDate,
+                          status: ItineraryStatus.draft,
+                          items: items.map((item) {
+                            final itemDate = DateTime(
+                                tourStartDate.year,
+                                tourStartDate.month,
+                                tourStartDate.day,
+                                item.startTime.hour,
+                                item.startTime.minute);
+                            final itemEndDate = DateTime(
+                                tourStartDate.year,
+                                tourStartDate.month,
+                                tourStartDate.day,
+                                item.endTime.hour,
+                                item.endTime.minute);
+                            return ItineraryItemModel(
+                              id: item.id,
+                              title: item.title,
+                              description: item.description,
+                              type: item.type,
+                              startTime: itemDate,
+                              endTime: itemEndDate,
+                              location: item.location,
+                              address: item.address,
+                              cost: item.cost,
+                              notes: item.notes,
+                              imageUrl: item.imageUrl,
+                              isCompleted: item.isCompleted,
+                              order: item.order,
+                              metadata: item.metadata,
+                            );
+                          }).toList(),
+                          createdAt: DateTime.now(),
+                          updatedAt: DateTime.now(),
+                          relatedTourId: tourData.id,
                         );
 
                         Navigator.of(context).push(
@@ -419,40 +506,14 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
-                      children: [
-                        _buildScheduleItem(
-                          'Hotel Pickup',
-                          '5:00 AM',
-                        ),
-                        const SizedBox(height: 12),
-                        _buildScheduleItem(
-                          'Tour Start',
-                          '7:00 AM',
-                        ),
-                        const SizedBox(height: 12),
-                        _buildScheduleItem(
-                          'Tour End',
-                          '3:00 PM',
-                        ),
-                        const SizedBox(height: 12),
-                        _buildScheduleItem(
-                          'Hotel Return',
-                          '5:00 PM',
-                        ),
-                      ],
+                      children: _buildScheduleItems(),
                     ),
                   ),
                   const SizedBox(height: 24),
                   // What's Included
                   Text("What's Included", style: AppTheme.headlineSmall),
                   const SizedBox(height: 12),
-                  ...[
-                    'Hotel pickup and drop-off',
-                    'Professional guide',
-                    'Safety equipment',
-                    'Lunch and snacks',
-                    'Waterproof bag',
-                  ].map<Widget>((item) {
+                  ...tourData.included.map<Widget>((item) {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Row(
@@ -479,11 +540,7 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ...[
-                    'Personal expenses',
-                    'Tips and gratuities',
-                    'Travel insurance',
-                  ].map<Widget>((item) {
+                  ...tourData.notIncluded.map<Widget>((item) {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Row(
@@ -508,29 +565,15 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
                   const SizedBox(height: 16),
                   SizedBox(
                     height: 200,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        _buildAlternativeTour(
-                          'Oslob Whale Shark Encounter',
-                          'Oslob, Cebu',
-                          3500,
-                          4.8,
-                        ),
-                        _buildAlternativeTour(
-                          'Bantayan Island Hopping',
-                          'Bantayan Island',
-                          2800,
-                          4.7,
-                        ),
-                        _buildAlternativeTour(
-                          'Moalboal Sardine Run',
-                          'Moalboal, Cebu',
-                          2200,
-                          4.9,
-                        ),
-                      ],
-                    ),
+                    child: alternativeTours.isEmpty
+                        ? const Center(
+                            child: Text('No alternative tours available'))
+                        : ListView(
+                            scrollDirection: Axis.horizontal,
+                            children: alternativeTours
+                                .map(_buildAlternativeTourFromModel)
+                                .toList(),
+                          ),
                   ),
                   const SizedBox(height: 100), // Space for bottom button
                 ],
@@ -540,6 +583,67 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
         ],
       ),
     );
+  }
+
+  List<Widget> _buildScheduleItems() {
+    final tourDate = DateTime.now().add(const Duration(days: 3));
+    final dateFormat = DateFormat('MMM dd, yyyy');
+
+    // Default times
+    String meetupTime = '7:00 AM';
+    String endTime = '3:00 PM';
+
+    if (tourData.itinerary.isNotEmpty) {
+      // Get first itinerary item time as meetup time
+      final firstItem = tourData.itinerary.first;
+      if (firstItem.containsKey('time') && firstItem['time'] != null) {
+        meetupTime = _formatTimeString(firstItem['time']!);
+      }
+
+      // Get last itinerary item time as end time
+      final lastItem = tourData.itinerary.last;
+      if (lastItem.containsKey('time') && lastItem['time'] != null) {
+        endTime = _formatTimeString(lastItem['time']!);
+      }
+    }
+
+    // Calculate pickup time (2 hours before meetup)
+    final meetupDateTime = DateFormat('h:mm a').parse(meetupTime);
+    final pickupDateTime = meetupDateTime.subtract(const Duration(hours: 2));
+    final pickupTime = DateFormat('h:mm a').format(pickupDateTime);
+
+    // Calculate return time (2 hours after end)
+    final endDateTime = DateFormat('h:mm a').parse(endTime);
+    final returnDateTime = endDateTime.add(const Duration(hours: 2));
+    final returnTime = DateFormat('h:mm a').format(returnDateTime);
+
+    return [
+      _buildScheduleItem('Tour Date (Subject to Tourist Preference)',
+          dateFormat.format(tourDate)),
+      const SizedBox(height: 12),
+      _buildScheduleItem('Tour Start', meetupTime),
+      const SizedBox(height: 12),
+      _buildScheduleItem('Tour End', endTime),
+      const SizedBox(height: 12),
+      _buildScheduleItem('Tour Duration', '${tourData.duration} hours'),
+    ];
+  }
+
+  String _formatTimeString(String timeString) {
+    try {
+      // Try parsing as 24-hour format first (HH:mm)
+      final time24 = DateFormat('HH:mm').parse(timeString);
+      return DateFormat('h:mm a').format(time24);
+    } catch (e) {
+      // If that fails, try parsing as 12-hour format (h:mm a)
+      try {
+        final time12 = DateFormat('h:mm a').parse(timeString);
+        return DateFormat('h:mm a').format(time12);
+      } catch (e2) {
+        // If both fail, return a default time
+        return '7:00 AM';
+      }
+    }
   }
 
   Widget _buildScheduleItem(String label, String time) {
@@ -552,6 +656,102 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
           style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
         ),
       ],
+    );
+  }
+
+  Widget _buildAlternativeTourFromModel(TourModel tour) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TourDetailsScreen(tourId: tour.id),
+          ),
+        );
+      },
+      child: Container(
+        width: 200,
+        margin: const EdgeInsets.only(right: 16),
+        decoration: AppTheme.cardDecoration,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 100,
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+                image: tour.mediaURL.isNotEmpty
+                    ? DecorationImage(
+                        image: tour.mediaURL.first.startsWith('http')
+                            ? NetworkImage(tour.mediaURL.first)
+                            : AssetImage('assets/images/${tour.mediaURL.first}')
+                                as ImageProvider,
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+                color: tour.mediaURL.isEmpty
+                    ? AppTheme.primaryColor.withOpacity(0.2)
+                    : null,
+              ),
+              child: tour.mediaURL.isEmpty
+                  ? Center(
+                      child: Icon(
+                        Icons.image,
+                        size: 40,
+                        color: AppTheme.primaryColor.withOpacity(0.5),
+                      ),
+                    )
+                  : null,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tour.title,
+                    style: AppTheme.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    tour.meetingPoint,
+                    style: AppTheme.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '₱${tour.price.toStringAsFixed(0)}',
+                        style: AppTheme.bodyMedium.copyWith(
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          const Icon(Icons.star, size: 14, color: Colors.amber),
+                          const SizedBox(width: 2),
+                          Text(tour.rating.toStringAsFixed(1),
+                              style: AppTheme.bodySmall),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

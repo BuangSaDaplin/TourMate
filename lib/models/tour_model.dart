@@ -18,6 +18,9 @@ class TourModel {
   final List<String> languages;
   final List<String> specializations;
   final List<String> highlights;
+  final double rating;
+  final List<String> included;
+  final List<String> notIncluded;
 
   TourModel({
     required this.id,
@@ -39,6 +42,9 @@ class TourModel {
     required this.languages,
     required this.specializations,
     required this.highlights,
+    this.rating = 0.0,
+    this.included = const [],
+    this.notIncluded = const [],
   });
 
   factory TourModel.fromMap(Map<String, dynamic> data) {
@@ -56,7 +62,16 @@ class TourModel {
       mediaURL: List<String>.from(data['mediaURL'] ?? data['media'] ?? []),
       createdBy: data['createdBy'],
       shared: data['shared'],
-      itinerary: List<Map<String, String>>.from(data['itinerary']),
+      itinerary: List<Map<String, String>>.from(
+        (data['itinerary'] as List<dynamic>?)?.map((item) {
+              if (item is Map<String, dynamic>) {
+                return Map<String, String>.from(
+                    item.map((key, value) => MapEntry(key, value.toString())));
+              }
+              return <String, String>{};
+            }) ??
+            [],
+      ),
       status: data['status'],
       duration: (data['duration'] is int)
           ? data['duration']
@@ -64,6 +79,8 @@ class TourModel {
       languages: List<String>.from(data['languages'] ?? []),
       specializations: List<String>.from(data['specializations'] ?? []),
       highlights: List<String>.from(data['highlights'] ?? []),
+      included: List<String>.from(data['included'] ?? []),
+      notIncluded: List<String>.from(data['notIncluded'] ?? []),
     );
   }
 
@@ -88,6 +105,9 @@ class TourModel {
       'languages': languages,
       'specializations': specializations,
       'highlights': highlights,
+      'rating': rating,
+      'included': included,
+      'notIncluded': notIncluded,
     };
   }
 

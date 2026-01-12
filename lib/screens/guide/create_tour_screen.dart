@@ -7,6 +7,7 @@ import '../../utils/app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/database_service.dart';
 import '../../services/itinerary_generator_service.dart';
+import '../../services/highlights_template_service.dart';
 import '../../data/mock_tour_spot_repository.dart';
 import '../../data/tour_spot_model.dart';
 import '../../models/tour_model.dart';
@@ -24,6 +25,8 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
   final DatabaseService _db = DatabaseService();
   final ItineraryGeneratorService _itineraryGeneratorService =
       ItineraryGeneratorService();
+  final HighlightsTemplateService _highlightsTemplateService =
+      HighlightsTemplateService();
   final MockTourSpotRepository _tourSpotRepository = MockTourSpotRepository();
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
@@ -86,6 +89,19 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
     'Food & Dining',
     'Transportation'
   ];
+
+  final List<String> _availableInclusions = [
+    'Professional Guide',
+    'Transportation Expenses',
+    'Lunch',
+    'Snacks',
+    'Entrance Fees',
+    'Equipment',
+    'Insurance'
+  ];
+  List<String> _selectedInclusions = [
+    'Professional Guide'
+  ]; // Pre-select Professional Guide
 
   @override
   void dispose() {
@@ -332,27 +348,6 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Tour Duration
-              TextFormField(
-                controller: _durationController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                decoration: const InputDecoration(
-                  labelText: 'Tour Duration (hours)',
-                  hintText: '8',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Enter duration';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-
               // 4. Tour Location Selection (Spatial Data)
               Text(
                 'Tour Location Selection',
@@ -529,6 +524,36 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
                           _selectedSpecializations.add(spec);
                         } else {
                           _selectedSpecializations.remove(spec);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+
+              // What's Included
+              Text(
+                'What\'s Included',
+                style: AppTheme.bodyLarge.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _availableInclusions.map((inclusion) {
+                  final isSelected = _selectedInclusions.contains(inclusion);
+                  return FilterChip(
+                    label: Text(inclusion),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedInclusions.add(inclusion);
+                        } else {
+                          _selectedInclusions.remove(inclusion);
                         }
                       });
                     },
@@ -842,11 +867,13 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
     final endTime = startTime.add(Duration(hours: durationHours));
 
     // 1. Resolve your selected strings to actual TourSpot objects first
-    final List<TourSpot> selectedSpotObjects = await _tourSpotRepository
-        .getAllSpots()
-        .then((allSpots) => allSpots
-            .where((spot) => _selectedSpots.contains(spot.name))
-            .toList());
+    // Maintain the order as selected by the user
+    final List<TourSpot> selectedSpotObjects = [];
+    final allSpots = await _tourSpotRepository.getAllSpots();
+    for (final selectedSpotName in _selectedSpots) {
+      final spot = allSpots.firstWhere((spot) => spot.name == selectedSpotName);
+      selectedSpotObjects.add(spot);
+    }
 
     // 2. Generate the itinerary
     final userContext = _itineraryGeneratorService.initializeUserContext(
@@ -875,6 +902,10 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           _generatedItinerary = result;
         });
 
+        // Calculate actual duration from generated itinerary
+        final totalDuration = result.endDate.difference(result.startDate);
+        final durationHours = (totalDuration.inMinutes / 60).ceil();
+
         // Auto-populate form fields based on selected locations and generated itinerary
         setState(() {
           // Generate title based on locations
@@ -891,10 +922,8 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           // Set times
           _tourStartTime = startTime;
 
-          // Estimate duration based on number of locations
-          final estimatedHours =
-              _selectedSpots.length * 2; // 2 hours per location
-          _durationController.text = estimatedHours.toString();
+          // Set duration based on generated itinerary
+          _tourDuration = durationHours;
 
           // Set max participants
           _maxParticipantsController.text = '10';
@@ -971,9 +1000,13 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
 
   Future<List<TourSpot>> _mapSelectedSpotsToTourSpots() async {
     final allSpots = await _tourSpotRepository.getAllSpots();
-    return allSpots
-        .where((spot) => _selectedSpots.contains(spot.name))
-        .toList();
+    // Maintain the order as selected by the user
+    final List<TourSpot> orderedSpots = [];
+    for (final selectedSpotName in _selectedSpots) {
+      final spot = allSpots.firstWhere((spot) => spot.name == selectedSpotName);
+      orderedSpots.add(spot);
+    }
+    return orderedSpots;
   }
 
   void _selectLocations() {
@@ -996,6 +1029,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
                         setState(() {
                           if (value == true) {
                             if (tempSelected.length < 3) {
+                              // Add to the end to maintain user's selection order
                               tempSelected.add(spot);
                             }
                           } else {
@@ -1016,6 +1050,8 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
                   onPressed: tempSelected.isNotEmpty
                       ? () {
                           this.setState(() {
+                            // Keep the selection order as chosen by the user
+                            // The first item in tempSelected is the first location the user selected
                             _selectedSpots = tempSelected;
                             _updateCategoriesBasedOnSpots();
                           });
@@ -1038,12 +1074,12 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
         _selectedSpots.isNotEmpty) {
       final user = _authService.getCurrentUser();
       if (user != null) {
-        final durationText = _durationController.text.trim();
-        final duration = int.tryParse(durationText);
-        if (duration == null || duration <= 0) {
+        final duration = _tourDuration ?? 8; // Default to 8 hours if not set
+        if (duration <= 0) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Please enter a valid duration greater than 0'),
+              content: Text(
+                  'Please generate an itinerary first to set the duration'),
               backgroundColor: Colors.red,
             ),
           );
@@ -1085,7 +1121,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           return;
         }
 
-        // Map selected spots to TourSpot objects
+        // Map selected spots to TourSpot objects, maintaining user's selection order
         final tourSpots = await _mapSelectedSpotsToTourSpots();
 
         // Set default times if not set
@@ -1148,6 +1184,30 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           }).toList();
         }
 
+        // Find the first actual tour spot in the generated itinerary (not travel or meeting items)
+        String meetingPoint = _selectedSpots.first; // Default fallback
+        if (_generatedItinerary != null) {
+          for (final item in _generatedItinerary!.items) {
+            // Skip travel and meeting items, find the first actual tour spot
+            if (!item.title.contains('Travel') &&
+                !item.title.contains('Meet with Guide') &&
+                !item.title.contains('Tour Start')) {
+              // Find which selected spot this item corresponds to
+              for (final selectedSpot in _selectedSpots) {
+                if (item.title.contains(selectedSpot) ||
+                    (item.location != null &&
+                        item.location!.contains(selectedSpot))) {
+                  meetingPoint = selectedSpot;
+                  break;
+                }
+              }
+              if (meetingPoint != _selectedSpots.first) {
+                break; // Found the first tour spot
+              }
+            }
+          }
+        }
+
         // 2. Pass this list into the TourModel
         final newTour = TourModel(
           id: tourId,
@@ -1160,7 +1220,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           startTime: startTime,
           endTime: endTime,
           meetingPoint:
-              _selectedSpots.first, // Use first selected spot as meeting point
+              meetingPoint, // Use first tour spot in itinerary as meeting point
           mediaURL: mediaURLs,
           createdBy: user.uid,
           shared: false,
@@ -1170,6 +1230,10 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           languages: _selectedLanguages,
           specializations: _selectedSpecializations,
           highlights: _selectedSpots,
+          included: _selectedInclusions,
+          notIncluded: _availableInclusions
+              .where((inclusion) => !_selectedInclusions.contains(inclusion))
+              .toList(),
         );
 
         print('DEBUG: Final itinerary has ${itineraryData.length} items');

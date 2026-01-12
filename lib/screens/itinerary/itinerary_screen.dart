@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:tourmate_app/models/itinerary_model.dart';
 import 'package:tourmate_app/services/itinerary_service.dart';
 import 'package:tourmate_app/services/auth_service.dart';
+import 'package:tourmate_app/services/email_service.dart';
 import '../../utils/app_theme.dart';
 
 class ItineraryScreen extends StatefulWidget {
@@ -17,6 +18,7 @@ class ItineraryScreen extends StatefulWidget {
 class _ItineraryScreenState extends State<ItineraryScreen> {
   final ItineraryService _itineraryService = ItineraryService();
   final AuthService _authService = AuthService();
+  final EmailService _emailService = EmailService();
   late ItineraryModel _itinerary;
   bool _isEditMode = false;
   DateTime _selectedDate = DateTime.now();
@@ -57,18 +59,6 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                 const PopupMenuItem(
                   value: 'share',
                   child: Text('Share Itinerary'),
-                ),
-                const PopupMenuItem(
-                  value: 'export',
-                  child: Text('Export as PDF'),
-                ),
-                const PopupMenuItem(
-                  value: 'duplicate',
-                  child: Text('Duplicate'),
-                ),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Text('Delete'),
                 ),
               ],
             ),
@@ -159,41 +149,12 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
             _itinerary.description,
             style: AppTheme.bodyMedium,
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Icon(Icons.calendar_today, size: 16, color: AppTheme.textSecondary),
-              const SizedBox(width: 8),
-              Text(
-                '${DateFormat('MMM dd').format(_itinerary.startDate)} - ${DateFormat('MMM dd, yyyy').format(_itinerary.endDate)}',
-                style: AppTheme.bodyMedium.copyWith(color: AppTheme.textSecondary),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(Icons.attach_money, size: 16, color: AppTheme.textSecondary),
-              const SizedBox(width: 8),
-              Text(
-                'Total Cost: \$${_itinerary.totalCost.toStringAsFixed(2)}',
-                style: AppTheme.bodyMedium.copyWith(
-                  color: AppTheme.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '${_itinerary.completedItems.length}/${_itinerary.items.length} completed',
-                style: AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
-              ),
-            ],
-          ),
           const SizedBox(height: 12),
           LinearProgressIndicator(
             value: _itinerary.completionPercentage / 100,
             backgroundColor: AppTheme.dividerColor,
-            valueColor: AlwaysStoppedAnimation<Color>(_getStatusColor(_itinerary.status)),
+            valueColor: AlwaysStoppedAnimation<Color>(
+                _getStatusColor(_itinerary.status)),
           ),
         ],
       ),
@@ -216,8 +177,8 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         itemBuilder: (context, index) {
           final date = dates[index];
           final isSelected = date.year == _selectedDate.year &&
-                           date.month == _selectedDate.month &&
-                           date.day == _selectedDate.day;
+              date.month == _selectedDate.month &&
+              date.day == _selectedDate.day;
           final itemsForDate = _itinerary.getItemsForDate(date);
 
           return GestureDetector(
@@ -229,15 +190,19 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                 color: isSelected ? AppTheme.primaryColor : Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isSelected ? AppTheme.primaryColor : AppTheme.dividerColor,
+                  color: isSelected
+                      ? AppTheme.primaryColor
+                      : AppTheme.dividerColor,
                 ),
-                boxShadow: isSelected ? [
-                  BoxShadow(
-                    color: AppTheme.primaryColor.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ] : null,
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: AppTheme.primaryColor.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : null,
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -257,22 +222,6 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  if (itemsForDate.isNotEmpty)
-                    Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: isSelected ? Colors.white24 : AppTheme.primaryColor.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        itemsForDate.length.toString(),
-                        style: AppTheme.bodySmall.copyWith(
-                          color: isSelected ? Colors.white : AppTheme.primaryColor,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -413,7 +362,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '${DateFormat('HH:mm').format(item.startTime)} - ${DateFormat('HH:mm').format(item.endTime)} (${item.durationText})',
+                              '${DateFormat('HH:mm').format(item.startTime)}-${DateFormat('HH:mm').format(item.endTime)} (${item.title})',
                               style: AppTheme.bodySmall.copyWith(
                                 color: AppTheme.textSecondary,
                               ),
@@ -489,7 +438,8 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: item.typeColor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(12),
@@ -505,7 +455,8 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                             Checkbox(
                               value: item.isCompleted,
                               onChanged: _isEditMode
-                                  ? (value) => _toggleActivityCompletion(item, value ?? false)
+                                  ? (value) => _toggleActivityCompletion(
+                                      item, value ?? false)
                                   : null,
                               activeColor: Colors.green,
                             ),
@@ -575,22 +526,14 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                 _editActivity(activity);
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('Delete Activity'),
-              textColor: Colors.red,
-              onTap: () {
-                Navigator.pop(context);
-                _deleteActivity(activity);
-              },
-            ),
           ],
         ),
       ),
     );
   }
 
-  void _toggleActivityCompletion(ItineraryItemModel activity, bool isCompleted) async {
+  void _toggleActivityCompletion(
+      ItineraryItemModel activity, bool isCompleted) async {
     try {
       await _itineraryService.toggleActivityCompletion(
         _itinerary.id,
@@ -650,7 +593,8 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
 
   void _deleteActivity(ItineraryItemModel activity) async {
     try {
-      await _itineraryService.removeActivityFromItinerary(_itinerary.id, activity.id);
+      await _itineraryService.removeActivityFromItinerary(
+          _itinerary.id, activity.id);
 
       setState(() {
         _itinerary = ItineraryModel(
@@ -661,7 +605,8 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
           startDate: _itinerary.startDate,
           endDate: _itinerary.endDate,
           status: _itinerary.status,
-          items: _itinerary.items.where((item) => item.id != activity.id).toList(),
+          items:
+              _itinerary.items.where((item) => item.id != activity.id).toList(),
           coverImageUrl: _itinerary.coverImageUrl,
           isPublic: _itinerary.isPublic,
           shareCode: _itinerary.shareCode,
@@ -688,100 +633,109 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
       case 'share':
         _shareItinerary();
         break;
-      case 'export':
-        _exportItinerary();
-        break;
-      case 'duplicate':
-        _duplicateItinerary();
-        break;
-      case 'delete':
-        _deleteItinerary();
-        break;
     }
   }
 
-  void _shareItinerary() async {
-    try {
-      final shareCode = await _itineraryService.shareItinerary(_itinerary.id);
-      final shareUrl = 'https://tourmate.app/itinerary/$shareCode';
+  void _shareItinerary() {
+    final TextEditingController emailController = TextEditingController();
 
-      // Show share dialog with URL
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Share Itinerary'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Share this link with others:'),
-              const SizedBox(height: 8),
-              SelectableText(
-                shareUrl,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Done'),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to share itinerary: $e')),
-      );
-    }
-  }
-
-  void _exportItinerary() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Export functionality coming soon!')),
-    );
-  }
-
-  void _duplicateItinerary() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Duplicate functionality coming soon!')),
-    );
-  }
-
-  void _deleteItinerary() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Itinerary'),
-        content: const Text('Are you sure you want to delete this itinerary? This action cannot be undone.'),
+        title: const Text('Share Itinerary'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Enter the email address to share this itinerary:'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: emailController,
+              decoration: const InputDecoration(
+                labelText: 'Email Address',
+                hintText: 'recipient@example.com',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.emailAddress,
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Cancel'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () async {
-              try {
-                await _itineraryService.deleteItinerary(_itinerary.id);
-                Navigator.of(context).pop(); // Close dialog
-                Navigator.of(context).pop(); // Go back to previous screen
+              final email = emailController.text.trim();
+              if (email.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Itinerary deleted')),
+                  const SnackBar(
+                      content: Text('Please enter an email address')),
+                );
+                return;
+              }
+
+              // Validate email format
+              final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+              if (!emailRegex.hasMatch(email)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('Please enter a valid email address')),
+                );
+                return;
+              }
+
+              Navigator.of(context).pop(); // Close dialog
+
+              try {
+                // Here you would integrate with your email service
+                // For now, we'll show a success message
+                await _sendItineraryByEmail(email);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text('Itinerary sent to $email successfully!')),
                 );
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Failed to delete itinerary: $e')),
+                  SnackBar(content: Text('Failed to send itinerary: $e')),
                 );
               }
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: const Text('Send'),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _sendItineraryByEmail(String email) async {
+    try {
+      // Get the current user's name for the email
+      final currentUser = _authService.getCurrentUser();
+      String senderName = 'TourMate User';
+
+      if (currentUser != null) {
+        // You might want to get the user's display name from their profile
+        // For now, we'll use a generic name
+        senderName = 'TourMate User';
+      }
+
+      // Send the itinerary via email
+      final success = await _emailService.sendItineraryEmail(
+        recipientEmail: email,
+        itinerary: _itinerary,
+        senderName: senderName,
+      );
+
+      if (!success) {
+        throw Exception('Failed to send email');
+      }
+
+      print('Successfully sent itinerary "${_itinerary.title}" to $email');
+    } catch (e) {
+      print('Error sending itinerary email: $e');
+      throw e; // Re-throw to be handled by the calling method
+    }
   }
 }

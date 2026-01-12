@@ -149,8 +149,11 @@ class DatabaseService {
     double? minRating,
   }) async {
     // TODO: Implement advanced search with Algolia or complex Firestore queries
-    // For now, return all tours (this would need proper implementation)
-    final snapshot = await _db.collection('tours').get();
+    // For now, return approved tours only (this would need proper implementation)
+    final snapshot = await _db
+        .collection('tours')
+        .where('status', isEqualTo: 'approved')
+        .get();
     return snapshot.docs.map((doc) => TourModel.fromMap(doc.data())).toList();
   }
 
@@ -162,6 +165,14 @@ class DatabaseService {
 
   Future<List<TourModel>> getAllTours() async {
     final snapshot = await _db.collection('tours').get();
+    return snapshot.docs.map((doc) => TourModel.fromMap(doc.data())).toList();
+  }
+
+  Future<List<TourModel>> getApprovedTours() async {
+    final snapshot = await _db
+        .collection('tours')
+        .where('status', isEqualTo: 'approved')
+        .get();
     return snapshot.docs.map((doc) => TourModel.fromMap(doc.data())).toList();
   }
 

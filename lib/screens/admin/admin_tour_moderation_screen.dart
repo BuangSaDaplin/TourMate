@@ -738,6 +738,24 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen>
                   }),
                   const SizedBox(height: 16),
                 ],
+                if (tour.highlights.isNotEmpty) ...[
+                  const Text('Highlights:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  ...tour.highlights.map((highlight) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        children: [
+                          const Text('• ',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          Expanded(child: Text(highlight)),
+                        ],
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 16),
+                ],
                 const Text('Documents/Media:',
                     style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
