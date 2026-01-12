@@ -31,8 +31,9 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
   final _priceController = TextEditingController();
   final _durationController = TextEditingController();
   final _maxParticipantsController = TextEditingController();
-  DateTime? _selectedDate;
+  DateTime _tourDate = DateTime.now(); // Automatically set to current date
   DateTime? _tourStartTime;
+  int? _tourDuration; // Duration in hours
   ItineraryModel? _generatedItinerary;
 
   List<String> _selectedSpots = [];
@@ -50,7 +51,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
     'Mountain Peak Viewpoint',
   ];
 
-  List<PlatformFile> _previewImages = [];
+  final List<PlatformFile> _previewImages = [];
 
   List<String> _selectedCategories = [];
   final List<String> _categories = [
@@ -147,45 +148,27 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Tour Title
+              // 1. Basic Tour Information (Identity Layer)
               Text(
-                'Tour Details',
+                'Basic Tour Information',
                 style: AppTheme.headlineSmall,
               ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _titleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Tour Title',
-                        hintText: 'e.g., Kawasan Falls Canyoneering Adventure',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a tour title';
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  SizedBox(
-                    width: 120,
-                    child: OutlinedButton.icon(
-                      onPressed: _autoGenerateTour,
-                      icon: const Icon(Icons.auto_awesome),
-                      label: const Text('Auto\nGenerate'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.primaryColor,
-                        side: const BorderSide(color: AppTheme.primaryColor),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
+
+              // Tour Title
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Tour Title',
+                  hintText: 'e.g., Kawasan Falls Canyoneering Adventure',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a tour title';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
 
@@ -207,7 +190,176 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Locations
+              // Tour Type / Category (optional)
+              Text(
+                'Category',
+                style: AppTheme.bodyLarge.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _categories.map((category) {
+                  final isSelected = _selectedCategories.contains(category);
+                  return FilterChip(
+                    label: Text(category),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedCategories.add(category);
+                        } else {
+                          _selectedCategories.remove(category);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+
+              // Maximum Number of Participants (optional)
+              TextFormField(
+                controller: _maxParticipantsController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                decoration: const InputDecoration(
+                  labelText: 'Max Participants',
+                  hintText: '10',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Enter max participants';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 24),
+
+              // 2. Tour Date Selection (Temporal Anchor)
+              Text(
+                'Tour Date',
+                style: AppTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _tourDate,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (picked != null) {
+                    setState(() {
+                      _tourDate = picked;
+                    });
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppTheme.dividerColor),
+                    borderRadius: BorderRadius.circular(8),
+                    color: AppTheme.backgroundColor,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.calendar_today, color: AppTheme.primaryColor),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Tour Date: ${_tourDate.day}/${_tourDate.month}/${_tourDate.year}',
+                        style: AppTheme.bodyLarge.copyWith(
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      Icon(Icons.arrow_drop_down, color: AppTheme.primaryColor),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // 3. Tour Time Configuration (Time Constraints)
+              Text(
+                'Tour Time Configuration',
+                style: AppTheme.headlineSmall,
+              ),
+              const SizedBox(height: 16),
+
+              // Tour Start Time
+              InkWell(
+                onTap: () async {
+                  final picked = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.now(),
+                  );
+                  if (picked != null) {
+                    setState(() {
+                      _tourStartTime = DateTime(
+                        _tourDate.year,
+                        _tourDate.month,
+                        _tourDate.day,
+                        picked.hour,
+                        picked.minute,
+                      );
+                    });
+                  }
+                },
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Tour Start Time',
+                    border: OutlineInputBorder(),
+                  ),
+                  child: Text(
+                    _tourStartTime != null
+                        ? '${_tourStartTime!.hour.toString().padLeft(2, '0')}:${_tourStartTime!.minute.toString().padLeft(2, '0')}'
+                        : 'Select start time',
+                    style: TextStyle(
+                      color: _tourStartTime != null
+                          ? AppTheme.textPrimary
+                          : AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Tour Duration
+              TextFormField(
+                controller: _durationController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                decoration: const InputDecoration(
+                  labelText: 'Tour Duration (hours)',
+                  hintText: '8',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Enter duration';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 24),
+
+              // 4. Tour Location Selection (Spatial Data)
+              Text(
+                'Tour Location Selection',
+                style: AppTheme.headlineSmall,
+              ),
+              const SizedBox(height: 16),
+
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -251,15 +403,43 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
                             }).toList(),
                           ),
                         const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          onPressed: _selectLocations,
-                          icon: const Icon(Icons.add),
-                          label: const Text('Select Locations'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.primaryColor,
-                            side:
-                                const BorderSide(color: AppTheme.primaryColor),
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _selectLocations,
+                                icon: const Icon(Icons.add),
+                                label: const Text('Select Locations'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.primaryColor,
+                                  side: const BorderSide(
+                                      color: AppTheme.primaryColor),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            SizedBox(
+                              width: 120,
+                              child: OutlinedButton.icon(
+                                onPressed: _selectedSpots.isNotEmpty
+                                    ? _autoGenerateTour
+                                    : null,
+                                icon: const Icon(Icons.auto_awesome),
+                                label: const Text('Auto\nGenerate'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: _selectedSpots.isNotEmpty
+                                      ? AppTheme.primaryColor
+                                      : AppTheme.textSecondary,
+                                  side: BorderSide(
+                                      color: _selectedSpots.isNotEmpty
+                                          ? AppTheme.primaryColor
+                                          : AppTheme.textSecondary),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -268,185 +448,34 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Tour Settings
+              // Additional Tour Settings (Price, Languages, Specializations)
               Text(
-                'Tour Settings',
+                'Additional Tour Settings',
                 style: AppTheme.headlineSmall,
               ),
               const SizedBox(height: 16),
 
-              // Price and Duration Row
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _priceController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      decoration: const InputDecoration(
-                        labelText: 'Price per person',
-                        hintText: '2500',
-                        prefixText: '₱',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Enter price';
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _durationController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                      decoration: const InputDecoration(
-                        labelText: 'Duration (hours)',
-                        hintText: '8',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Enter duration';
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Max Participants
+              // Price
               TextFormField(
-                controller: _maxParticipantsController,
+                controller: _priceController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
                 ],
                 decoration: const InputDecoration(
-                  labelText: 'Max Participants',
-                  hintText: '10',
+                  labelText: 'Price per person',
+                  hintText: '2500',
+                  prefixText: '₱',
                   border: OutlineInputBorder(),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Enter max participants';
+                    return 'Enter price';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 16),
-
-              // Tour Date
-              InkWell(
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _selectedDate ?? DateTime.now(),
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 365)),
-                  );
-                  if (picked != null) {
-                    setState(() {
-                      _selectedDate = picked;
-                    });
-                  }
-                },
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Tour Date',
-                    border: OutlineInputBorder(),
-                  ),
-                  child: Text(
-                    _selectedDate != null
-                        ? '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}'
-                        : 'Select tour date',
-                    style: TextStyle(
-                      color: _selectedDate != null
-                          ? AppTheme.textPrimary
-                          : AppTheme.textSecondary,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Tour Start Time
-              InkWell(
-                onTap: () async {
-                  final picked = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay.now(),
-                  );
-                  if (picked != null) {
-                    final date = _selectedDate ?? DateTime.now();
-                    setState(() {
-                      _tourStartTime = DateTime(
-                        date.year,
-                        date.month,
-                        date.day,
-                        picked.hour,
-                        picked.minute,
-                      );
-                    });
-                  }
-                },
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Tour Start Time',
-                    border: OutlineInputBorder(),
-                  ),
-                  child: Text(
-                    _tourStartTime != null
-                        ? '${_tourStartTime!.hour.toString().padLeft(2, '0')}:${_tourStartTime!.minute.toString().padLeft(2, '0')}'
-                        : 'Select start time',
-                    style: TextStyle(
-                      color: _tourStartTime != null
-                          ? AppTheme.textPrimary
-                          : AppTheme.textSecondary,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Category
-              Text(
-                'Category',
-                style: AppTheme.bodyLarge.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _categories.map((category) {
-                  final isSelected = _selectedCategories.contains(category);
-                  return FilterChip(
-                    label: Text(category),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedCategories.add(category);
-                        } else {
-                          _selectedCategories.remove(category);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 24),
 
               // Languages
               Text(
@@ -476,7 +505,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
               // Specializations
               Text(
@@ -808,12 +837,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
 
     // Set default times if not set
     final startTime = _tourStartTime ??
-        DateTime(
-            (_selectedDate ?? DateTime.now()).year,
-            (_selectedDate ?? DateTime.now()).month,
-            (_selectedDate ?? DateTime.now()).day,
-            8,
-            0);
+        DateTime(_tourDate.year, _tourDate.month, _tourDate.day, 8, 0);
     final durationHours = int.tryParse(_durationController.text) ?? 8;
     final endTime = startTime.add(Duration(hours: durationHours));
 
@@ -1066,12 +1090,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
 
         // Set default times if not set
         final startTime = _tourStartTime ??
-            DateTime(
-                (_selectedDate ?? DateTime.now()).year,
-                (_selectedDate ?? DateTime.now()).month,
-                (_selectedDate ?? DateTime.now()).day,
-                8,
-                0);
+            DateTime(_tourDate.year, _tourDate.month, _tourDate.day, 8, 0);
         final endTime = startTime.add(Duration(hours: duration));
 
         // Create user context for itinerary generation
