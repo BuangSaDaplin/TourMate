@@ -39,7 +39,7 @@ class BookingModel {
   final List<String>? participantNames;
   final String? contactNumber;
   final String? emergencyContact;
-  final int? duration;
+  final double? duration;
 
   // Review fields
   final String? reviewContent;
@@ -107,7 +107,7 @@ class BookingModel {
       participantNames: List<String>.from(data['participantNames'] ?? []),
       contactNumber: data['contactNumber'],
       emergencyContact: data['emergencyContact'],
-      duration: data['duration'] as int?,
+      duration: data['duration'] as double?,
       reviewContent: data['reviewContent'],
       rating: data['rating']?.toDouble(),
       reviewCreatedAt: data['reviewCreatedAt']?.toDate(),

@@ -32,11 +32,11 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
-  final _durationController = TextEditingController();
+
   final _maxParticipantsController = TextEditingController();
   DateTime _tourDate = DateTime.now(); // Automatically set to current date
   DateTime? _tourStartTime;
-  int? _tourDuration; // Duration in hours
+  double? _tourDuration; // Duration in hours
   ItineraryModel? _generatedItinerary;
 
   List<String> _selectedSpots = [];
@@ -51,8 +51,20 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
     'Sirao Flower Garden',
     'Temple of Leah',
     'Tops Lookout',
-    'Mountain Peak Viewpoint',
   ];
+
+  final Map<String, List<String>> _spotCategories = {
+    'Basilica del Santo Niño': ['Religious', 'Historical', 'Culture'],
+    'Magellan\'s Cross': ['Historical', 'Religious'],
+    'Fort San Pedro': ['Historical', 'Culture'],
+    'Colon Street': ['City', 'Historical', 'Culture'],
+    'Cebu Metropolitan Cathedral': ['Religious', 'Historical'],
+    'Heritage of Cebu Monument': ['Historical', 'Culture'],
+    'Cebu Taoist Temple': ['Religious', 'Culture'],
+    'Sirao Flower Garden': ['Nature', 'Adventure'],
+    'Temple of Leah': ['Historical', 'Culture', 'Religious'],
+    'Tops Lookout': ['Nature', 'Adventure'],
+  };
 
   final List<PlatformFile> _previewImages = [];
 
@@ -60,10 +72,8 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
   final List<String> _categories = [
     'Adventure',
     'Culture',
-    'Food',
     'Nature',
-    'Beach',
-    'City Tour',
+    'City',
     'Historical',
     'Religious'
   ];
@@ -78,38 +88,38 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
     'Chinese'
   ];
 
-  final List<String> _selectedSpecializations = [];
-  final List<String> _availableSpecializations = [
-    'Hiking',
-    'Snorkeling',
-    'Photography',
-    'History',
-    'Local Culture',
-    'Wildlife',
-    'Food & Dining',
-    'Transportation'
-  ];
-
   final List<String> _availableInclusions = [
     'Professional Guide',
-    'Transportation Expenses',
+    'Transportation',
     'Lunch',
     'Snacks',
     'Entrance Fees',
-    'Equipment',
-    'Insurance'
+    'Equipment'
   ];
   List<String> _selectedInclusions = [
     'Professional Guide'
   ]; // Pre-select Professional Guide
+
+  final Map<String, TextEditingController> _inclusionPriceControllers = {};
+  final Map<String, double> _inclusionPrices = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _priceController.text = '600'; // Set default Professional Guide Fee to ₱600
+    // Initialize Professional Guide price in inclusionPrices
+    _inclusionPrices['Professional Guide'] = 600.0;
+  }
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
     _priceController.dispose();
-    _durationController.dispose();
     _maxParticipantsController.dispose();
+    for (final controller in _inclusionPriceControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -206,36 +216,6 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Tour Type / Category (optional)
-              Text(
-                'Category',
-                style: AppTheme.bodyLarge.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _categories.map((category) {
-                  final isSelected = _selectedCategories.contains(category);
-                  return FilterChip(
-                    label: Text(category),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedCategories.add(category);
-                        } else {
-                          _selectedCategories.remove(category);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-
               // Maximum Number of Participants (optional)
               TextFormField(
                 controller: _maxParticipantsController,
@@ -302,13 +282,6 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-
-              // 3. Tour Time Configuration (Time Constraints)
-              Text(
-                'Tour Time Configuration',
-                style: AppTheme.headlineSmall,
-              ),
-              const SizedBox(height: 16),
 
               // Tour Start Time
               InkWell(
@@ -443,32 +416,33 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Additional Tour Settings (Price, Languages, Specializations)
+              // Tour Type / Category (optional)
               Text(
-                'Additional Tour Settings',
-                style: AppTheme.headlineSmall,
-              ),
-              const SizedBox(height: 16),
-
-              // Price
-              TextFormField(
-                controller: _priceController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                decoration: const InputDecoration(
-                  labelText: 'Price per person',
-                  hintText: '2500',
-                  prefixText: '₱',
-                  border: OutlineInputBorder(),
+                'Category',
+                style: AppTheme.bodyLarge.copyWith(
+                  fontWeight: FontWeight.w600,
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Enter price';
-                  }
-                  return null;
-                },
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _categories.map((category) {
+                  final isSelected = _selectedCategories.contains(category);
+                  return FilterChip(
+                    label: Text(category),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedCategories.add(category);
+                        } else {
+                          _selectedCategories.remove(category);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
               ),
               const SizedBox(height: 16),
 
@@ -502,36 +476,6 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Specializations
-              Text(
-                'Specializations',
-                style: AppTheme.bodyLarge.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _availableSpecializations.map((spec) {
-                  final isSelected = _selectedSpecializations.contains(spec);
-                  return FilterChip(
-                    label: Text(spec),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedSpecializations.add(spec);
-                        } else {
-                          _selectedSpecializations.remove(spec);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-
               // What's Included
               Text(
                 'What\'s Included',
@@ -552,14 +496,83 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
                       setState(() {
                         if (selected) {
                           _selectedInclusions.add(inclusion);
+                          // Initialize price controller and set default to 0
+                          _inclusionPriceControllers[inclusion] =
+                              TextEditingController(text: '0');
+                          _inclusionPrices[inclusion] = 0.0;
                         } else {
                           _selectedInclusions.remove(inclusion);
+                          // Remove controller and price
+                          _inclusionPriceControllers[inclusion]?.dispose();
+                          _inclusionPriceControllers.remove(inclusion);
+                          _inclusionPrices.remove(inclusion);
                         }
                       });
                     },
                   );
                 }).toList(),
               ),
+              const SizedBox(height: 24),
+              Text(
+                'Tour Pricing',
+                style: AppTheme.bodyLarge.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Price
+              TextFormField(
+                controller: _priceController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                decoration: const InputDecoration(
+                  labelText: 'Professional Guide Fee',
+                  hintText: '2500',
+                  prefixText: '₱',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) {
+                  final price = double.tryParse(value) ?? 600.0;
+                  setState(() {
+                    _inclusionPrices['Professional Guide'] = price;
+                  });
+                },
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Enter price';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 8),
+              ..._selectedInclusions
+                  .where((inclusion) => inclusion != 'Professional Guide')
+                  .map((inclusion) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: TextFormField(
+                    controller: _inclusionPriceControllers[inclusion],
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                    decoration: InputDecoration(
+                      labelText: '${inclusion} Cost',
+                      hintText: '0',
+                      prefixText: '₱',
+                      border: const OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      final price = double.tryParse(value) ?? 0.0;
+                      setState(() {
+                        _inclusionPrices[inclusion] = price;
+                      });
+                    },
+                  ),
+                );
+              }),
               const SizedBox(height: 24),
 
               // Tour Preview Image Upload
@@ -849,6 +862,23 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
     );
   }
 
+  double _calculateDurationFromItinerary(ItineraryModel itinerary) {
+    if (itinerary.items.isEmpty) return 0.0;
+
+    final first = itinerary.items.first.startTime;
+    final last = itinerary.items.last.endTime;
+
+    if (first == null || last == null) return 0.0;
+
+    final diff = last.difference(first);
+
+    // Convert total minutes → decimal hours
+    final durationInHours = diff.inMinutes / 60.0;
+
+    // Optional: round to 2 decimal places (4.05 instead of 4.049999)
+    return double.parse(durationInHours.toStringAsFixed(2));
+  }
+
   Future<void> _autoGenerateTour() async {
     if (_selectedSpots.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -863,8 +893,9 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
     // Set default times if not set
     final startTime = _tourStartTime ??
         DateTime(_tourDate.year, _tourDate.month, _tourDate.day, 8, 0);
-    final durationHours = int.tryParse(_durationController.text) ?? 8;
-    final endTime = startTime.add(Duration(hours: durationHours));
+    // Duration will be calculated from the generated itinerary
+    final endTime = startTime.add(
+        const Duration(hours: 24)); // Temporary large duration for generation
 
     // 1. Resolve your selected strings to actual TourSpot objects first
     // Maintain the order as selected by the user
@@ -903,21 +934,24 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
         });
 
         // Calculate actual duration from generated itinerary
-        final totalDuration = result.endDate.difference(result.startDate);
-        final durationHours = (totalDuration.inMinutes / 60).ceil();
+        final durationHours = _calculateDurationFromItinerary(result);
 
         // Auto-populate form fields based on selected locations and generated itinerary
         setState(() {
           // Generate title based on locations
-          if (_selectedSpots.length == 1) {
-            _titleController.text = '${_selectedSpots.first} Tour';
-          } else {
-            _titleController.text = 'Cebu City Multi-Location Tour';
+          if (_titleController.text.trim().isEmpty) {
+            if (_selectedSpots.length == 1) {
+              _titleController.text = '${_selectedSpots.first} Tour';
+            } else {
+              _titleController.text = 'Cebu City Multi-Location Tour';
+            }
           }
 
           // Generate description
-          _descriptionController.text =
-              'Explore ${_selectedSpots.join(", ")} in this comprehensive tour of Cebu City.';
+          if (_descriptionController.text.trim().isEmpty) {
+            _descriptionController.text =
+                'Explore ${_selectedSpots.join(", ")} in this comprehensive tour of Cebu City.';
+          }
 
           // Set times
           _tourStartTime = startTime;
@@ -926,21 +960,24 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           _tourDuration = durationHours;
 
           // Set max participants
-          _maxParticipantsController.text = '10';
+          if (_maxParticipantsController.text.trim().isEmpty) {
+            _maxParticipantsController.text = '10';
+          }
 
           // Set default price
-          _priceController.text = '2500';
+          if (_priceController.text.trim().isEmpty) {
+            _priceController.text = '2500';
+          }
 
           // Auto-select relevant categories based on locations
-          _selectedCategories = ['City Tour', 'Historical'];
-          if (_selectedSpots.any(
-              (spot) => spot.contains('Beach') || spot.contains('Mountain'))) {
-            _selectedCategories.add('Nature');
+          final Set<String> categoriesSet = {};
+          for (final spot in _selectedSpots) {
+            final spotCats = _spotCategories[spot];
+            if (spotCats != null) {
+              categoriesSet.addAll(spotCats);
+            }
           }
-          if (_selectedSpots.any(
-              (spot) => spot.contains('Temple') || spot.contains('Church'))) {
-            _selectedCategories.add('Religious');
-          }
+          _selectedCategories = categoriesSet.toList();
         });
 
         if (mounted) {
@@ -966,30 +1003,12 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
   }
 
   void _updateCategoriesBasedOnSpots() {
-    final Set<String> newCategories = {'City Tour'}; // Default category
+    final Set<String> newCategories = {};
 
     for (final spot in _selectedSpots) {
-      if (spot.contains('Basilica') ||
-          spot.contains('Cathedral') ||
-          spot.contains('Temple') ||
-          spot.contains('Church') ||
-          spot.contains('Cross')) {
-        newCategories.add('Religious');
-      }
-      if (spot.contains('Fort') ||
-          spot.contains('Heritage') ||
-          spot.contains('Monument') ||
-          spot.contains('Cross')) {
-        newCategories.add('Historical');
-      }
-      if (spot.contains('Flower Garden') ||
-          spot.contains('Lookout') ||
-          spot.contains('Mountain') ||
-          spot.contains('Peak')) {
-        newCategories.add('Nature');
-      }
-      if (spot.contains('Colon Street')) {
-        newCategories.add('Culture');
+      final categories = _spotCategories[spot];
+      if (categories != null) {
+        newCategories.addAll(categories);
       }
     }
 
@@ -1074,16 +1093,26 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
         _selectedSpots.isNotEmpty) {
       final user = _authService.getCurrentUser();
       if (user != null) {
-        final duration = _tourDuration ?? 8; // Default to 8 hours if not set
+        // Calculate duration from generated itinerary
+        double duration = 8.0;
+
+        DateTime startTime = _tourStartTime ??
+            DateTime(_tourDate.year, _tourDate.month, _tourDate.day, 8, 0);
+
+        DateTime endTime = startTime.add(const Duration(hours: 8));
+
+        if (_generatedItinerary != null &&
+            _generatedItinerary!.items.isNotEmpty) {
+          final first = _generatedItinerary!.items.first.startTime!;
+          final last = _generatedItinerary!.items.last.endTime!;
+
+          duration = _calculateDurationFromItinerary(_generatedItinerary!);
+          startTime = first;
+          endTime = last;
+        }
+
         if (duration <= 0) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                  'Please generate an itinerary first to set the duration'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
+          duration = 8; // Fallback to default
         }
 
         // Generate tour ID once
@@ -1123,11 +1152,6 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
 
         // Map selected spots to TourSpot objects, maintaining user's selection order
         final tourSpots = await _mapSelectedSpotsToTourSpots();
-
-        // Set default times if not set
-        final startTime = _tourStartTime ??
-            DateTime(_tourDate.year, _tourDate.month, _tourDate.day, 8, 0);
-        final endTime = startTime.add(Duration(hours: duration));
 
         // Create user context for itinerary generation
         final userContext = UserContext(
@@ -1208,12 +1232,16 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           }
         }
 
+        // Calculate total tour cost from inclusionPrices (includes Professional Guide Fee)
+        double totalCost =
+            _inclusionPrices.values.fold(0.0, (sum, price) => sum + price);
+
         // 2. Pass this list into the TourModel
         final newTour = TourModel(
           id: tourId,
           title: _titleController.text,
           description: _descriptionController.text,
-          price: double.parse(_priceController.text),
+          price: totalCost, // Use total cost including inclusions
           category: _selectedCategories,
           maxParticipants: int.parse(_maxParticipantsController.text),
           currentParticipants: 0,
@@ -1228,12 +1256,12 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           status: 'pending',
           duration: duration,
           languages: _selectedLanguages,
-          specializations: _selectedSpecializations,
           highlights: _selectedSpots,
           included: _selectedInclusions,
           notIncluded: _availableInclusions
               .where((inclusion) => !_selectedInclusions.contains(inclusion))
               .toList(),
+          inclusionPrices: _inclusionPrices,
         );
 
         print('DEBUG: Final itinerary has ${itineraryData.length} items');

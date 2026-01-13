@@ -150,12 +150,6 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
             style: AppTheme.bodyMedium,
           ),
           const SizedBox(height: 12),
-          LinearProgressIndicator(
-            value: _itinerary.completionPercentage / 100,
-            backgroundColor: AppTheme.dividerColor,
-            valueColor: AlwaysStoppedAnimation<Color>(
-                _getStatusColor(_itinerary.status)),
-          ),
         ],
       ),
     );
@@ -362,7 +356,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '${DateFormat('HH:mm').format(item.startTime)}-${DateFormat('HH:mm').format(item.endTime)} (${item.title})',
+                              '${DateFormat('HH:mm').format(item.startTime)} - ${DateFormat('HH:mm').format(item.startTime.add(const Duration(minutes: 15)))} (${item.title})',
                               style: AppTheme.bodySmall.copyWith(
                                 color: AppTheme.textSecondary,
                               ),
@@ -675,12 +669,20 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                 return;
               }
 
-              // Validate email format
+              // Validate email format and ensure it's a Gmail address
               final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
               if (!emailRegex.hasMatch(email)) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                       content: Text('Please enter a valid email address')),
+                );
+                return;
+              }
+              if (!email.endsWith('@gmail.com')) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text(
+                          'Please enter a valid Gmail address (must end with @gmail.com)')),
                 );
                 return;
               }
@@ -712,14 +714,8 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   Future<void> _sendItineraryByEmail(String email) async {
     try {
       // Get the current user's name for the email
-      final currentUser = _authService.getCurrentUser();
-      String senderName = 'TourMate User';
-
-      if (currentUser != null) {
-        // You might want to get the user's display name from their profile
-        // For now, we'll use a generic name
-        senderName = 'TourMate User';
-      }
+      final currentUserModel = await _authService.getCurrentUserModel();
+      String senderName = currentUserModel?.displayName ?? 'TourMate User';
 
       // Send the itinerary via email
       final success = await _emailService.sendItineraryEmail(

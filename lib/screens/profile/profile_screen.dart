@@ -9,6 +9,8 @@ import 'package:tourmate_app/models/user_model.dart';
 import 'package:tourmate_app/providers/language_provider.dart';
 import '../../utils/app_theme.dart';
 import '../auth/login_screen.dart';
+import '../auth/terms_and_conditions_screen.dart';
+import '../auth/privacy_policy_screen.dart';
 import '../notifications/notification_screen.dart';
 import 'tourist_edit_account_screen.dart';
 import 'change_password_screen.dart';
@@ -130,13 +132,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   CircleAvatar(
                     radius: 50,
                     backgroundColor: Colors.grey.shade200,
-                    backgroundImage:
-                        (_userProfile?.photoURL != null &&
+                    backgroundImage: (_userProfile?.photoURL != null &&
                             _userProfile!.photoURL!.isNotEmpty)
                         ? NetworkImage(_userProfile!.photoURL!)
                         : null,
-                    child:
-                        (_userProfile?.photoURL == null ||
+                    child: (_userProfile?.photoURL == null ||
                             _userProfile!.photoURL!.isEmpty)
                         ? const Icon(Icons.person, size: 50, color: Colors.grey)
                         : null,
@@ -270,9 +270,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   if (_userProfile?.role != 'admin') ...[
                     _buildInfoRow(
-                      Icons.place,
-                      'Favorite Destination',
-                      _userProfile?.favoriteDestination ?? 'Not set',
+                      Icons.category,
+                      'Category',
+                      _userProfile?.category?.join(', ') ?? 'Not set',
                     ),
                     _buildInfoRow(
                       Icons.language,
@@ -312,8 +312,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           subtitle: Text(_selectedLanguage),
                           trailing: DropdownButton<String>(
                             // Update value based on current provider state
-                            value:
-                                Provider.of<LanguageProvider>(
+                            value: Provider.of<LanguageProvider>(
                                       context,
                                     ).currentLocale.languageCode ==
                                     'tl'
@@ -323,12 +322,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             // REMOVED Cebuano from this list
                             items: ['English', 'Tagalog']
                                 .map<DropdownMenuItem<String>>((String value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  );
-                                })
-                                .toList(),
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              );
+                            }).toList(),
                             onChanged: (String? newValue) {
                               if (newValue != null) {
                                 setState(() {
@@ -336,9 +334,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 });
 
                                 // Map Selection to Locale Code
-                                String code = (newValue == 'Tagalog')
-                                    ? 'tl'
-                                    : 'en';
+                                String code =
+                                    (newValue == 'Tagalog') ? 'tl' : 'en';
 
                                 // TRIGGER THE CHANGE
                                 Provider.of<LanguageProvider>(
@@ -380,30 +377,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           onChanged: (bool value) {
                             setState(() {
                               _notificationsEnabled = value;
-                            });
-                          },
-                        ),
-                        const Divider(),
-                        // Email Notifications
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          secondary: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.email,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                          title: const Text('Email Notifications'),
-                          subtitle: const Text('Receive booking confirmations'),
-                          value: _emailNotifications,
-                          onChanged: (bool value) {
-                            setState(() {
-                              _emailNotifications = value;
                             });
                           },
                         ),
@@ -467,24 +440,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const Divider(),
                         _buildOptionTile(
-                          Icons.history,
-                          'Booking History',
-                          'View all your past bookings',
-                          () {
-                            // Navigate to bookings with past tab selected
-                          },
-                        ),
-                        const Divider(),
-                        _buildOptionTile(
-                          Icons.favorite,
-                          'Saved Tours',
-                          'View your favorite tours',
-                          () {
-                            // Navigate to favorites
-                          },
-                        ),
-                        const Divider(),
-                        _buildOptionTile(
                           Icons.help,
                           'Help & Support',
                           'Get help with your bookings',
@@ -508,27 +463,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const Divider(),
                         _buildOptionTile(
-                          Icons.person_off,
-                          'Deactivate Account',
-                          'Temporarily disable your account',
-                          () => _showDeactivateDialog(),
-                        ),
-                        const Divider(),
-                        _buildOptionTile(
                           Icons.privacy_tip,
                           'Privacy Policy',
                           'Read our privacy policy',
                           () {
-                            // Show privacy policy
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const PrivacyPolicyScreen(),
+                              ),
+                            );
                           },
                         ),
                         const Divider(),
                         _buildOptionTile(
                           Icons.description,
-                          'Terms of Service',
-                          'Read our terms of service',
+                          'Terms and Conditions',
+                          'Read our terms and conditions before booking',
                           () {
-                            // Show terms
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const TermsOfServiceScreen(),
+                              ),
+                            );
                           },
                         ),
                       ],

@@ -14,13 +14,13 @@ class TourModel {
   final bool shared;
   final List<Map<String, String>> itinerary;
   final String status;
-  final int duration;
+  final double duration;
   final List<String> languages;
-  final List<String> specializations;
   final List<String> highlights;
   final double rating;
   final List<String> included;
   final List<String> notIncluded;
+  final Map<String, double> inclusionPrices;
 
   TourModel({
     required this.id,
@@ -40,11 +40,11 @@ class TourModel {
     required this.status,
     required this.duration,
     required this.languages,
-    required this.specializations,
     required this.highlights,
     this.rating = 0.0,
     this.included = const [],
     this.notIncluded = const [],
+    this.inclusionPrices = const {},
   });
 
   factory TourModel.fromMap(Map<String, dynamic> data) {
@@ -73,14 +73,14 @@ class TourModel {
             [],
       ),
       status: data['status'],
-      duration: (data['duration'] is int)
+      duration: (data['duration'] is double)
           ? data['duration']
-          : int.tryParse(data['duration']?.toString() ?? '0') ?? 0,
+          : double.tryParse(data['duration']?.toString() ?? '0.0') ?? 0.0,
       languages: List<String>.from(data['languages'] ?? []),
-      specializations: List<String>.from(data['specializations'] ?? []),
       highlights: List<String>.from(data['highlights'] ?? []),
       included: List<String>.from(data['included'] ?? []),
       notIncluded: List<String>.from(data['notIncluded'] ?? []),
+      inclusionPrices: Map<String, double>.from(data['inclusionPrices'] ?? {}),
     );
   }
 
@@ -103,11 +103,11 @@ class TourModel {
       'status': status,
       'duration': duration,
       'languages': languages,
-      'specializations': specializations,
       'highlights': highlights,
       'rating': rating,
       'included': included,
       'notIncluded': notIncluded,
+      'inclusionPrices': inclusionPrices,
     };
   }
 
@@ -127,10 +127,11 @@ class TourModel {
     bool? shared,
     List<Map<String, String>>? itinerary,
     String? status,
-    int? duration,
+    double? duration,
     List<String>? languages,
     List<String>? specializations,
     List<String>? highlights,
+    Map<String, double>? inclusionPrices,
   }) {
     return TourModel(
       id: id ?? this.id,
@@ -150,8 +151,8 @@ class TourModel {
       status: status ?? this.status,
       duration: duration ?? this.duration,
       languages: languages ?? this.languages,
-      specializations: specializations ?? this.specializations,
       highlights: highlights ?? this.highlights,
+      inclusionPrices: inclusionPrices ?? this.inclusionPrices,
     );
   }
 }

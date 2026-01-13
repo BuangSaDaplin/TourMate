@@ -24,7 +24,9 @@ class FirebaseAuthService {
       required String email,
       required String password,
       required String role,
-      String? phoneNumber}) async {
+      String? phoneNumber,
+      List<String>? category,
+      List<String>? specializations}) async {
     try {
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
@@ -37,6 +39,8 @@ class FirebaseAuthService {
           role: role,
           phoneNumber: phoneNumber,
           displayName: name ?? '',
+          category: category,
+          specializations: specializations,
         );
       }
       return user;
@@ -129,7 +133,9 @@ class FirebaseAuthService {
   Future<void> _createUserDocument(User user,
       {String role = 'tourist',
       String displayName = '',
-      String? phoneNumber}) async {
+      String? phoneNumber,
+      List<String>? category,
+      List<String>? specializations}) async {
     final usersRef = _firestore.collection('users').doc(user.uid);
     final doc = await usersRef.get();
 
@@ -148,6 +154,8 @@ class FirebaseAuthService {
         languages: ['English'],
         toursCompleted: 0,
         averageRating: 0.0,
+        category: category,
+        specializations: specializations,
       );
       await usersRef.set(newUser.toMap());
 

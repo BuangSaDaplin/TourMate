@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -8,6 +9,8 @@ import '../home/main_dashboard.dart';
 import '../home/tour_guide_main_dashboard.dart';
 import '../home/admin_dashboard.dart';
 import '../home/main_dashboard.dart';
+import 'terms_and_conditions_screen.dart';
+import 'privacy_policy_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -28,6 +31,31 @@ class _SignUpScreenState extends State<SignUpScreen> {
   XFile? _image;
   bool _isLoading = false;
   String _selectedRole = 'tourist';
+  List<String> _selectedCategories = [];
+  List<String> _selectedSpecializations = [];
+  bool _agreeToTerms = false;
+
+  final List<String> _categoryOptions = [
+    'Adventure',
+    'Culture',
+    'Nature',
+    'City',
+    'Historical',
+    'Religious',
+  ];
+
+  final List<String> _specializationOptions = [
+    'Basilica del Santo Niño',
+    'Magellan\'s Cross',
+    'Fort San Pedro',
+    'Colon Street',
+    'Cebu Metropolitan Cathedral',
+    'Heritage of Cebu Monument',
+    'Cebu Taoist Temple',
+    'Sirao Flower Garden',
+    'Temple of Leah',
+    'Tops Lookout',
+  ];
 
   @override
   void dispose() {
@@ -37,6 +65,80 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  Widget _buildTermsSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Checkbox(
+                value: _agreeToTerms,
+                onChanged: (value) {
+                  setState(() {
+                    _agreeToTerms = value ?? false;
+                  });
+                },
+                activeColor: AppTheme.primaryColor,
+              ),
+              Expanded(
+                child: RichText(
+                  text: TextSpan(
+                    style: AppTheme.bodyMedium,
+                    children: [
+                      const TextSpan(text: 'I agree to the '),
+                      TextSpan(
+                        text: 'Terms and Conditions',
+                        style: TextStyle(
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                        ),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const TermsOfServiceScreen(),
+                              ),
+                            );
+                          },
+                      ),
+                      const TextSpan(text: ' and '),
+                      TextSpan(
+                          text: 'Privacy Policy',
+                          style: TextStyle(
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
+                          ),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const PrivacyPolicyScreen(),
+                                ),
+                              );
+                            }),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _pickImage() async {
@@ -102,6 +204,35 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       const SizedBox(height: 24),
                       const SizedBox(height: 24),
+                      DropdownButtonFormField<String>(
+                        value: _selectedRole,
+                        decoration: const InputDecoration(
+                          labelText: 'Role',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'tourist',
+                            child: Text('Tourist'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'guide',
+                            child: Text('Tour Guide'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedRole = value!;
+                          });
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please select a role';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _nameController,
                         decoration: const InputDecoration(
@@ -149,6 +280,76 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         },
                       ),
                       const SizedBox(height: 16),
+                      if (_selectedRole == 'tourist') ...[
+                        const SizedBox(height: 16),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Category (Select one or more)',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8.0,
+                              children: _categoryOptions.map((category) {
+                                return FilterChip(
+                                  label: Text(category),
+                                  selected:
+                                      _selectedCategories.contains(category),
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      if (selected) {
+                                        _selectedCategories.add(category);
+                                      } else {
+                                        _selectedCategories.remove(category);
+                                      }
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (_selectedRole == 'guide') ...[
+                        const SizedBox(height: 16),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Areas Specialized (Select one or more)',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8.0,
+                              children:
+                                  _specializationOptions.map((specialization) {
+                                return FilterChip(
+                                  label: Text(specialization),
+                                  selected: _selectedSpecializations
+                                      .contains(specialization),
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      if (selected) {
+                                        _selectedSpecializations
+                                            .add(specialization);
+                                      } else {
+                                        _selectedSpecializations
+                                            .remove(specialization);
+                                      }
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _passwordController,
                         obscureText: true,
@@ -178,93 +379,76 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: _selectedRole,
-                        decoration: const InputDecoration(
-                          labelText: 'Role',
-                          prefixIcon: Icon(Icons.person_outline),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'tourist',
-                            child: Text('Tourist'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'guide',
-                            child: Text('Tour Guide'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedRole = value!;
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please select a role';
-                          }
-                          return null;
-                        },
-                      ),
+                      _buildTermsSection(),
                       const SizedBox(height: 24),
                       _isLoading
                           ? const CircularProgressIndicator()
                           : ElevatedButton(
-                              onPressed: () async {
-                                if (_formKey.currentState!.validate()) {
-                                  setState(() {
-                                    _isLoading = true;
-                                  });
+                              onPressed: _agreeToTerms
+                                  ? () async {
+                                      if (_formKey.currentState!.validate()) {
+                                        setState(() {
+                                          _isLoading = true;
+                                        });
 
-                                  try {
-                                    await _authService.signUp(
-                                      name: _nameController.text.trim(),
-                                      email: _emailController.text.trim(),
-                                      phoneNumber: _phoneController.text.trim(),
-                                      password: _passwordController.text,
-                                      role: _selectedRole,
-                                    );
+                                        try {
+                                          await _authService.signUp(
+                                            name: _nameController.text.trim(),
+                                            email: _emailController.text.trim(),
+                                            phoneNumber:
+                                                _phoneController.text.trim(),
+                                            password: _passwordController.text,
+                                            role: _selectedRole,
+                                            category: _selectedRole == 'tourist'
+                                                ? _selectedCategories
+                                                : null,
+                                            specializations:
+                                                _selectedRole == 'guide'
+                                                    ? _selectedSpecializations
+                                                    : null,
+                                          );
 
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                            content: Text(
-                                                'Account created successfully!')),
-                                      );
-                                    }
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              const SnackBar(
+                                                  content: Text(
+                                                      'Account created successfully!')),
+                                            );
+                                          }
 
-                                    // Auto-sign in and navigate to appropriate dashboard
-                                    final user = _authService.getCurrentUser();
-                                    if (user != null) {
-                                      // Use the selected role directly since we just created the account
-                                      _navigateBasedOnRole(_selectedRole);
+                                          // Auto-sign in and navigate to appropriate dashboard
+                                          final user =
+                                              _authService.getCurrentUser();
+                                          if (user != null) {
+                                            // Use the selected role directly since we just created the account
+                                            _navigateBasedOnRole(_selectedRole);
+                                          }
+                                        } catch (e) {
+                                          String errorMessage =
+                                              'Sign up failed: ${e.toString()}';
+                                          if (e.toString().contains(
+                                              'email-already-in-use')) {
+                                            errorMessage =
+                                                'An account with this email already exists. Please use a different email or try logging in.';
+                                          }
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              SnackBar(
+                                                  content: Text(errorMessage)),
+                                            );
+                                          }
+                                        } finally {
+                                          if (mounted) {
+                                            setState(() {
+                                              _isLoading = false;
+                                            });
+                                          }
+                                        }
+                                      }
                                     }
-                                  } catch (e) {
-                                    String errorMessage =
-                                        'Sign up failed: ${e.toString()}';
-                                    if (e
-                                        .toString()
-                                        .contains('email-already-in-use')) {
-                                      errorMessage =
-                                          'An account with this email already exists. Please use a different email or try logging in.';
-                                    }
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(content: Text(errorMessage)),
-                                      );
-                                    }
-                                  } finally {
-                                    if (mounted) {
-                                      setState(() {
-                                        _isLoading = false;
-                                      });
-                                    }
-                                  }
-                                }
-                              },
+                                  : null,
                               child: const Text('Sign Up'),
                             ),
                       const SizedBox(height: 24),

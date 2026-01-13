@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:carousel_slider/carousel_slider.dart';
+import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:tourmate_app/models/tour_model.dart';
 import 'package:tourmate_app/models/booking_model.dart';
 import 'package:tourmate_app/services/itinerary_service.dart';
@@ -26,6 +28,7 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
   late TourModel tourData; // Changed from hardcoded to 'late'
   bool isLoading = true;
   List<TourModel> alternativeTours = [];
+  int _currentImageIndex = 0;
 
   @override
   void initState() {
@@ -117,32 +120,63 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      image: tourData.mediaURL.isNotEmpty
-                          ? DecorationImage(
-                              image: tourData.mediaURL.first.startsWith('http')
-                                  ? NetworkImage(tourData.mediaURL.first)
-                                  : AssetImage(
-                                          'assets/images/${tourData.mediaURL.first}')
-                                      as ImageProvider,
-                              fit: BoxFit.cover,
-                            )
-                          : null,
-                      color: tourData.mediaURL.isEmpty
-                          ? AppTheme.primaryColor.withOpacity(0.2)
-                          : null,
-                    ),
-                    child: tourData.mediaURL.isEmpty
-                        ? Center(
+                  tourData.mediaURL.isEmpty
+                      ? Container(
+                          color: AppTheme.primaryColor.withOpacity(0.2),
+                          child: Center(
                             child: Icon(
                               Icons.image,
                               size: 80,
                               color: AppTheme.primaryColor.withOpacity(0.5),
                             ),
-                          )
-                        : null,
-                  ),
+                          ),
+                        )
+                      : tourData.mediaURL.length == 1
+                          ? Container(
+                              decoration: BoxDecoration(
+                                image: DecorationImage(
+                                  image: tourData.mediaURL.first
+                                          .startsWith('http')
+                                      ? NetworkImage(tourData.mediaURL.first)
+                                      : AssetImage(
+                                              'assets/images/${tourData.mediaURL.first}')
+                                          as ImageProvider,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            )
+                          : CarouselSlider(
+                              options: CarouselOptions(
+                                height: 300,
+                                viewportFraction: 1.0,
+                                enableInfiniteScroll: true,
+                                autoPlay: false,
+                                onPageChanged: (index, reason) {
+                                  setState(() {
+                                    _currentImageIndex = index;
+                                  });
+                                },
+                              ),
+                              items: tourData.mediaURL.map((imageUrl) {
+                                return Builder(
+                                  builder: (BuildContext context) {
+                                    return Container(
+                                      width: MediaQuery.of(context).size.width,
+                                      decoration: BoxDecoration(
+                                        image: DecorationImage(
+                                          image: imageUrl.startsWith('http')
+                                              ? NetworkImage(imageUrl)
+                                              : AssetImage(
+                                                      'assets/images/$imageUrl')
+                                                  as ImageProvider,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              }).toList(),
+                            ),
                   Positioned(
                     bottom: 0,
                     left: 0,
@@ -159,6 +193,24 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
                           ],
                         ),
                       ),
+                      child: tourData.mediaURL.length > 1
+                          ? Align(
+                              alignment: Alignment.bottomCenter,
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: AnimatedSmoothIndicator(
+                                  activeIndex: _currentImageIndex,
+                                  count: tourData.mediaURL.length,
+                                  effect: const ExpandingDotsEffect(
+                                    dotWidth: 8,
+                                    dotHeight: 8,
+                                    activeDotColor: Colors.white,
+                                    dotColor: Colors.white54,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : null,
                     ),
                   ),
                   Positioned(
@@ -416,7 +468,12 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
                               }
                             }
                           } else {
-                            endTime = tourData.endTime;
+                            // For the last item, calculate end time based on tour duration in minutes
+                            // Convert tour duration from hours to minutes and add to start time
+                            final tourDurationInMinutes =
+                                (tourData.duration * 60).round();
+                            endTime = startTime
+                                .add(Duration(minutes: tourDurationInMinutes));
                           }
 
                           items.add(ItineraryItemModel(
@@ -441,7 +498,7 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
                           id: 'preview_${tourData.id}',
                           userId: user.uid,
                           title: '${tourData.title} Itinerary',
-                          description: 'Tour Itinerary Preview',
+                          description: tourData.description,
                           startDate: tourStartDate,
                           endDate: tourEndDate,
                           status: ItineraryStatus.draft,
@@ -677,7 +734,7 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              height: 100,
+              height: 87,
               decoration: BoxDecoration(
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(16),

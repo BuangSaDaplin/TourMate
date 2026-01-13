@@ -699,11 +699,6 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen>
                         ? tour.languages.join(', ')
                         : 'Not specified'),
                 _buildDetailRow(
-                    'Specializations',
-                    tour.specializations.isNotEmpty
-                        ? tour.specializations.join(', ')
-                        : 'Not specified'),
-                _buildDetailRow(
                     'Submitted', _formatDate(tourData['submittedAt'])),
                 if (tourData['lastReviewed'] != null)
                   _buildDetailRow(

@@ -26,6 +26,7 @@ class UserModel {
       isActive; // Admin: Account active status (true = can login, false = blocked)
   final bool?
       isLGUVerified; // Admin: Guide verification status (for tour guides only)
+  final List<String>? category; // NEW: User category
 
   // 1. Constructor
   UserModel({
@@ -45,6 +46,7 @@ class UserModel {
     UserStatus? status,
     this.isActive,
     this.isLGUVerified,
+    this.category, // NEW: User category
     String? experience,
     List<String>? certificationsURL,
     List<String>? lguDocumentsURL,
@@ -79,6 +81,9 @@ class UserModel {
           (data['lguDocumentsURL'] as List?)?.map((e) => e as String).toList(),
       isActive: data['isActive'] as bool?,
       isLGUVerified: data['isLGUVerified'] as bool?,
+      category: (data['category'] as List?)
+          ?.map((e) => e as String)
+          .toList(), // NEW: User category
     );
   }
 
@@ -101,6 +106,7 @@ class UserModel {
       'status': status?.index,
       'isActive': isActive,
       'isLGUVerified': isLGUVerified,
+      'category': category, // NEW: User category
     };
   }
 }
