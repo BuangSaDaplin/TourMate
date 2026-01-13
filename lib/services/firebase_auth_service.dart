@@ -19,12 +19,13 @@ class FirebaseAuthService {
     }
   }
 
-  Future<User?> signUp(
-      {required String? name,
-      required String email,
-      required String password,
-      required String role,
-      String? phoneNumber}) async {
+  Future<User?> signUp({
+    required String? name,
+    required String email,
+    required String password,
+    required String role,
+    String? phoneNumber,
+  }) async {
     try {
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
@@ -46,8 +47,10 @@ class FirebaseAuthService {
     }
   }
 
-  Future<User?> signIn(
-      {required String email, required String password}) async {
+  Future<User?> signIn({
+    required String email,
+    required String password,
+  }) async {
     try {
       final userCredential = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
@@ -81,8 +84,9 @@ class FirebaseAuthService {
         await _initializeGoogleSignIn();
         final account = await _googleSignIn.authenticate();
         if (account == null) return null;
-        final authorization = await account.authorizationClient
-            .authorizeScopes(<String>['email', 'profile']);
+        final authorization = await account.authorizationClient.authorizeScopes(
+          <String>['email', 'profile'],
+        );
         final accessToken = authorization?.accessToken;
         final googleAuth = await account.authentication;
         final credential = GoogleAuthProvider.credential(
@@ -103,6 +107,27 @@ class FirebaseAuthService {
   Future<User?> signInWithApple() async {
     debugPrint('Apple Sign-In not implemented.');
     return null;
+  }
+
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email.trim());
+    } on FirebaseAuthException catch (e) {
+      debugPrint('Password reset error: ${e.message}');
+      if (e.code == 'user-not-found') {
+        throw FirebaseAuthException(
+          code: 'user-not-found',
+          message: 'No user found for this email.',
+        );
+      } else if (e.code == 'invalid-email') {
+        throw FirebaseAuthException(
+          code: 'invalid-email',
+          message: 'The email address is invalid.',
+        );
+      } else {
+        rethrow;
+      }
+    }
   }
 
   User? getCurrentUser() => _auth.currentUser;
@@ -126,10 +151,12 @@ class FirebaseAuthService {
     }
   }
 
-  Future<void> _createUserDocument(User user,
-      {String role = 'tourist',
-      String displayName = '',
-      String? phoneNumber}) async {
+  Future<void> _createUserDocument(
+    User user, {
+    String role = 'tourist',
+    String displayName = '',
+    String? phoneNumber,
+  }) async {
     final usersRef = _firestore.collection('users').doc(user.uid);
     final doc = await usersRef.get();
 
@@ -152,10 +179,8 @@ class FirebaseAuthService {
       await usersRef.set(newUser.toMap());
 
       // Send successful registration notification
-      final notification =
-          _notificationService.createSuccessfulRegistrationNotification(
-        userId: user.uid,
-      );
+      final notification = _notificationService
+          .createSuccessfulRegistrationNotification(userId: user.uid);
       await _notificationService.createNotification(notification);
     } else {
       // Existing user — ensure role is correct

@@ -33,10 +33,74 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  Future<void> _showForgotPasswordDialog() async {
+    final emailController = TextEditingController(text: _emailController.text);
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Reset Password'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                TextFormField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    hintText: 'Enter your email',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Send Link'),
+              onPressed: () async {
+                try {
+                  await _authService.sendPasswordResetEmail(
+                    emailController.text,
+                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Password reset link sent! Check your email',
+                        ),
+                      ),
+                    );
+                    Navigator.of(context).pop();
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: ${e.toString()}')),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _navigateBasedOnUserStatusAndRole(
-      String uid, String? role) async {
+    String uid,
+    String? role,
+  ) async {
     print(
-        'Navigating based on user status and role for UID: $uid, Role: $role');
+      'Navigating based on user status and role for UID: $uid, Role: $role',
+    );
     // First, check if the user account is suspended
     final user = await _databaseService.getUser(uid);
     print('User status: ${user?.status}');
@@ -65,9 +129,9 @@ class _LoginScreenState extends State<LoginScreen> {
         break;
     }
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => destination),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (context) => destination));
   }
 
   @override
@@ -176,7 +240,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   TextButton(
                     onPressed: () {
-                      // Handle forgot password
+                      _showForgotPasswordDialog();
                     },
                     child: Text(
                       'Forgot Password?',
@@ -198,7 +262,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             _passwordController.text.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                                content: Text('Please fill in all fields')),
+                              content: Text('Please fill in all fields'),
+                            ),
                           );
                           return;
                         }
@@ -218,8 +283,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                    content: Text(
-                                        'User not signed in. Please try again.')),
+                                  content: Text(
+                                    'User not signed in. Please try again.',
+                                  ),
+                                ),
                               );
                             }
                             return;
@@ -228,25 +295,33 @@ class _LoginScreenState extends State<LoginScreen> {
                           // ✅ Proceed only if the user exists
                           final user = _authService.getCurrentUser();
                           print(
-                              'Current user after email sign in: ${user?.uid}');
+                            'Current user after email sign in: ${user?.uid}',
+                          );
                           if (user != null) {
-                            final role =
-                                await _authService.getUserRole(user.uid);
+                            final role = await _authService.getUserRole(
+                              user.uid,
+                            );
                             print('User role from email: $role');
                             if (role != null) {
                               await _navigateBasedOnUserStatusAndRole(
-                                  user.uid, role);
+                                user.uid,
+                                role,
+                              );
                             } else {
                               await _navigateBasedOnUserStatusAndRole(
-                                  user.uid, 'tourist');
+                                user.uid,
+                                'tourist',
+                              );
                             }
                           }
                         } catch (e) {
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                  content:
-                                      Text('Sign in failed: ${e.toString()}')),
+                                content: Text(
+                                  'Sign in failed: ${e.toString()}',
+                                ),
+                              ),
                             );
                           }
                         } finally {
@@ -270,7 +345,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     : const Text(
                         'Sign In',
                         style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
               ),
               const SizedBox(height: 24),
@@ -303,26 +380,34 @@ class _LoginScreenState extends State<LoginScreen> {
                           // Get user role and navigate
                           final user = _authService.getCurrentUser();
                           print(
-                              'Current user after Google sign in: ${user?.uid}');
+                            'Current user after Google sign in: ${user?.uid}',
+                          );
                           if (user != null) {
-                            final role =
-                                await _authService.getUserRole(user.uid);
+                            final role = await _authService.getUserRole(
+                              user.uid,
+                            );
                             print('User role from Google: $role');
                             if (role != null) {
                               await _navigateBasedOnUserStatusAndRole(
-                                  user.uid, role);
+                                user.uid,
+                                role,
+                              );
                             } else {
                               // Fallback to tourist dashboard if role is null
                               await _navigateBasedOnUserStatusAndRole(
-                                  user.uid, 'tourist');
+                                user.uid,
+                                'tourist',
+                              );
                             }
                           }
                         } catch (e) {
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                  content: Text(
-                                      'Google sign in failed: ${e.toString()}')),
+                                content: Text(
+                                  'Google sign in failed: ${e.toString()}',
+                                ),
+                              ),
                             );
                           }
                         } finally {
@@ -354,23 +439,30 @@ class _LoginScreenState extends State<LoginScreen> {
                           // Get user role and navigate
                           final user = _authService.getCurrentUser();
                           if (user != null) {
-                            final role =
-                                await _authService.getUserRole(user.uid);
+                            final role = await _authService.getUserRole(
+                              user.uid,
+                            );
                             if (role != null) {
                               await _navigateBasedOnUserStatusAndRole(
-                                  user.uid, role);
+                                user.uid,
+                                role,
+                              );
                             } else {
                               // Fallback to tourist dashboard if role is null
                               await _navigateBasedOnUserStatusAndRole(
-                                  user.uid, 'tourist');
+                                user.uid,
+                                'tourist',
+                              );
                             }
                           }
                         } catch (e) {
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                  content: Text(
-                                      'Apple sign in failed: ${e.toString()}')),
+                                content: Text(
+                                  'Apple sign in failed: ${e.toString()}',
+                                ),
+                              ),
                             );
                           }
                         } finally {
