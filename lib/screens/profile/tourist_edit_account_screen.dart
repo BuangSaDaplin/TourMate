@@ -29,11 +29,15 @@ class _TouristEditAccountScreenState extends State<TouristEditAccountScreen> {
   // Multi-select states
   late List<String> _selectedLanguages;
 
-  // Favorite destination dropdown
-  String? _selectedFavoriteDestination;
-  final List<String> _favoriteDestinationOptions = [
-    'None',
-    'Kawasan Falls Canyoneering',
+  // Category multi-select
+  List<String> _selectedCategories = [];
+  final List<String> _categoryOptions = [
+    'Adventure',
+    'Culture',
+    'Nature',
+    'City',
+    'Historical',
+    'Religious',
   ];
 
   // Password change states
@@ -96,7 +100,7 @@ class _TouristEditAccountScreenState extends State<TouristEditAccountScreen> {
             _emailController.text = userProfile.email;
             _phoneController.text = userProfile.phoneNumber ?? '';
             _selectedLanguages = userProfile.languages ?? ['English'];
-            _selectedFavoriteDestination = userProfile.favoriteDestination;
+            _selectedCategories = userProfile.category ?? [];
             _isLoading = false;
           });
         }
@@ -307,17 +311,24 @@ class _TouristEditAccountScreenState extends State<TouristEditAccountScreen> {
               keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: 16),
-            _buildDropdownField(
-              value: _selectedFavoriteDestination,
-              label: 'Favorite Destination',
-              icon: Icons.place,
-              hintText: 'Select your favorite destination',
-              items: _favoriteDestinationOptions,
-              onChanged: (value) {
-                setState(() {
-                  _selectedFavoriteDestination = value;
-                });
-              },
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Category (Select one or more)',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 8),
+                _buildMultiSelectChips(
+                  items: _categoryOptions,
+                  selectedItems: _selectedCategories,
+                  onSelectionChanged: (selected) {
+                    setState(() {
+                      _selectedCategories = selected;
+                    });
+                  },
+                ),
+              ],
             ),
             const SizedBox(height: 32),
 
@@ -659,9 +670,7 @@ class _TouristEditAccountScreenState extends State<TouristEditAccountScreen> {
         'phoneNumber': _phoneController.text.trim(),
         'photoURL': photoURL,
         'languages': _selectedLanguages,
-        'favoriteDestination': _selectedFavoriteDestination == 'None'
-            ? null
-            : _selectedFavoriteDestination,
+        'category': _selectedCategories,
       };
 
       await _dbService.updateUserProfile(_currentUser!.uid, updates);

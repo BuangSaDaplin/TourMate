@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart' as carousel;
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../utils/app_theme.dart';
 import '../tour/tour_details_screen.dart';
 import '../tour/tour_browse_screen.dart';
@@ -11,6 +12,9 @@ import '../favorites/favorites_screen.dart';
 import '../notifications/notification_screen.dart';
 import '../messaging/tourist_messages_screen.dart';
 import '../../widgets/auto_translated_text.dart';
+import '../../models/tour_model.dart';
+import '../../models/user_model.dart';
+import '../../services/database_service.dart';
 
 class MainDashboard extends StatefulWidget {
   const MainDashboard({super.key});
@@ -22,18 +26,99 @@ class MainDashboard extends StatefulWidget {
 class _MainDashboardState extends State<MainDashboard> {
   int _selectedIndex = 0;
   final _searchController = TextEditingController();
-  late final List<Widget> _pages;
+
+  // State for suggested tours
+  List<TourModel> _suggestedTours = [];
+  bool _isLoadingSuggestedTours = true;
+  UserModel? _currentUser;
+
+  // State for alternative tours
+  List<TourModel> _alternativeTours = [];
+  bool _isLoadingAlternativeTours = true;
 
   @override
   void initState() {
     super.initState();
-    _pages = [
-      _homePage,
-      const BookingsScreen(),
-      const TouristMessagesScreen(),
-      const FavoritesScreen(),
-      const ProfileScreen(),
-    ];
+    _loadCurrentUserAndSuggestedTours();
+  }
+
+  Widget _getPage(int index) {
+    switch (index) {
+      case 0:
+        return _homePage; // rebuilt every time
+      case 1:
+        return const BookingsScreen();
+      case 2:
+        return const TouristMessagesScreen();
+      case 3:
+        return const FavoritesScreen();
+      case 4:
+        return const ProfileScreen();
+      default:
+        return _homePage;
+    }
+  }
+
+  Future<void> _loadCurrentUserAndSuggestedTours() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      print('Current user: ${user?.uid}');
+      if (user != null) {
+        final databaseService = DatabaseService();
+        _currentUser = await databaseService.getUser(user.uid);
+        print('User data: $_currentUser');
+        print('User categories: ${_currentUser?.category}');
+        if (_currentUser != null &&
+            _currentUser!.category != null &&
+            _currentUser!.category!.isNotEmpty) {
+          // Fetch tours that match any of the user's categories
+          final List<String> userCategories = _currentUser!.category!
+              .map((c) => c.toLowerCase().trim())
+              .toList();
+
+          final allTours = await databaseService.getApprovedTours();
+          print('All approved tours: ${allTours.length}');
+          _suggestedTours = allTours.where((tour) {
+            final matches = tour.category.any(
+              (tourCategory) =>
+                  userCategories.contains(tourCategory.toLowerCase().trim()),
+            );
+            print(
+                'Tour ${tour.title} categories: ${tour.category}, matches: $matches');
+            return matches;
+          }).toList();
+          print('Suggested tours: ${_suggestedTours.length}');
+
+          // Load alternative tours that do NOT match user categories
+          _alternativeTours = allTours.where((tour) {
+            final matches = tour.category.any(
+              (tourCategory) =>
+                  userCategories.contains(tourCategory.toLowerCase().trim()),
+            );
+            return !matches;
+          }).toList();
+          print('Alternative tours: ${_alternativeTours.length}');
+        } else {
+          print('User has no categories or user data is null');
+          // If no categories, load all tours as alternatives
+          final allTours = await databaseService.getApprovedTours();
+          _alternativeTours = allTours;
+        }
+      } else {
+        print('No authenticated user');
+        // If no user, load all tours as alternatives
+        final databaseService = DatabaseService();
+        final allTours = await databaseService.getApprovedTours();
+        _alternativeTours = allTours;
+      }
+    } catch (e) {
+      print('Error loading tours: $e');
+    } finally {
+      setState(() {
+        _isLoadingSuggestedTours = false;
+        _isLoadingAlternativeTours = false;
+      });
+    }
   }
 
   // Cebu-specific recommended tours with Real Network Images
@@ -84,9 +169,7 @@ class _MainDashboardState extends State<MainDashboard> {
   final List<Map<String, dynamic>> _categories = [
     {'name': 'Adventure', 'icon': Icons.terrain, 'color': Colors.orange},
     {'name': 'Culture', 'icon': Icons.museum, 'color': Colors.purple},
-    {'name': 'Food', 'icon': Icons.restaurant, 'color': Colors.red},
     {'name': 'Nature', 'icon': Icons.park, 'color': Colors.green},
-    {'name': 'Beach', 'icon': Icons.beach_access, 'color': Colors.blue},
     {'name': 'City', 'icon': Icons.location_city, 'color': Colors.teal},
     {'name': 'Historical', 'icon': Icons.history, 'color': Colors.brown},
     {'name': 'Religious', 'icon': Icons.church, 'color': Colors.deepPurple},
@@ -98,25 +181,6 @@ class _MainDashboardState extends State<MainDashboard> {
     {'name': 'Moalboal Sardine Run', 'distance': '89 km', 'tours': 15},
     {'name': 'Malapascua Island', 'distance': '130 km', 'tours': 12},
     {'name': 'Camotes Islands', 'distance': '62 km', 'tours': 10},
-  ];
-
-  // Alternative Cebu destinations
-  final List<Map<String, dynamic>> _alternativeDestinations = [
-    {
-      'name': 'Sumilon Island',
-      'description': 'Pristine sandbar and marine sanctuary',
-      'tours': 6,
-    },
-    {
-      'name': 'Tumalog Falls',
-      'description': 'Enchanting waterfall with misty cascades',
-      'tours': 5,
-    },
-    {
-      'name': 'Bojo River Cruise',
-      'description': 'Peaceful river cruise through mangroves',
-      'tours': 4,
-    },
   ];
 
   @override
@@ -132,6 +196,102 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   DateTime? _selectedTourDate;
+
+  Widget _buildAlternativeTourFromModel(TourModel tour) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TourDetailsScreen(tourId: tour.id),
+          ),
+        );
+      },
+      child: Container(
+        width: 200,
+        margin: const EdgeInsets.only(right: 16),
+        decoration: AppTheme.cardDecoration,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 87,
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+                image: tour.mediaURL.isNotEmpty
+                    ? DecorationImage(
+                        image: tour.mediaURL.first.startsWith('http')
+                            ? NetworkImage(tour.mediaURL.first)
+                            : AssetImage('assets/images/${tour.mediaURL.first}')
+                                as ImageProvider,
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+                color: tour.mediaURL.isEmpty
+                    ? AppTheme.primaryColor.withOpacity(0.2)
+                    : null,
+              ),
+              child: tour.mediaURL.isEmpty
+                  ? Center(
+                      child: Icon(
+                        Icons.image,
+                        size: 40,
+                        color: AppTheme.primaryColor.withOpacity(0.5),
+                      ),
+                    )
+                  : null,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tour.title,
+                    style: AppTheme.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    tour.meetingPoint,
+                    style: AppTheme.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '₱${tour.price.toStringAsFixed(0)}',
+                        style: AppTheme.bodyMedium.copyWith(
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          const Icon(Icons.star, size: 14, color: Colors.amber),
+                          const SizedBox(width: 2),
+                          Text(tour.rating.toStringAsFixed(1),
+                              style: AppTheme.bodySmall),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   void _showBookNowModal(BuildContext context) {
     _selectedTourDate = null;
@@ -228,7 +388,7 @@ class _MainDashboardState extends State<MainDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      body: _pages[_selectedIndex],
+      body: _getPage(_selectedIndex),
       floatingActionButton: _selectedIndex == 0
           ? FloatingActionButton.extended(
               onPressed: () => _showBookNowModal(context),
@@ -584,151 +744,213 @@ class _MainDashboardState extends State<MainDashboard> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                // Nearby Destinations
+                // Suggested Tours
                 Padding(
                   padding: const EdgeInsets.only(left: 16, bottom: 16),
                   child: AutoTranslatedText(
-                    'Nearby Cebu Destinations',
+                    'Suggested Tours',
                     style: AppTheme.headlineSmall,
                   ),
                 ),
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: _nearbyDestinations.length,
-                  itemBuilder: (context, index) {
-                    final destination = _nearbyDestinations[index];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(16),
-                      decoration: AppTheme.cardDecoration,
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
+                _isLoadingSuggestedTours
+                    ? const Center(child: CircularProgressIndicator())
+                    : _suggestedTours.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              'No tours match your interests. Try updating your profile categories.',
+                              style: AppTheme.bodySmall,
                             ),
-                            child: Icon(
-                              Icons.place,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
+                          )
+                        : Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  destination['name'],
-                                  style: AppTheme.bodyLarge.copyWith(
-                                    fontWeight: FontWeight.w600,
+                              children: _suggestedTours.map((tour) {
+                                return GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            TourDetailsScreen(tourId: tour.id),
+                                      ),
+                                    );
+                                  },
+                                  child: Container(
+                                    margin: const EdgeInsets.only(bottom: 16),
+                                    decoration: AppTheme.cardDecoration,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        // Tour Image
+                                        Container(
+                                          height: 160,
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.primaryColor
+                                                .withOpacity(0.2),
+                                            borderRadius:
+                                                const BorderRadius.vertical(
+                                              top: Radius.circular(16),
+                                            ),
+                                            image: DecorationImage(
+                                              image: tour.mediaURL.isNotEmpty &&
+                                                      tour.mediaURL.first
+                                                          .startsWith('http')
+                                                  ? NetworkImage(
+                                                          tour.mediaURL.first)
+                                                      as ImageProvider<Object>
+                                                  : const AssetImage(
+                                                          'assets/images/default_tour.jpg')
+                                                      as ImageProvider<Object>,
+                                              fit: BoxFit.cover,
+                                            ),
+                                          ),
+                                          child: Stack(
+                                            children: [
+                                              if (tour.mediaURL.isEmpty ||
+                                                  !tour.mediaURL.first
+                                                      .startsWith('http'))
+                                                Center(
+                                                  child: Icon(
+                                                    Icons.image,
+                                                    size: 60,
+                                                    color: AppTheme.primaryColor
+                                                        .withOpacity(0.5),
+                                                  ),
+                                                ),
+                                              Positioned(
+                                                top: 12,
+                                                right: 12,
+                                                child: Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            12),
+                                                  ),
+                                                  child: Row(
+                                                    children: [
+                                                      const Icon(
+                                                        Icons.star,
+                                                        size: 16,
+                                                        color: Colors.amber,
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        tour.rating
+                                                            .toStringAsFixed(1),
+                                                        style: AppTheme
+                                                            .bodySmall
+                                                            .copyWith(
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        // Tour Info
+                                        Padding(
+                                          padding: const EdgeInsets.all(16),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                tour.title,
+                                                style:
+                                                    AppTheme.bodyLarge.copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.location_on,
+                                                    size: 14,
+                                                    color:
+                                                        AppTheme.textSecondary,
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Expanded(
+                                                    child: Text(
+                                                      tour.meetingPoint,
+                                                      style: AppTheme.bodySmall,
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
+                                                children: [
+                                                  Text(
+                                                    '₱${tour.price.toStringAsFixed(0)}/person',
+                                                    style: AppTheme.bodyLarge
+                                                        .copyWith(
+                                                      color:
+                                                          AppTheme.primaryColor,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    '${tour.duration} hours',
+                                                    style: AppTheme.bodySmall,
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.location_on,
-                                      size: 14,
-                                      color: AppTheme.textSecondary,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      destination['distance'],
-                                      style: AppTheme.bodySmall,
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Icon(
-                                      Icons.tour,
-                                      size: 14,
-                                      color: AppTheme.textSecondary,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${destination['tours']} tours',
-                                      style: AppTheme.bodySmall,
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                );
+                              }).toList(),
                             ),
                           ),
-                          Icon(
-                            Icons.arrow_forward_ios,
-                            size: 16,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
                 const SizedBox(height: 24),
-                // Alternative Destinations
+                // Alternative Cebu Tours
                 Padding(
                   padding: const EdgeInsets.only(left: 16, bottom: 16),
                   child: AutoTranslatedText(
-                    'Alternative Cebu Destinations',
+                    'Alternative Cebu Tours',
                     style: AppTheme.headlineSmall,
                   ),
                 ),
                 SizedBox(
-                  height: 120,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _alternativeDestinations.length,
-                    itemBuilder: (context, index) {
-                      final destination = _alternativeDestinations[index];
-                      return Container(
-                        width: 200,
-                        margin: const EdgeInsets.only(right: 16),
-                        padding: const EdgeInsets.all(16),
-                        decoration: AppTheme.cardDecoration,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              destination['name'],
-                              style: AppTheme.bodyLarge.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                  height: 200,
+                  child: _isLoadingAlternativeTours
+                      ? const Center(child: CircularProgressIndicator())
+                      : _alternativeTours.isEmpty
+                          ? const Center(
+                              child: Text(
+                                  'No alternative tours available at the moment.'))
+                          : ListView(
+                              scrollDirection: Axis.horizontal,
+                              children: _alternativeTours
+                                  .map(_buildAlternativeTourFromModel)
+                                  .toList(),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              destination['description'],
-                              style: AppTheme.bodySmall,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const Spacer(),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.tour,
-                                  size: 14,
-                                  color: AppTheme.textSecondary,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${destination['tours']} tours available',
-                                  style: AppTheme.bodySmall.copyWith(
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
                 ),
                 const SizedBox(height: 80), // Space for FAB
               ],

@@ -33,16 +33,16 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
 
   // Available specializations
   final List<String> _availableSpecializations = [
-    'Adventure',
-    'Culture',
-    'Nature',
-    'History',
-    'Food & Cuisine',
-    'Photography',
-    'Hiking',
-    'Water Sports',
-    'City Tours',
-    'Wildlife'
+    'Basilica del Santo Niño',
+    'Magellan\'s Cross',
+    'Fort San Pedro',
+    'Colon Street',
+    'Cebu Metropolitan Cathedral',
+    'Heritage of Cebu Monument',
+    'Cebu Taoist Temple',
+    'Sirao Flower Garden',
+    'Temple of Leah',
+    'Tops Lookout'
   ];
 
   // Password change states

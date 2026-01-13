@@ -276,7 +276,6 @@ class _TourFormState extends State<TourForm> {
                               status: 'published',
                               duration: 4,
                               languages: ['English'],
-                              specializations: ['General'],
                               highlights: [],
                             );
                             await _db.createTour(newTour);

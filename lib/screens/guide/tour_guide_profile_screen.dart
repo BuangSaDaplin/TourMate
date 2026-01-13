@@ -6,6 +6,8 @@ import 'package:tourmate_app/services/user_profile_service.dart';
 import '../../models/user_model.dart';
 import '../../utils/app_theme.dart';
 import '../auth/login_screen.dart';
+import '../auth/terms_and_conditions_screen.dart';
+import '../auth/privacy_policy_screen.dart';
 import '../notifications/notification_screen.dart';
 import '../profile/change_password_screen.dart';
 import '../profile/guide_edit_account_screen.dart';
@@ -208,7 +210,7 @@ class _TourGuideProfileScreenState extends State<TourGuideProfileScreen> {
                     _buildLanguagesRow(
                         Icons.language, 'Languages', _userProfile!.languages!),
                   _buildSpecializationsRow(Icons.star, 'Specializations',
-                      _guideData['specializations']),
+                      _userProfile?.specializations ?? []),
                 ],
               ),
             ),
@@ -353,30 +355,6 @@ class _TourGuideProfileScreenState extends State<TourGuideProfileScreen> {
                     },
                   ),
                   const Divider(),
-                  // Email Notifications
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    secondary: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.email,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
-                    title: const Text('Email Notifications'),
-                    subtitle: const Text('Receive booking confirmations'),
-                    value: _emailNotifications,
-                    onChanged: (bool value) {
-                      setState(() {
-                        _emailNotifications = value;
-                      });
-                    },
-                  ),
-                  const Divider(),
                   // Active Status
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -464,16 +442,26 @@ class _TourGuideProfileScreenState extends State<TourGuideProfileScreen> {
                     'Privacy Policy',
                     'Read our privacy policy',
                     () {
-                      // Show privacy policy
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const PrivacyPolicyScreen(),
+                        ),
+                      );
                     },
                   ),
                   const Divider(),
                   _buildOptionTile(
                     Icons.description,
-                    'Terms of Service',
-                    'Read our terms of service',
+                    'Terms and Conditions',
+                    'Read our terms and conditions before accepting a booking',
                     () {
-                      // Show terms
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const TermsOfServiceScreen(),
+                        ),
+                      );
                     },
                   ),
                 ],

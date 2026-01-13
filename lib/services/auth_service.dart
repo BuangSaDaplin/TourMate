@@ -201,4 +201,13 @@ class AuthService {
   User? getCurrentUser() {
     return _auth.currentUser;
   }
+
+  // Get the current user model from Firestore
+  Future<UserModel?> getCurrentUserModel() async {
+    final user = getCurrentUser();
+    if (user != null) {
+      return await _db.getUser(user.uid);
+    }
+    return null;
+  }
 }

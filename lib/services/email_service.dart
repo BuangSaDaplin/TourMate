@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/itinerary_model.dart';
+import '../services/database_service.dart';
 
 class EmailService {
   // EmailJS configuration
   static const String _serviceId = 'service_w74hzom';
   static const String _templateId = 'template_uic10oj';
-  static const String _userId =
-      'your-emailjs-public-key'; // Replace with your EmailJS public key
+  static const String _userId = 'tFbVABpMGRIe2-8Kd'; // EmailJS public key
   static const String _emailJsUrl =
       'https://api.emailjs.com/api/v1.0/email/send';
 
@@ -26,12 +26,11 @@ class EmailService {
           'to_email': recipientEmail,
           'subject': 'Tour Itinerary: ${itinerary.title}',
           'from_name': senderName,
-          'email': recipientEmail, // Reply-to email
           'itinerary_title': itinerary.title,
           'itinerary_description': itinerary.description,
           'start_date': itinerary.startDate.toString().split(' ')[0],
           'end_date': itinerary.endDate.toString().split(' ')[0],
-          'itinerary_html': _generateItineraryHtml(itinerary, senderName),
+          'itinerary_html': await _generateItineraryHtml(itinerary, senderName),
         },
       };
 
@@ -47,9 +46,10 @@ class EmailService {
         print('Email sent successfully to $recipientEmail');
         return true;
       } else {
-        print(
-            'Failed to send email: ${response.statusCode} - ${response.body}');
-        return false;
+        final errorMessage =
+            'Failed to send email: ${response.statusCode} - ${response.body}';
+        print(errorMessage);
+        throw Exception(errorMessage);
       }
     } catch (e) {
       print('Error sending itinerary email: $e');
@@ -58,8 +58,20 @@ class EmailService {
   }
 
   /// Generates HTML email content for the itinerary
-  String _generateItineraryHtml(ItineraryModel itinerary, String senderName) {
+  Future<String> _generateItineraryHtml(
+      ItineraryModel itinerary, String senderName) async {
     final buffer = StringBuffer();
+
+    // Get tour duration from the related tour
+    double tourDuration = itinerary.totalDays.toDouble(); // fallback
+    if (itinerary.relatedTourId != null &&
+        itinerary.relatedTourId!.isNotEmpty) {
+      final databaseService = DatabaseService();
+      final tour = await databaseService.getTour(itinerary.relatedTourId!);
+      if (tour != null) {
+        tourDuration = tour.duration;
+      }
+    }
 
     buffer.writeln('''
 <!DOCTYPE html>
@@ -89,12 +101,12 @@ class EmailService {
         </div>
 
         <div class="content">
-            <p>Hello!</p>
-            <p>$senderName has shared a tour itinerary with you. Here are the details:</p>
+            <p>Hello! $senderName has shared a tour itinerary with you. Here are the details:</p>
 
             <h3>Tour Overview</h3>
             <p><strong>Description:</strong> ${itinerary.description}</p>
-            <p><strong>Duration:</strong> ${itinerary.startDate.toString().split(' ')[0]} to ${itinerary.endDate.toString().split(' ')[0]}</p>
+            <p><strong>Duration:</strong> $tourDuration hours</p>
+            <p><strong>Tour Date:</strong> ${itinerary.startDate.toString().split(' ')[0]}</p>
 
             <h3>Itinerary Details</h3>
 ''');
@@ -117,10 +129,18 @@ class EmailService {
       buffer.writeln('<div class="date-section">');
       buffer.writeln('<h4>${_formatDate(date)}</h4>');
 
-      for (final activity in activities) {
+      for (int i = 0; i < activities.length; i++) {
+        final activity = activities[i];
+
+        // If this is the last activity in the day, adjust end time
+        DateTime displayEndTime = activity.endTime;
+        if (i == activities.length - 1) {
+          displayEndTime = activity.startTime.add(const Duration(minutes: 15));
+        }
+
         buffer.writeln('''
 <div class="activity">
-    <div class="activity-time">${_formatTime(activity.startTime)} - ${_formatTime(activity.endTime)}</div>
+    <div class="activity-time">${_formatTime(activity.startTime)} - ${_formatTime(displayEndTime)}</div>
     <div class="activity-title">${activity.title}</div>
     <div class="activity-description">${activity.description}</div>
 ''');
@@ -161,8 +181,20 @@ class EmailService {
   }
 
   /// Generates plain text email content for the itinerary
-  String _generateItineraryText(ItineraryModel itinerary, String senderName) {
+  Future<String> _generateItineraryText(
+      ItineraryModel itinerary, String senderName) async {
     final buffer = StringBuffer();
+
+    // Get tour duration from the related tour
+    double tourDuration = itinerary.totalDays.toDouble(); // fallback
+    if (itinerary.relatedTourId != null &&
+        itinerary.relatedTourId!.isNotEmpty) {
+      final databaseService = DatabaseService();
+      final tour = await databaseService.getTour(itinerary.relatedTourId!);
+      if (tour != null) {
+        tourDuration = tour.duration;
+      }
+    }
 
     buffer.writeln('TOUR ITINERARY: ${itinerary.title.toUpperCase()}');
     buffer.writeln('=' * 50);
@@ -171,8 +203,7 @@ class EmailService {
     buffer.writeln('');
     buffer.writeln('Tour Overview:');
     buffer.writeln('Description: ${itinerary.description}');
-    buffer.writeln(
-        'Duration: ${itinerary.startDate.toString().split(' ')[0]} to ${itinerary.endDate.toString().split(' ')[0]}');
+    buffer.writeln('Duration: $tourDuration hours');
     buffer.writeln('');
     buffer.writeln('Itinerary Details:');
     buffer.writeln('-' * 30);
@@ -196,10 +227,18 @@ class EmailService {
       buffer.writeln(_formatDate(date));
       buffer.writeln('-' * 20);
 
-      for (final activity in activities) {
+      for (int i = 0; i < activities.length; i++) {
+        final activity = activities[i];
+
+        // If this is the last activity in the day, adjust end time
+        DateTime displayEndTime = activity.endTime;
+        if (i == activities.length - 1) {
+          displayEndTime = activity.startTime.add(const Duration(minutes: 15));
+        }
+
         buffer.writeln('');
         buffer.writeln(
-            'Time: ${_formatTime(activity.startTime)} - ${_formatTime(activity.endTime)}');
+            'Time: ${_formatTime(activity.startTime)} - ${_formatTime(displayEndTime)}');
         buffer.writeln('Activity: ${activity.title}');
         buffer.writeln('Description: ${activity.description}');
 

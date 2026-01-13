@@ -8,8 +8,10 @@ import '../../services/payment_service.dart';
 import '../../models/booking_model.dart';
 import '../../models/payment_model.dart';
 import '../../models/message_model.dart';
+import '../../models/tour_model.dart';
 import '../notifications/notification_screen.dart';
 import '../messaging/chat_screen.dart';
+import '../tour/tour_details_screen.dart';
 
 class BookingsScreen extends StatefulWidget {
   final int initialTab;
@@ -277,6 +279,11 @@ class _BookingsScreenState extends State<BookingsScreen>
                       icon: const Icon(Icons.message, size: 20),
                       tooltip: 'Message',
                     ),
+                    IconButton(
+                      onPressed: () => _showBookingDetailsDialog(booking),
+                      icon: const Icon(Icons.visibility, size: 20),
+                      tooltip: 'View Details',
+                    ),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -320,7 +327,7 @@ class _BookingsScreenState extends State<BookingsScreen>
                     ),
                     const SizedBox(width: 24),
                     _buildInfoItem(
-                        Icons.access_time, '(${booking.duration ?? 0}) Hours'),
+                        Icons.access_time, '${booking.duration ?? 0} Hours'),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -804,6 +811,248 @@ class _BookingsScreenState extends State<BookingsScreen>
           ],
         );
       },
+    );
+  }
+
+  void _showBookingDetailsDialog(BookingModel booking) async {
+    // Fetch tour data for location and price
+    TourModel? tour;
+    try {
+      tour = await _db.getTour(booking.tourId);
+    } catch (e) {
+      // Handle error silently, tour will be null
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Booking Details'),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Booked Tour Information
+                  Text(
+                    'Booked Tour Information',
+                    style: AppTheme.headlineSmall.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context); // Close dialog
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => TourDetailsScreen(
+                            tourId: booking.tourId,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppTheme.primaryColor.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            booking.tourTitle,
+                            style: AppTheme.bodyLarge.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on,
+                                size: 16,
+                                color: AppTheme.textSecondary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                tour?.meetingPoint ?? 'Location not available',
+                                style: AppTheme.bodyMedium,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '₱${tour?.price.toStringAsFixed(0) ?? booking.totalPrice.toStringAsFixed(0)} per person',
+                            style: AppTheme.bodyLarge.copyWith(
+                              color: AppTheme.primaryColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Booking Details
+                  Text(
+                    'Booking Details',
+                    style: AppTheme.headlineSmall.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Date
+                  _buildDetailRow(
+                    'Tour Date',
+                    '${booking.tourStartDate.day}/${booking.tourStartDate.month}/${booking.tourStartDate.year}',
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Time (assuming start time from tour or default)
+                  _buildDetailRow(
+                    'Tour Start',
+                    tour?.startTime != null
+                        ? '${tour!.startTime.hour}:${tour.startTime.minute.toString().padLeft(2, '0')}'
+                        : 'Time not specified',
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Duration
+                  _buildDetailRow(
+                    'Duration',
+                    '${booking.duration ?? tour?.duration ?? 0} Hours',
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Number of Participants
+                  _buildDetailRow(
+                    'Number of Participants',
+                    '${booking.numberOfParticipants}',
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Participant's Names
+                  if (booking.participantNames != null &&
+                      booking.participantNames!.isNotEmpty)
+                    _buildDetailRow(
+                      'Participant\'s Names',
+                      booking.participantNames!.join(', '),
+                    ),
+                  if (booking.participantNames != null &&
+                      booking.participantNames!.isNotEmpty)
+                    const SizedBox(height: 8),
+
+                  // Total Amount
+                  _buildDetailRow(
+                    'Total Amount',
+                    '₱${booking.totalPrice.toStringAsFixed(0)}',
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Booking Summary
+                  Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Booking Summary',
+                              style: AppTheme.headlineSmall),
+                          const SizedBox(height: 16),
+                          if (tour != null &&
+                              tour.inclusionPrices.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            ...tour.inclusionPrices.entries.map(
+                              (entry) => _buildSummaryRow(
+                                entry.key,
+                                '₱${(entry.value * booking.numberOfParticipants).toStringAsFixed(2)}',
+                              ),
+                            ),
+                          ],
+                          const Divider(),
+                          _buildSummaryRow(
+                            'Total Amount',
+                            '₱${booking.totalPrice.toStringAsFixed(2)}',
+                            isTotal: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 140,
+          child: Text(
+            '$label:',
+            style: AppTheme.bodyMedium.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: AppTheme.bodyMedium,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String value, {bool isTotal = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: isTotal
+                ? AppTheme.bodyLarge.copyWith(fontWeight: FontWeight.w600)
+                : AppTheme.bodyMedium,
+          ),
+          Text(
+            value,
+            style: isTotal
+                ? AppTheme.headlineSmall.copyWith(
+                    color: AppTheme.primaryColor,
+                    fontWeight: FontWeight.w600,
+                  )
+                : AppTheme.bodyMedium,
+          ),
+        ],
+      ),
     );
   }
 

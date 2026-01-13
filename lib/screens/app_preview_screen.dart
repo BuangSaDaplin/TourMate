@@ -4,6 +4,7 @@ import 'package:tourmate_app/screens/tour/tour_details_screen.dart';
 import 'package:tourmate_app/screens/auth/login_screen.dart';
 import 'package:tourmate_app/screens/auth/signup_screen.dart';
 import '../../utils/app_theme.dart';
+import '../../services/database_service.dart';
 
 class AppPreviewScreen extends StatefulWidget {
   const AppPreviewScreen({super.key});
@@ -25,121 +26,20 @@ class _AppPreviewScreenState extends State<AppPreviewScreen>
     'All',
     'Adventure',
     'Culture',
-    'Food',
     'Nature',
-    'Beach',
-    'City Tour',
+    'City',
     'Historical',
     'Religious'
   ];
 
-  // Mock tour data - same as in tour_browse_screen.dart
-  final List<TourModel> _allTours = [
-    TourModel(
-      id: '1',
-      title: 'Kawasan Falls Canyoneering Adventure',
-      description:
-          'Experience the thrill of jumping, swimming, and trekking through the stunning Kawasan Falls canyon in Badian, Cebu.',
-      price: 2500.0,
-      category: ['Adventure'],
-      maxParticipants: 12,
-      currentParticipants: 8,
-      startTime: DateTime.now().add(const Duration(days: 7)),
-      endTime: DateTime.now().add(const Duration(days: 7, hours: 8)),
-      meetingPoint: 'Badian Town Center',
-      mediaURL: [
-        'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?q=80&w=1000'
-      ],
-      createdBy: 'guide_001',
-      shared: true,
-      itinerary: [
-        {'time': '08:00', 'activity': 'Meet at Badian Town Center'},
-        {'time': '09:00', 'activity': 'Safety briefing and equipment'},
-        {'time': '10:00', 'activity': 'Begin canyoneering adventure'},
-        {'time': '16:00', 'activity': 'Return and farewell'}
-      ],
-      status: 'active',
-      duration: 8,
-      languages: ['English'],
-      specializations: ['Hiking', 'Snorkeling'],
-      highlights: [
-        'Jump from heights up to 10 meters',
-        'Swim in natural pools',
-        'Trek through tropical canyon',
-        'Professional guide and safety equipment',
-        'Lunch included',
-      ],
-    ),
-    TourModel(
-      id: '2',
-      title: 'Cebu City Historical Walking Tour',
-      description:
-          'Explore the rich history of Cebu City, from Magellan\'s Cross to Fort San Pedro.',
-      price: 1200.0,
-      category: ['Historical'],
-      maxParticipants: 15,
-      currentParticipants: 5,
-      startTime: DateTime.now().add(const Duration(days: 3)),
-      endTime: DateTime.now().add(const Duration(days: 3, hours: 4)),
-      meetingPoint: 'Magellan\'s Cross',
-      mediaURL: ['cebu_history1.jpg', 'cebu_history2.jpg'],
-      createdBy: 'guide_002',
-      shared: true,
-      itinerary: [
-        {'time': '09:00', 'activity': 'Start at Magellan\'s Cross'},
-        {'time': '10:00', 'activity': 'Visit Fort San Pedro'},
-        {'time': '11:00', 'activity': 'Explore Basilica del Santo Niño'},
-        {'time': '12:00', 'activity': 'Tour ends'}
-      ],
-      status: 'active',
-      duration: 4,
-      languages: ['English', 'Cebuano'],
-      specializations: ['History', 'Local Culture'],
-      highlights: [
-        'Visit Magellan\'s Cross',
-        'Explore Fort San Pedro',
-        'Discover Basilica del Santo Niño',
-        'Learn about Cebu\'s rich history',
-        'Professional guide included',
-      ],
-    ),
-    TourModel(
-      id: '3',
-      title: 'Moalboal Sardine Run & Beach Tour',
-      description:
-          'Snorkel with millions of sardines and relax on pristine beaches in Moalboal.',
-      price: 1800.0,
-      category: ['Beach'],
-      maxParticipants: 10,
-      currentParticipants: 10,
-      startTime: DateTime.now().add(const Duration(days: 5)),
-      endTime: DateTime.now().add(const Duration(days: 5, hours: 6)),
-      meetingPoint: 'Moalboal Pier',
-      mediaURL: ['moalboal1.jpg', 'moalboal2.jpg', 'moalboal3.jpg'],
-      createdBy: 'guide_003',
-      shared: true,
-      itinerary: [
-        {'time': '08:00', 'activity': 'Meet at Moalboal Pier'},
-        {'time': '09:00', 'activity': 'Sardine Run snorkeling'},
-        {'time': '12:00', 'activity': 'Beach relaxation and lunch'},
-        {'time': '14:00', 'activity': 'Tour ends'}
-      ],
-      status: 'active',
-      duration: 6,
-      languages: ['English'],
-      specializations: ['Snorkeling', 'Beach Activities'],
-      highlights: [
-        'Snorkel with millions of sardines',
-        'Explore vibrant coral reefs',
-        'Relax on pristine beaches',
-        'Professional snorkeling guide',
-        'Lunch and equipment included',
-      ],
-    ),
-  ];
+  List<TourModel> _tours = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  final DatabaseService _databaseService = DatabaseService();
 
   List<TourModel> get _filteredTours {
-    List<TourModel> tours = _allTours;
+    List<TourModel> tours = _tours;
 
     // Filter by search query
     if (_searchQuery.isNotEmpty) {
@@ -175,6 +75,26 @@ class _AppPreviewScreenState extends State<AppPreviewScreen>
       CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
     );
     _animationController.forward();
+    _loadTours();
+  }
+
+  Future<void> _loadTours() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+      final tours = await _databaseService.getApprovedTours();
+      setState(() {
+        _tours = tours;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to load tours: $e';
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -344,23 +264,45 @@ class _AppPreviewScreenState extends State<AppPreviewScreen>
               ),
 
               // Tours Grid
-              _filteredTours.isEmpty
-                  ? _buildEmptyState()
-                  : SizedBox(
-                      height: 320,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _filteredTours.length,
-                        itemBuilder: (context, index) {
-                          return Container(
-                            width: 280,
-                            margin: const EdgeInsets.only(right: 12),
-                            child: _buildTourCard(_filteredTours[index]),
-                          );
-                        },
+              _isLoading
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 32),
+                        child: CircularProgressIndicator(),
                       ),
-                    ),
+                    )
+                  : _errorMessage != null
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 32),
+                            child: Text(
+                              _errorMessage!,
+                              style: AppTheme.bodyMedium.copyWith(
+                                color: Colors.red,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        )
+                      : _filteredTours.isEmpty
+                          ? _buildEmptyState()
+                          : SizedBox(
+                              height: 320,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                itemCount: _filteredTours.length,
+                                itemBuilder: (context, index) {
+                                  return Container(
+                                    width: 280,
+                                    margin: const EdgeInsets.only(right: 12),
+                                    child:
+                                        _buildTourCard(_filteredTours[index]),
+                                  );
+                                },
+                              ),
+                            ),
 
               // Why Choose TourMate Section
               Container(

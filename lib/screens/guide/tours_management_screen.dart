@@ -217,16 +217,16 @@ class _ToursManagementScreenState extends State<ToursManagementScreen> {
               ),
               Expanded(
                 child: _buildTourStat(
-                  '₱${tour.price * tour.currentParticipants}',
-                  'Earnings',
-                  Icons.attach_money,
+                  '${tour.duration}',
+                  'Hours',
+                  Icons.access_time,
                 ),
               ),
               Expanded(
                 child: _buildTourStat(
-                  '-',
-                  'Rating',
-                  Icons.star,
+                  '₱${tour.price * tour.currentParticipants}',
+                  'Earnings',
+                  Icons.attach_money,
                 ),
               ),
             ],

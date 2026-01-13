@@ -23,10 +23,8 @@ class _TourBrowseScreenState extends State<TourBrowseScreen> {
     'All',
     'Adventure',
     'Culture',
-    'Food',
     'Nature',
-    'Beach',
-    'City Tour',
+    'City',
     'Historical',
     'Religious'
   ];
@@ -65,7 +63,6 @@ class _TourBrowseScreenState extends State<TourBrowseScreen> {
       status: 'active',
       duration: 8,
       languages: ['English'],
-      specializations: ['Hiking', 'Snorkeling'],
       highlights: [
         'Jump from heights up to 10 meters',
         'Swim in natural pools',
@@ -98,7 +95,6 @@ class _TourBrowseScreenState extends State<TourBrowseScreen> {
       status: 'active',
       duration: 4,
       languages: ['English', 'Cebuano'],
-      specializations: ['History', 'Local Culture'],
       highlights: [
         'Visit Magellan\'s Cross',
         'Explore Fort San Pedro',
@@ -131,7 +127,6 @@ class _TourBrowseScreenState extends State<TourBrowseScreen> {
       status: 'active',
       duration: 6,
       languages: ['English'],
-      specializations: ['Snorkeling', 'Beach Activities'],
       highlights: [
         'Snorkel with millions of sardines',
         'Explore vibrant coral reefs',

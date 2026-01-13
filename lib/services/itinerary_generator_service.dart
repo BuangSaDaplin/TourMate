@@ -481,10 +481,8 @@ class ItineraryGeneratorService {
     // Add tour end activity as last item
     final lastItemEndTime =
         items.isNotEmpty ? items.last.endTime : context.startTime;
-    final tourEndStartTime = lastItemEndTime.isBefore(context.endTime)
-        ? lastItemEndTime
-        : context.endTime.subtract(Duration(minutes: 15));
-    final tourEndEndTime = tourEndStartTime.add(Duration(minutes: 15));
+    final tourEndStartTime = lastItemEndTime;
+    final tourEndEndTime = tourEndStartTime.add(const Duration(minutes: 15));
     items.add(ItineraryItemModel(
       id: 'tour_end',
       title: 'Tour End',

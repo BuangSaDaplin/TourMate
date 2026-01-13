@@ -1,52 +1,20 @@
-# Email Service Implementation Fix
-
-## Current Issue
-- Email service uses placeholder backend URL and API key
-- Email sending fails silently, no success notification shown
-- Users don't receive itinerary emails
+# TODO: Update Alternative Cebu Destinations Section
 
 ## Completed Tasks
-- [x] Updated EmailService to use EmailJS instead of placeholder backend
-- [x] Modified sendItineraryEmail method to use EmailJS API
-- [x] Kept existing HTML and text email generation methods
-- [x] Added user's EmailJS service ID (service_w74hzom) and template ID (template_uic10oj)
-- [x] Added user's EmailJS public key (tFbVABpMGRIe2-8Kd)
+- [x] Add state variables for alternative tours (_alternativeTours and _isLoadingAlternativeTours)
+- [x] Update _loadCurrentUserAndSuggestedTours to load alternative tours that do NOT match user's categories
+- [x] Remove mock data for _alternativeDestinations
+- [x] Replace UI section with horizontal ListView displaying alternative tours similar to tour_details_screen.dart
+- [x] Add _buildAlternativeTourFromModel method to render individual tour cards
+- [x] Handle loading state with CircularProgressIndicator
+- [x] Handle empty state with appropriate message
 
-## Next Steps
-- [x] EmailJS setup completed - all credentials configured
-- [ ] Test email sending functionality (user should test this)
-- [ ] Verify success notification appears when email is sent
-- [ ] Confirm emails are received in Gmail inbox
+## Remaining Tasks
+- [x] Test the implementation to ensure it works correctly
+- [x] Verify that tours are filtered properly based on user categories
+- [x] Check UI responsiveness and styling
 
-## Testing Instructions for User
-1. Run the Flutter app: `flutter run`
-2. Navigate to any itinerary screen
-3. Tap the share button (three dots menu)
-4. Enter a real Gmail address and tap "Send"
-5. Check if you see a success notification
-6. Check your Gmail inbox for the itinerary email
-7. Test with an invalid email to ensure error handling works
-
-## EmailJS Setup Instructions
-1. Go to https://www.emailjs.com/ and create an account
-2. Create a new email service (Gmail, Outlook, etc.)
-3. Create an email template with the following variables:
-   - {{to_email}} - recipient email
-   - {{subject}} - email subject
-   - {{from_name}} - sender name
-   - {{itinerary_title}} - itinerary title
-   - {{itinerary_description}} - itinerary description
-   - {{start_date}} - tour start date
-   - {{end_date}} - tour end date
-   - {{itinerary_html}} - full HTML content
-   - {{itinerary_text}} - plain text content
-4. Update the constants in EmailService with your EmailJS credentials:
-   - _serviceId: Your EmailJS service ID
-   - _templateId: Your EmailJS template ID
-   - _userId: Your EmailJS public key
-
-## Testing
-- Test with a real Gmail address
-- Verify success notification appears
-- Check that email is received in inbox
-- Test with invalid email addresses (should show error)
+## Notes
+- The display now shows individual tours instead of grouped destinations
+- If no tours match the filter, shows "No alternative tours available at the moment."
+- For users without categories or no authenticated user, all tours are shown as alternatives
