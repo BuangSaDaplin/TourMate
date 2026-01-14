@@ -48,6 +48,20 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     _loadUserRole();
   }
 
+  @override
+  void didUpdateWidget(ItineraryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the parent widget passes a new itinerary (e.g. from a refresh),
+    // update our local state to match it.
+    if (widget.itinerary != oldWidget.itinerary) {
+      setState(() {
+        _itinerary = widget.itinerary;
+        // Optional: Reset selected date if needed, or keep user's selection
+        // _selectedDate = _itinerary.startDate;
+      });
+    }
+  }
+
   Future<void> _loadUserRole() async {
     final currentUser = _authService.getCurrentUser();
     if (currentUser != null) {
@@ -99,6 +113,13 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
           ),
         ],
       ),
+      floatingActionButton: isOwner
+          ? FloatingActionButton(
+              onPressed: _addNewActivity,
+              backgroundColor: AppTheme.primaryColor,
+              child: const Icon(Icons.add, color: Colors.white),
+            )
+          : null,
     );
   }
 
@@ -307,7 +328,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: InkWell(
-                  onTap: null,
+                  onTap: () => _showActivityOptions(item),
                   borderRadius: BorderRadius.circular(12),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -354,14 +375,16 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                             ),
                             if (item.cost != null && item.cost! > 0) ...[
                               const SizedBox(width: 16),
-                              Icon(
-                                Icons.attach_money,
-                                size: 16,
-                                color: AppTheme.textSecondary,
+                              Text(
+                                '₱',
+                                style: AppTheme.bodySmall.copyWith(
+                                  color: AppTheme.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                '\$${item.cost!.toStringAsFixed(2)}',
+                                '${item.cost!.toStringAsFixed(2)}',
                                 style: AppTheme.bodySmall.copyWith(
                                   color: AppTheme.textSecondary,
                                   fontWeight: FontWeight.w600,
@@ -459,22 +482,39 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     }
   }
 
+  String _getActivityTypeDisplayName(ActivityType type) {
+    switch (type) {
+      case ActivityType.tour:
+        return 'Tour';
+      case ActivityType.transportation:
+        return 'Transportation';
+      case ActivityType.accommodation:
+        return 'Accommodation';
+      case ActivityType.meal:
+        return 'Meal';
+      case ActivityType.attraction:
+        return 'Attraction';
+      case ActivityType.shopping:
+        return 'Shopping';
+      case ActivityType.rest:
+        return 'Rest';
+      case ActivityType.custom:
+        return 'Custom';
+    }
+  }
+
   void _addNewActivity() {
-    // Navigate to add activity screen
-    // This would open a form to create a new activity
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add activity functionality coming soon!')),
-    );
+    _showActivityForm(null);
   }
 
   void _editActivity(ItineraryItemModel activity) {
-    // Navigate to edit activity screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Edit activity functionality coming soon!')),
-    );
+    _showActivityForm(activity);
   }
 
   void _showActivityOptions(ItineraryItemModel activity) {
+    final currentUser = _authService.getCurrentUser();
+    final isOwner = _itinerary.userId == currentUser?.uid;
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -490,12 +530,33 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
               style: AppTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
+            if (isOwner) ...[
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('Edit Activity'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _editActivity(activity);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Delete Activity',
+                    style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _deleteActivity(activity);
+                },
+              ),
+            ],
             ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text('Edit Activity'),
+              leading: const Icon(Icons.check_circle),
+              title: Text(activity.isCompleted
+                  ? 'Mark as Incomplete'
+                  : 'Mark as Complete'),
               onTap: () {
                 Navigator.pop(context);
-                _editActivity(activity);
+                _toggleActivityCompletion(activity, !activity.isCompleted);
               },
             ),
           ],
@@ -514,46 +575,17 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
       );
 
       setState(() {
-        // Update local state
+        // Update local state using copyWith
         final updatedItems = _itinerary.items.map((item) {
           if (item.id == activity.id) {
-            return ItineraryItemModel(
-              id: item.id,
-              title: item.title,
-              description: item.description,
-              type: item.type,
-              startTime: item.startTime,
-              endTime: item.endTime,
-              location: item.location,
-              address: item.address,
-              cost: item.cost,
-              notes: item.notes,
-              imageUrl: item.imageUrl,
-              isCompleted: isCompleted,
-              order: item.order,
-              metadata: item.metadata,
-            );
+            return item.copyWith(isCompleted: isCompleted);
           }
           return item;
         }).toList();
 
-        _itinerary = ItineraryModel(
-          id: _itinerary.id,
-          userId: _itinerary.userId,
-          title: _itinerary.title,
-          description: _itinerary.description,
-          startDate: _itinerary.startDate,
-          endDate: _itinerary.endDate,
-          status: _itinerary.status,
+        _itinerary = _itinerary.copyWith(
           items: updatedItems,
-          coverImageUrl: _itinerary.coverImageUrl,
-          isPublic: _itinerary.isPublic,
-          shareCode: _itinerary.shareCode,
-          createdAt: _itinerary.createdAt,
-          updatedAt: DateTime.now(),
-          relatedBookingId: _itinerary.relatedBookingId,
-          relatedTourId: _itinerary.relatedTourId,
-          settings: _itinerary.settings,
+          updatedAt: DateTime.now().toUtc(),
         );
       });
     } catch (e) {
@@ -565,38 +597,34 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
 
   void _deleteActivity(ItineraryItemModel activity) async {
     try {
+      // 1. Call backend service
       await _itineraryService.removeActivityFromItinerary(
           _itinerary.id, activity.id);
 
+      // 2. Update local state safely using copyWith
       setState(() {
-        _itinerary = ItineraryModel(
-          id: _itinerary.id,
-          userId: _itinerary.userId,
-          title: _itinerary.title,
-          description: _itinerary.description,
-          startDate: _itinerary.startDate,
-          endDate: _itinerary.endDate,
-          status: _itinerary.status,
-          items:
-              _itinerary.items.where((item) => item.id != activity.id).toList(),
-          coverImageUrl: _itinerary.coverImageUrl,
-          isPublic: _itinerary.isPublic,
-          shareCode: _itinerary.shareCode,
-          createdAt: _itinerary.createdAt,
-          updatedAt: DateTime.now(),
-          relatedBookingId: _itinerary.relatedBookingId,
-          relatedTourId: _itinerary.relatedTourId,
-          settings: _itinerary.settings,
+        // Filter out the deleted item
+        final updatedItems =
+            _itinerary.items.where((item) => item.id != activity.id).toList();
+
+        // Use copyWith to preserve ALL other fields automatically
+        _itinerary = _itinerary.copyWith(
+          items: updatedItems,
+          updatedAt: DateTime.now().toUtc(),
         );
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Activity deleted')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Activity deleted')),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete activity: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete activity: $e')),
+        );
+      }
     }
   }
 
@@ -711,5 +739,267 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
       print('Error sending itinerary email: $e');
       throw e; // Re-throw to be handled by the calling method
     }
+  }
+
+  Future<void> _showActivityForm(ItineraryItemModel? activity) async {
+    final currentUser = _authService.getCurrentUser();
+    final isOwner = _itinerary.userId == currentUser?.uid;
+
+    if (!isOwner) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Only the itinerary owner can edit activities')),
+      );
+      return;
+    }
+
+    final formKey = GlobalKey<FormState>();
+    final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final locationController = TextEditingController();
+    final costController = TextEditingController();
+    final notesController = TextEditingController();
+
+    ActivityType selectedType = ActivityType.custom;
+    TimeOfDay startTime = TimeOfDay.now();
+    TimeOfDay endTime = TimeOfDay(
+        hour: TimeOfDay.now().hour + 1, minute: TimeOfDay.now().minute);
+
+    // If editing, pre-fill the form
+    if (activity != null) {
+      titleController.text = activity.title;
+      descriptionController.text = activity.description;
+      locationController.text = activity.location ?? '';
+      costController.text = activity.cost?.toString() ?? '';
+      notesController.text = activity.notes ?? '';
+      selectedType = activity.type;
+      startTime = TimeOfDay.fromDateTime(activity.startTime);
+      endTime = TimeOfDay.fromDateTime(activity.endTime);
+    }
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(activity == null ? 'Add New Activity' : 'Edit Activity'),
+        content: SingleChildScrollView(
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Title',
+                    hintText: 'Enter activity title',
+                  ),
+                  validator: (value) =>
+                      value?.isEmpty ?? true ? 'Title is required' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    hintText: 'Enter activity description',
+                  ),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<ActivityType>(
+                  value: selectedType,
+                  decoration: const InputDecoration(
+                    labelText: 'Activity Type',
+                  ),
+                  items: ActivityType.values.map((type) {
+                    return DropdownMenuItem(
+                      value: type,
+                      child: Text(_getActivityTypeDisplayName(type)),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      selectedType = value;
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () async {
+                          final picked = await showTimePicker(
+                            context: context,
+                            initialTime: startTime,
+                          );
+                          if (picked != null) {
+                            startTime = picked;
+                          }
+                        },
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Start Time',
+                          ),
+                          child: Text(startTime.format(context)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () async {
+                          final picked = await showTimePicker(
+                            context: context,
+                            initialTime: endTime,
+                          );
+                          if (picked != null) {
+                            endTime = picked;
+                          }
+                        },
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'End Time',
+                          ),
+                          child: Text(endTime.format(context)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: locationController,
+                  decoration: const InputDecoration(
+                    labelText: 'Location',
+                    hintText: 'Enter location',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: costController,
+                  decoration: const InputDecoration(
+                    labelText: 'Cost',
+                    hintText: 'Enter cost (optional)',
+                    prefixText: '₱',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: notesController,
+                  decoration: const InputDecoration(
+                    labelText: 'Notes',
+                    hintText: 'Additional notes (optional)',
+                  ),
+                  maxLines: 3,
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (formKey.currentState?.validate() ?? false) {
+                // Convert TimeOfDay to DateTime using _selectedDate
+                final startDateTime = DateTime(
+                  _selectedDate.year,
+                  _selectedDate.month,
+                  _selectedDate.day,
+                  startTime.hour,
+                  startTime.minute,
+                );
+                final endDateTime = DateTime(
+                  _selectedDate.year,
+                  _selectedDate.month,
+                  _selectedDate.day,
+                  endTime.hour,
+                  endTime.minute,
+                );
+
+                final newActivity = ItineraryItemModel(
+                  id: activity?.id ??
+                      DateTime.now().millisecondsSinceEpoch.toString(),
+                  title: titleController.text,
+                  description: descriptionController.text,
+                  type: selectedType,
+                  startTime: startDateTime,
+                  endTime: endDateTime,
+                  location: locationController.text.isEmpty
+                      ? null
+                      : locationController.text,
+                  cost: costController.text.isEmpty
+                      ? null
+                      : double.parse(costController.text),
+                  notes: notesController.text.isEmpty
+                      ? null
+                      : notesController.text,
+                  isCompleted: activity?.isCompleted ?? false,
+                  order: activity?.order ?? _itinerary.items.length,
+                );
+
+                try {
+                  if (activity == null) {
+                    // Add new activity
+                    await _itineraryService.addActivityToItinerary(
+                      _itinerary.id,
+                      newActivity,
+                    );
+                  } else {
+                    // Update existing activity
+                    await _itineraryService.updateActivityInItinerary(
+                      _itinerary.id,
+                      newActivity,
+                    );
+                  }
+
+                  // Update local state
+                  setState(() {
+                    if (activity == null) {
+                      // Add to items
+                      _itinerary = _itinerary.copyWith(
+                        items: [..._itinerary.items, newActivity],
+                        updatedAt: DateTime.now().toUtc(),
+                      );
+                    } else {
+                      // Update existing
+                      final updatedItems = _itinerary.items.map((item) {
+                        return item.id == newActivity.id ? newActivity : item;
+                      }).toList();
+                      _itinerary = _itinerary.copyWith(
+                        items: updatedItems,
+                        updatedAt: DateTime.now().toUtc(),
+                      );
+                    }
+                  });
+
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text(activity == null
+                            ? 'Activity added successfully'
+                            : 'Activity updated successfully')),
+                  );
+                } catch (e) {
+                  print('Error saving activity: $e');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to save activity: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 }

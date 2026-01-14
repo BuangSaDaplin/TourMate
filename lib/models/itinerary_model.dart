@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum ItineraryStatus {
   draft, // Being created/edited
@@ -107,6 +108,40 @@ class ItineraryItemModel {
     return '${minutes}m';
   }
 
+  ItineraryItemModel copyWith({
+    String? id,
+    String? title,
+    String? description,
+    ActivityType? type,
+    DateTime? startTime,
+    DateTime? endTime,
+    String? location,
+    String? address,
+    double? cost,
+    String? notes,
+    String? imageUrl,
+    bool? isCompleted,
+    int? order,
+    Map<String, dynamic>? metadata,
+  }) {
+    return ItineraryItemModel(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      type: type ?? this.type,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      location: location ?? this.location,
+      address: address ?? this.address,
+      cost: cost ?? this.cost,
+      notes: notes ?? this.notes,
+      imageUrl: imageUrl ?? this.imageUrl,
+      isCompleted: isCompleted ?? this.isCompleted,
+      order: order ?? this.order,
+      metadata: metadata ?? this.metadata,
+    );
+  }
+
   Color get typeColor {
     switch (type) {
       case ActivityType.tour:
@@ -209,13 +244,25 @@ class ItineraryModel {
   });
 
   factory ItineraryModel.fromMap(Map<String, dynamic> data) {
+    // Helper to safely parse dates from either String or Timestamp
+    DateTime parseDate(dynamic value) {
+      if (value is Timestamp) {
+        return value.toDate();
+      } else if (value is String) {
+        return DateTime.parse(value);
+      } else {
+        return DateTime.now(); // Fallback
+      }
+    }
+
     return ItineraryModel(
       id: data['id'] ?? '',
       userId: data['userId'] ?? '',
       title: data['title'] ?? '',
       description: data['description'] ?? '',
-      startDate: DateTime.parse(data['startDate']),
-      endDate: DateTime.parse(data['endDate']),
+      // USE THE HELPER FUNCTION HERE
+      startDate: parseDate(data['startDate']),
+      endDate: parseDate(data['endDate']),
       status: ItineraryStatus.values[data['status'] ?? 0],
       items: (data['items'] as List<dynamic>?)
               ?.map((item) => ItineraryItemModel.fromMap(item))
@@ -224,8 +271,9 @@ class ItineraryModel {
       coverImageUrl: data['coverImageUrl'],
       isPublic: data['isPublic'] ?? false,
       shareCode: data['shareCode'],
-      createdAt: DateTime.parse(data['createdAt']),
-      updatedAt: DateTime.parse(data['updatedAt']),
+      // USE THE HELPER FUNCTION HERE
+      createdAt: parseDate(data['createdAt']),
+      updatedAt: parseDate(data['updatedAt']),
       relatedBookingId: data['relatedBookingId'],
       relatedTourId: data['relatedTourId'],
       settings: data['settings'],
@@ -283,6 +331,44 @@ class ItineraryModel {
   bool get isOngoing =>
       startDate.isBefore(DateTime.now()) && endDate.isAfter(DateTime.now());
   bool get isCompleted => endDate.isBefore(DateTime.now());
+
+  ItineraryModel copyWith({
+    String? id,
+    String? userId,
+    String? title,
+    String? description,
+    DateTime? startDate,
+    DateTime? endDate,
+    ItineraryStatus? status,
+    List<ItineraryItemModel>? items,
+    String? coverImageUrl,
+    bool? isPublic,
+    String? shareCode,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? relatedBookingId,
+    String? relatedTourId,
+    Map<String, dynamic>? settings,
+  }) {
+    return ItineraryModel(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      status: status ?? this.status,
+      items: items ?? this.items,
+      coverImageUrl: coverImageUrl ?? this.coverImageUrl,
+      isPublic: isPublic ?? this.isPublic,
+      shareCode: shareCode ?? this.shareCode,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      relatedBookingId: relatedBookingId ?? this.relatedBookingId,
+      relatedTourId: relatedTourId ?? this.relatedTourId,
+      settings: settings ?? this.settings,
+    );
+  }
 
   // Generate share URL
   String get shareUrl => 'https://tourmate.app/itinerary/$shareCode';
