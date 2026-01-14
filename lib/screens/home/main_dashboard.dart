@@ -32,6 +32,10 @@ class _MainDashboardState extends State<MainDashboard> {
   bool _isLoadingSuggestedTours = true;
   UserModel? _currentUser;
 
+  // State for recommended tours
+  List<TourModel> _recommendedTours = [];
+  bool _isLoadingRecommendedTours = true;
+
   // State for alternative tours
   List<TourModel> _alternativeTours = [];
   bool _isLoadingAlternativeTours = true;
@@ -111,59 +115,22 @@ class _MainDashboardState extends State<MainDashboard> {
         final allTours = await databaseService.getApprovedTours();
         _alternativeTours = allTours;
       }
+
+      // Load recommended tours (approved tours, limited to 3)
+      final databaseService = DatabaseService();
+      final allApprovedTours = await databaseService.getApprovedTours();
+      _recommendedTours = allApprovedTours.take(3).toList();
+      print('Recommended tours: ${_recommendedTours.length}');
     } catch (e) {
       print('Error loading tours: $e');
     } finally {
       setState(() {
         _isLoadingSuggestedTours = false;
+        _isLoadingRecommendedTours = false;
         _isLoadingAlternativeTours = false;
       });
     }
   }
-
-  // Cebu-specific recommended tours with Real Network Images
-  final List<Map<String, dynamic>> _recommendedTours = [
-    {
-      'id': 'kawasan_falls', // Matches cebu_graph_data.dart
-      'title': 'Kawasan Falls Canyoneering',
-      'location': 'Badian, Cebu',
-      'price': 2500.0,
-      'rating': 4.9,
-      'image':
-          'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?q=80&w=1000&auto=format&fit=crop',
-      'duration': '8 hours',
-      'guide': 'Juan dela Cruz',
-      'description':
-          'Experience the thrill of jumping, swimming, and trekking.',
-      'category': 'Adventure',
-    },
-    {
-      'id': 'oslob_whale_shark', // Matches cebu_graph_data.dart
-      'title': 'Oslob Whale Shark Encounter',
-      'location': 'Oslob, Cebu',
-      'price': 3500.0,
-      'rating': 4.8,
-      'image':
-          'https://images.unsplash.com/photo-1582967788606-a171f1080ca8?q=80&w=1000&auto=format&fit=crop',
-      'duration': '10 hours',
-      'guide': 'Maria Santos',
-      'description': 'Swim with gentle whale sharks in crystal-clear waters.',
-      'category': 'Beach',
-    },
-    {
-      'id': 'moalboal_sardines', // Matches cebu_graph_data.dart
-      'title': 'Moalboal Sardine Run',
-      'location': 'Moalboal, Cebu',
-      'price': 1800.0,
-      'rating': 4.7,
-      'image':
-          'https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=1000&auto=format&fit=crop',
-      'duration': '4 hours',
-      'guide': 'Pedro Penduko',
-      'description': 'Snorkel with millions of sardines.',
-      'category': 'Beach',
-    },
-  ];
 
   // Cebu-specific categories
   final List<Map<String, dynamic>> _categories = [
@@ -534,161 +501,167 @@ class _MainDashboardState extends State<MainDashboard> {
                     style: AppTheme.headlineSmall,
                   ),
                 ),
-                carousel.CarouselSlider(
-                  options: carousel.CarouselOptions(
-                    height: 280,
-                    viewportFraction: 0.85,
-                    enlargeCenterPage: true,
-                    autoPlay: true,
-                    autoPlayInterval: const Duration(seconds: 5),
-                    enableInfiniteScroll: true,
-                  ),
-                  items: _recommendedTours.map((tour) {
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                TourDetailsScreen(tourId: tour['id']),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 5),
-                        decoration: AppTheme.cardDecoration,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Tour Image
-                            Container(
-                              height: 160,
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withOpacity(
-                                  0.2,
+                _isLoadingRecommendedTours
+                    ? const Center(child: CircularProgressIndicator())
+                    : carousel.CarouselSlider(
+                        options: carousel.CarouselOptions(
+                          height: 310,
+                          viewportFraction: 0.85,
+                          enlargeCenterPage: true,
+                          autoPlay: true,
+                          autoPlayInterval: const Duration(seconds: 5),
+                          enableInfiniteScroll: true,
+                        ),
+                        items: _recommendedTours.map((tour) {
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      TourDetailsScreen(tourId: tour.id),
                                 ),
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(16),
-                                ),
-                                image: DecorationImage(
-                                  // Logic: If string starts with http, use NetworkImage, else use AssetImage
-                                  image: (tour['image'] as String)
-                                          .startsWith('http')
-                                      ? NetworkImage(tour['image'])
-                                      : AssetImage(
-                                              'assets/images/${tour['image']}')
-                                          as ImageProvider,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                              child: Stack(
-                                children: [
-                                  // Only show icon if using asset image (no network URL)
-                                  if (!(tour['image'] as String)
-                                      .startsWith('http'))
-                                    Center(
-                                      child: Icon(
-                                        Icons.image,
-                                        size: 60,
-                                        color: AppTheme.primaryColor
-                                            .withOpacity(0.5),
-                                      ),
-                                    ),
-                                  Positioned(
-                                    top: 12,
-                                    right: 12,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(
-                                          12,
-                                        ),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.star,
-                                            size: 16,
-                                            color: Colors.amber,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            tour['rating'].toString(),
-                                            style: AppTheme.bodySmall.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // Tour Info
-                            Padding(
-                              padding: const EdgeInsets.all(16),
+                              );
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 5),
+                              decoration: AppTheme.cardDecoration,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    tour['title'],
-                                    style: AppTheme.bodyLarge.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.location_on,
-                                        size: 14,
-                                        color: AppTheme.textSecondary,
+                                  // Tour Image
+                                  Container(
+                                    height: 160,
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryColor.withOpacity(
+                                        0.2,
                                       ),
-                                      const SizedBox(width: 4),
-                                      Expanded(
-                                        child: Text(
-                                          tour['location'],
-                                          style: AppTheme.bodySmall,
+                                      borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(16),
+                                      ),
+                                      image: DecorationImage(
+                                        image: tour.mediaURL.isNotEmpty &&
+                                                tour.mediaURL.first
+                                                    .startsWith('http')
+                                            ? NetworkImage(tour.mediaURL.first)
+                                                as ImageProvider<Object>
+                                            : const AssetImage(
+                                                    'assets/images/default_tour.jpg')
+                                                as ImageProvider<Object>,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                    child: Stack(
+                                      children: [
+                                        if (tour.mediaURL.isEmpty ||
+                                            !tour.mediaURL.first
+                                                .startsWith('http'))
+                                          Center(
+                                            child: Icon(
+                                              Icons.image,
+                                              size: 60,
+                                              color: AppTheme.primaryColor
+                                                  .withOpacity(0.5),
+                                            ),
+                                          ),
+                                        Positioned(
+                                          top: 12,
+                                          right: 12,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.star,
+                                                  size: 16,
+                                                  color: Colors.amber,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  tour.rating
+                                                      .toStringAsFixed(1),
+                                                  style: AppTheme.bodySmall
+                                                      .copyWith(
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Tour Info
+                                  Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          tour.title,
+                                          style: AppTheme.bodyLarge.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        '₱${tour['price'].toStringAsFixed(0)}/person',
-                                        style: AppTheme.bodyLarge.copyWith(
-                                          color: AppTheme.primaryColor,
-                                          fontWeight: FontWeight.bold,
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.location_on,
+                                              size: 14,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                tour.meetingPoint,
+                                                style: AppTheme.bodySmall,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      ),
-                                      Text(
-                                        tour['duration'],
-                                        style: AppTheme.bodySmall,
-                                      ),
-                                    ],
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              '₱${tour.price.toStringAsFixed(0)}/person',
+                                              style:
+                                                  AppTheme.bodyLarge.copyWith(
+                                                color: AppTheme.primaryColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            Text(
+                                              '${tour.duration} hours',
+                                              style: AppTheme.bodySmall,
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
-                          ],
-                        ),
+                          );
+                        }).toList(),
                       ),
-                    );
-                  }).toList(),
-                ),
                 const SizedBox(height: 24),
                 // Categories
                 Padding(

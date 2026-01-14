@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
 enum ReviewType {
-  tour,      // Review for a specific tour
-  guide,     // Review for a tour guide
-  booking,   // Review for a booking experience
+  tour, // Review for a specific tour
+  guide, // Review for a tour guide
+  booking, // Review for a booking experience
 }
 
 enum ReviewStatus {
-  pending,   // Awaiting moderation
-  approved,  // Approved and visible
-  rejected,  // Rejected by moderator
-  hidden,    // Hidden by user or admin
+  pending, // Awaiting moderation
+  approved, // Approved and visible
+  rejected, // Rejected by moderator
+  hidden, // Hidden by user or admin
 }
 
 class ReviewCriteria {
@@ -27,7 +27,11 @@ class ReviewCriteria {
   factory ReviewCriteria.fromMap(Map<String, dynamic> data) {
     return ReviewCriteria(
       name: data['name'] ?? '',
-      rating: (data['rating'] ?? 0).toDouble(),
+      rating: (data['rating'] is double)
+          ? data['rating']
+          : (data['rating'] is int)
+              ? data['rating'].toDouble()
+              : double.tryParse(data['rating']?.toString() ?? '0.0') ?? 0.0,
       comment: data['comment'],
     );
   }
@@ -116,10 +120,16 @@ class ReviewModel {
       reviewerId: data['reviewerId'] ?? '',
       reviewerName: data['reviewerName'] ?? 'Anonymous',
       reviewerAvatar: data['reviewerAvatar'],
-      overallRating: (data['overallRating'] ?? 0).toDouble(),
+      overallRating: (data['overallRating'] is double)
+          ? data['overallRating']
+          : (data['overallRating'] is int)
+              ? data['overallRating'].toDouble()
+              : double.tryParse(data['overallRating']?.toString() ?? '0.0') ??
+                  0.0,
       criteria: (data['criteria'] as List<dynamic>?)
-          ?.map((c) => ReviewCriteria.fromMap(c))
-          .toList() ?? [],
+              ?.map((c) => ReviewCriteria.fromMap(c))
+              .toList() ??
+          [],
       title: data['title'] ?? '',
       content: data['content'] ?? '',
       photos: List<String>.from(data['photos'] ?? []),
@@ -174,7 +184,8 @@ class ReviewModel {
   bool get isRejected => status == ReviewStatus.rejected;
   bool get isHidden => status == ReviewStatus.hidden;
 
-  bool get hasGuideResponse => guideResponse != null && guideResponse!.isNotEmpty;
+  bool get hasGuideResponse =>
+      guideResponse != null && guideResponse!.isNotEmpty;
 
   double get averageCriteriaRating {
     if (criteria.isEmpty) return overallRating;

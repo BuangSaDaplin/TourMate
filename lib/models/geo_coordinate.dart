@@ -32,8 +32,16 @@ class GeoCoordinate {
   /// Expects keys 'latitude' and 'longitude' with double values.
   factory GeoCoordinate.fromMap(Map<String, dynamic> map) {
     return GeoCoordinate(
-      latitude: (map['latitude'] as num).toDouble(),
-      longitude: (map['longitude'] as num).toDouble(),
+      latitude: (map['latitude'] is double)
+          ? map['latitude']
+          : (map['latitude'] is int)
+              ? map['latitude'].toDouble()
+              : double.tryParse(map['latitude']?.toString() ?? '0.0') ?? 0.0,
+      longitude: (map['longitude'] is double)
+          ? map['longitude']
+          : (map['longitude'] is int)
+              ? map['longitude'].toDouble()
+              : double.tryParse(map['longitude']?.toString() ?? '0.0') ?? 0.0,
     );
   }
 
@@ -78,8 +86,7 @@ class GeoCoordinate {
     final dLon = lon2 - lon1;
 
     // Haversine formula
-    final a =
-        math.pow(math.sin(dLat / 2), 2) +
+    final a = math.pow(math.sin(dLat / 2), 2) +
         math.cos(lat1) * math.cos(lat2) * math.pow(math.sin(dLon / 2), 2);
 
     // Calculate c (angular distance in radians)

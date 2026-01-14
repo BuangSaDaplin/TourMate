@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
 enum PaymentStatus {
-  pending,      // Payment initiated but not completed
-  processing,   // Payment is being processed
-  completed,    // Payment successfully completed
-  failed,       // Payment failed
-  cancelled,    // Payment was cancelled
-  refunded,     // Payment was refunded
-  disputed,     // Payment is under dispute
+  pending, // Payment initiated but not completed
+  processing, // Payment is being processed
+  completed, // Payment successfully completed
+  failed, // Payment failed
+  cancelled, // Payment was cancelled
+  refunded, // Payment was refunded
+  disputed, // Payment is under dispute
 }
 
 enum PaymentMethod {
@@ -75,7 +75,8 @@ class PaymentModel {
   final String? transactionId; // External payment processor ID
   final String? failureReason;
   final String? refundReason;
-  final Map<String, dynamic>? paymentDetails; // Store card details, etc. (encrypted)
+  final Map<String, dynamic>?
+      paymentDetails; // Store card details, etc. (encrypted)
   final Map<String, dynamic>? metadata;
 
   PaymentModel({
@@ -104,9 +105,23 @@ class PaymentModel {
       bookingId: data['bookingId'],
       userId: data['userId'],
       guideId: data['guideId'],
-      amount: data['amount'].toDouble(),
-      platformFee: data['platformFee'].toDouble(),
-      guideAmount: data['guideAmount'].toDouble(),
+      amount: (data['amount'] is double)
+          ? data['amount']
+          : (data['amount'] is int)
+              ? data['amount'].toDouble()
+              : double.tryParse(data['amount']?.toString() ?? '0.0') ?? 0.0,
+      platformFee: (data['platformFee'] is double)
+          ? data['platformFee']
+          : (data['platformFee'] is int)
+              ? data['platformFee'].toDouble()
+              : double.tryParse(data['platformFee']?.toString() ?? '0.0') ??
+                  0.0,
+      guideAmount: (data['guideAmount'] is double)
+          ? data['guideAmount']
+          : (data['guideAmount'] is int)
+              ? data['guideAmount'].toDouble()
+              : double.tryParse(data['guideAmount']?.toString() ?? '0.0') ??
+                  0.0,
       paymentMethod: PaymentMethod.values[data['paymentMethod'] ?? 0],
       status: PaymentStatus.values[data['status'] ?? 0],
       createdAt: data['createdAt'].toDate(),
@@ -145,7 +160,8 @@ class PaymentModel {
   // Helper methods
   bool get isCompleted => status == PaymentStatus.completed;
   bool get isFailed => status == PaymentStatus.failed;
-  bool get isPending => status == PaymentStatus.pending || status == PaymentStatus.processing;
+  bool get isPending =>
+      status == PaymentStatus.pending || status == PaymentStatus.processing;
   bool get canRefund => status == PaymentStatus.completed;
   bool get isRefunded => status == PaymentStatus.refunded;
 

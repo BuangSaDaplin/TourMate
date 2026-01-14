@@ -56,7 +56,11 @@ class GraphNode {
     final neighbors = map['neighbors'] as Map<String, dynamic>?;
     if (neighbors != null) {
       neighbors.forEach((neighborId, distance) {
-        node._neighbors[neighborId] = (distance as num).toDouble();
+        node._neighbors[neighborId] = (distance is double)
+            ? distance
+            : (distance is int)
+                ? distance.toDouble()
+                : double.tryParse(distance.toString()) ?? 0.0;
       });
     }
 

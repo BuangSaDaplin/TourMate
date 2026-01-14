@@ -870,7 +870,10 @@ class _BookingScreenState extends State<BookingScreen> {
         TextFormField(
           controller: _contactController,
           keyboardType: TextInputType.phone,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(11),
+          ],
           decoration: InputDecoration(
             labelText: 'Contact Number',
             hintText: '+63 912 345 6789',

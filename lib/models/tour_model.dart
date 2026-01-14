@@ -52,7 +52,11 @@ class TourModel {
       id: data['id'],
       title: data['title'],
       description: data['description'],
-      price: data['price'],
+      price: (data['price'] is double)
+          ? data['price']
+          : (data['price'] is int)
+              ? data['price'].toDouble()
+              : double.tryParse(data['price']?.toString() ?? '0.0') ?? 0.0,
       category: List<String>.from(data['category'] ?? []),
       maxParticipants: data['maxParticipants'],
       currentParticipants: data['currentParticipants'],
@@ -75,12 +79,29 @@ class TourModel {
       status: data['status'],
       duration: (data['duration'] is double)
           ? data['duration']
-          : double.tryParse(data['duration']?.toString() ?? '0.0') ?? 0.0,
+          : (data['duration'] is int)
+              ? data['duration'].toDouble()
+              : double.tryParse(data['duration']?.toString() ?? '0.0') ?? 0.0,
       languages: List<String>.from(data['languages'] ?? []),
       highlights: List<String>.from(data['highlights'] ?? []),
+      rating: (data['rating'] is double)
+          ? data['rating']
+          : (data['rating'] is int)
+              ? data['rating'].toDouble()
+              : double.tryParse(data['rating']?.toString() ?? '0.0') ?? 0.0,
       included: List<String>.from(data['included'] ?? []),
       notIncluded: List<String>.from(data['notIncluded'] ?? []),
-      inclusionPrices: Map<String, double>.from(data['inclusionPrices'] ?? {}),
+      inclusionPrices: (data['inclusionPrices'] as Map<String, dynamic>?)?.map(
+            (key, value) => MapEntry(
+              key,
+              (value is double)
+                  ? value
+                  : (value is int)
+                      ? value.toDouble()
+                      : double.tryParse(value?.toString() ?? '0.0') ?? 0.0,
+            ),
+          ) ??
+          {},
     );
   }
 

@@ -267,6 +267,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         keyboardType: TextInputType.phone,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(11),
                         ],
                         decoration: const InputDecoration(
                           labelText: 'Phone Number',
@@ -275,6 +276,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Please enter your phone number';
+                          }
+                          if (value.length != 11) {
+                            return 'Phone number must be exactly 11 digits';
                           }
                           return null;
                         },

@@ -63,7 +63,13 @@ class UserModel {
       phoneNumber: data['phoneNumber'] as String?, // Map new field
       languages: (data['languages'] as List?)?.map((e) => e as String).toList(),
       toursCompleted: data['toursCompleted'] as int?,
-      averageRating: (data['averageRating'] as num?)?.toDouble(),
+      averageRating: data['averageRating'] != null
+          ? ((data['averageRating'] is double)
+              ? data['averageRating']
+              : (data['averageRating'] is int)
+                  ? data['averageRating'].toDouble()
+                  : double.tryParse(data['averageRating'].toString()) ?? 0.0)
+          : null,
       photoURL: data['photoURL'] as String?,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       activeStatus: data['activeStatus'] as int?,
