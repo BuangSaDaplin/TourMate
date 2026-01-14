@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum ItineraryStatus {
   draft, // Being created/edited
@@ -237,13 +238,25 @@ class ItineraryModel {
   });
 
   factory ItineraryModel.fromMap(Map<String, dynamic> data) {
+    // Helper to safely parse dates from either String or Timestamp
+    DateTime parseDate(dynamic value) {
+      if (value is Timestamp) {
+        return value.toDate();
+      } else if (value is String) {
+        return DateTime.parse(value);
+      } else {
+        return DateTime.now(); // Fallback
+      }
+    }
+
     return ItineraryModel(
       id: data['id'] ?? '',
       userId: data['userId'] ?? '',
       title: data['title'] ?? '',
       description: data['description'] ?? '',
-      startDate: DateTime.parse(data['startDate']),
-      endDate: DateTime.parse(data['endDate']),
+      // USE THE HELPER FUNCTION HERE
+      startDate: parseDate(data['startDate']),
+      endDate: parseDate(data['endDate']),
       status: ItineraryStatus.values[data['status'] ?? 0],
       items: (data['items'] as List<dynamic>?)
               ?.map((item) => ItineraryItemModel.fromMap(item))
@@ -252,8 +265,9 @@ class ItineraryModel {
       coverImageUrl: data['coverImageUrl'],
       isPublic: data['isPublic'] ?? false,
       shareCode: data['shareCode'],
-      createdAt: DateTime.parse(data['createdAt']),
-      updatedAt: DateTime.parse(data['updatedAt']),
+      // USE THE HELPER FUNCTION HERE
+      createdAt: parseDate(data['createdAt']),
+      updatedAt: parseDate(data['updatedAt']),
       relatedBookingId: data['relatedBookingId'],
       relatedTourId: data['relatedTourId'],
       settings: data['settings'],

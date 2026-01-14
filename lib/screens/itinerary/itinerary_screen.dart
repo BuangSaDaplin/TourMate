@@ -48,6 +48,20 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     _loadUserRole();
   }
 
+  @override
+  void didUpdateWidget(ItineraryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the parent widget passes a new itinerary (e.g. from a refresh),
+    // update our local state to match it.
+    if (widget.itinerary != oldWidget.itinerary) {
+      setState(() {
+        _itinerary = widget.itinerary;
+        // Optional: Reset selected date if needed, or keep user's selection
+        // _selectedDate = _itinerary.startDate;
+      });
+    }
+  }
+
   Future<void> _loadUserRole() async {
     final currentUser = _authService.getCurrentUser();
     if (currentUser != null) {
@@ -571,7 +585,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
 
         _itinerary = _itinerary.copyWith(
           items: updatedItems,
-          updatedAt: DateTime.now(),
+          updatedAt: DateTime.now().toUtc(),
         );
       });
     } catch (e) {
@@ -583,38 +597,34 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
 
   void _deleteActivity(ItineraryItemModel activity) async {
     try {
+      // 1. Call backend service
       await _itineraryService.removeActivityFromItinerary(
           _itinerary.id, activity.id);
 
+      // 2. Update local state safely using copyWith
       setState(() {
-        _itinerary = ItineraryModel(
-          id: _itinerary.id,
-          userId: _itinerary.userId,
-          title: _itinerary.title,
-          description: _itinerary.description,
-          startDate: _itinerary.startDate,
-          endDate: _itinerary.endDate,
-          status: _itinerary.status,
-          items:
-              _itinerary.items.where((item) => item.id != activity.id).toList(),
-          coverImageUrl: _itinerary.coverImageUrl,
-          isPublic: _itinerary.isPublic,
-          shareCode: _itinerary.shareCode,
-          createdAt: _itinerary.createdAt,
-          updatedAt: DateTime.now(),
-          relatedBookingId: _itinerary.relatedBookingId,
-          relatedTourId: _itinerary.relatedTourId,
-          settings: _itinerary.settings,
+        // Filter out the deleted item
+        final updatedItems =
+            _itinerary.items.where((item) => item.id != activity.id).toList();
+
+        // Use copyWith to preserve ALL other fields automatically
+        _itinerary = _itinerary.copyWith(
+          items: updatedItems,
+          updatedAt: DateTime.now().toUtc(),
         );
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Activity deleted')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Activity deleted')),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete activity: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete activity: $e')),
+        );
+      }
     }
   }
 
@@ -954,7 +964,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                       // Add to items
                       _itinerary = _itinerary.copyWith(
                         items: [..._itinerary.items, newActivity],
-                        updatedAt: DateTime.now(),
+                        updatedAt: DateTime.now().toUtc(),
                       );
                     } else {
                       // Update existing
@@ -963,7 +973,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                       }).toList();
                       _itinerary = _itinerary.copyWith(
                         items: updatedItems,
-                        updatedAt: DateTime.now(),
+                        updatedAt: DateTime.now().toUtc(),
                       );
                     }
                   });

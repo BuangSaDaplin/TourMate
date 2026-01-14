@@ -46,6 +46,24 @@ class ItineraryService {
     await _db.collection('itineraries').doc(itineraryId).delete();
   }
 
+  // --- ADD THIS NEW METHOD ---
+  Future<ItineraryModel> getOrGenerateItinerary(
+      BookingModel booking, TourModel tour) async {
+    final itineraryId = 'itinerary_${booking.id}';
+
+    // 1. Check if the itinerary already exists in the database
+    final doc = await _db.collection('itineraries').doc(itineraryId).get();
+
+    if (doc.exists && doc.data() != null) {
+      // Return the EXISTING saved itinerary (with your edits)
+      return ItineraryModel.fromMap(doc.data()!);
+    }
+
+    // 2. If it truly doesn't exist, ONLY THEN generate a new one
+    return await generateItineraryFromBooking(booking, tour);
+  }
+  // ---------------------------
+
   // Auto-generate itinerary from booking
   Future<ItineraryModel> generateItineraryFromBooking(
       BookingModel booking, TourModel tour) async {
