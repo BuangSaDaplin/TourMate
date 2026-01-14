@@ -49,19 +49,19 @@ class TourModel {
 
   factory TourModel.fromMap(Map<String, dynamic> data) {
     return TourModel(
-      id: data['id'],
-      title: data['title'],
-      description: data['description'],
-      price: data['price'],
+      id: data['id'] ?? '',
+      title: data['title'] ?? '',
+      description: data['description'] ?? '',
+      price: (data['price'] as num?)?.toDouble() ?? 0.0,
       category: List<String>.from(data['category'] ?? []),
-      maxParticipants: data['maxParticipants'],
-      currentParticipants: data['currentParticipants'],
-      startTime: data['startTime'].toDate(),
-      endTime: data['endTime'].toDate(),
-      meetingPoint: data['meetingPoint'],
+      maxParticipants: data['maxParticipants'] ?? 0,
+      currentParticipants: data['currentParticipants'] ?? 0,
+      startTime: data['startTime']?.toDate() ?? DateTime.now(),
+      endTime: data['endTime']?.toDate() ?? DateTime.now(),
+      meetingPoint: data['meetingPoint'] ?? '',
       mediaURL: List<String>.from(data['mediaURL'] ?? data['media'] ?? []),
-      createdBy: data['createdBy'],
-      shared: data['shared'],
+      createdBy: data['createdBy'] ?? '',
+      shared: data['shared'] ?? false,
       itinerary: List<Map<String, String>>.from(
         (data['itinerary'] as List<dynamic>?)?.map((item) {
               if (item is Map<String, dynamic>) {
@@ -72,12 +72,11 @@ class TourModel {
             }) ??
             [],
       ),
-      status: data['status'],
-      duration: (data['duration'] is double)
-          ? data['duration']
-          : double.tryParse(data['duration']?.toString() ?? '0.0') ?? 0.0,
+      status: data['status'] ?? '',
+      duration: (data['duration'] as num?)?.toDouble() ?? 0.0,
       languages: List<String>.from(data['languages'] ?? []),
       highlights: List<String>.from(data['highlights'] ?? []),
+      rating: (data['rating'] as num?)?.toDouble() ?? 0.0,
       included: List<String>.from(data['included'] ?? []),
       notIncluded: List<String>.from(data['notIncluded'] ?? []),
       inclusionPrices: Map<String, double>.from(data['inclusionPrices'] ?? {}),
