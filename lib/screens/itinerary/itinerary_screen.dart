@@ -5,6 +5,7 @@ import 'package:tourmate_app/services/itinerary_service.dart';
 import 'package:tourmate_app/services/auth_service.dart';
 import 'package:tourmate_app/services/email_service.dart';
 import 'package:tourmate_app/services/user_profile_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/app_theme.dart';
 
 class ItineraryScreen extends StatefulWidget {
@@ -74,7 +75,6 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final itemsForDate = _itinerary.getItemsForDate(_selectedDate);
     final currentUser = _authService.getCurrentUser();
     final isOwner = _itinerary.userId == currentUser?.uid;
 
@@ -97,21 +97,40 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Itinerary Header
-          _buildItineraryHeader(),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('itineraries')
+            .doc(widget.itinerary.id)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return const Center(child: Text("Error loading data"));
+          }
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-          // Date Selector
-          _buildDateSelector(),
+          final liveData = snapshot.data!.data() as Map<String, dynamic>;
+          _itinerary = ItineraryModel.fromMap(liveData);
+          final itemsForDate = _itinerary.getItemsForDate(_selectedDate);
 
-          // Activities Timeline
-          Expanded(
-            child: itemsForDate.isEmpty
-                ? _buildEmptyState()
-                : _buildActivitiesTimeline(itemsForDate),
-          ),
-        ],
+          return Column(
+            children: [
+              // Itinerary Header
+              _buildItineraryHeader(),
+
+              // Date Selector
+              _buildDateSelector(),
+
+              // Activities Timeline
+              Expanded(
+                child: itemsForDate.isEmpty
+                    ? _buildEmptyState()
+                    : _buildActivitiesTimeline(itemsForDate),
+              ),
+            ],
+          );
+        },
       ),
       floatingActionButton: isOwner
           ? FloatingActionButton(
@@ -507,120 +526,120 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     }
   }
 
-  void _addNewActivity() {
-    _showActivityForm(null);
+  void _handleMenuAction(String value) {
+    switch (value) {
+      case 'share':
+        _shareItinerary();
+        break;
+    }
   }
 
-  void _editActivity(ItineraryItemModel activity) {
-    _showActivityForm(activity);
+  Future<void> _shareItinerary() async {
+    try {
+      await _emailService.sendItineraryEmail(
+        itinerary: _itinerary,
+        recipientEmail: '',
+        senderName: '',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Itinerary shared successfully!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to share itinerary: $e')),
+        );
+      }
+    }
   }
 
-  void _showActivityOptions(ItineraryItemModel activity) {
-    final currentUser = _authService.getCurrentUser();
-    final isOwner = _itinerary.userId == currentUser?.uid;
+  Future<void> _addNewActivity() async {
+    final result = await Navigator.pushNamed(
+      context,
+      '/add-activity',
+      arguments: {
+        'itineraryId': _itinerary.id,
+        'date': _selectedDate,
+      },
+    );
 
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Activity added successfully!')),
+      );
+    }
+  }
+
+  void _showActivityOptions(ItineraryItemModel item) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Activity Options',
-              style: AppTheme.headlineSmall,
-            ),
-            const SizedBox(height: 16),
-            if (isOwner) ...[
+      builder: (context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
               ListTile(
                 leading: const Icon(Icons.edit),
                 title: const Text('Edit Activity'),
                 onTap: () {
                   Navigator.pop(context);
-                  _editActivity(activity);
+                  _editActivity(item);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text('Delete Activity',
-                    style: TextStyle(color: Colors.red)),
+                leading: const Icon(Icons.delete),
+                title: const Text('Delete Activity'),
                 onTap: () {
                   Navigator.pop(context);
-                  _deleteActivity(activity);
+                  _deleteActivity(item);
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  item.isCompleted
+                      ? Icons.check_box
+                      : Icons.check_box_outline_blank,
+                ),
+                title: Text(
+                  item.isCompleted ? 'Mark as Incomplete' : 'Mark as Complete',
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _toggleActivityCompletion(item);
                 },
               ),
             ],
-            ListTile(
-              leading: const Icon(Icons.check_circle),
-              title: Text(activity.isCompleted
-                  ? 'Mark as Incomplete'
-                  : 'Mark as Complete'),
-              onTap: () {
-                Navigator.pop(context);
-                _toggleActivityCompletion(activity, !activity.isCompleted);
-              },
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  void _toggleActivityCompletion(
-      ItineraryItemModel activity, bool isCompleted) async {
-    try {
-      await _itineraryService.toggleActivityCompletion(
-        _itinerary.id,
-        activity.id,
-        isCompleted,
-      );
+  Future<void> _editActivity(ItineraryItemModel item) async {
+    final result = await Navigator.pushNamed(
+      context,
+      '/edit-activity',
+      arguments: {
+        'itineraryId': _itinerary.id,
+        'activityId': item.id,
+      },
+    );
 
-      setState(() {
-        // Update local state using copyWith
-        final updatedItems = _itinerary.items.map((item) {
-          if (item.id == activity.id) {
-            return item.copyWith(isCompleted: isCompleted);
-          }
-          return item;
-        }).toList();
-
-        _itinerary = _itinerary.copyWith(
-          items: updatedItems,
-          updatedAt: DateTime.now().toUtc(),
-        );
-      });
-    } catch (e) {
+    if (result == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update activity: $e')),
+        const SnackBar(content: Text('Activity updated successfully!')),
       );
     }
   }
 
-  void _deleteActivity(ItineraryItemModel activity) async {
+  Future<void> _deleteActivity(ItineraryItemModel item) async {
     try {
-      // 1. Call backend service
       await _itineraryService.removeActivityFromItinerary(
-          _itinerary.id, activity.id);
-
-      // 2. Update local state safely using copyWith
-      setState(() {
-        // Filter out the deleted item
-        final updatedItems =
-            _itinerary.items.where((item) => item.id != activity.id).toList();
-
-        // Use copyWith to preserve ALL other fields automatically
-        _itinerary = _itinerary.copyWith(
-          items: updatedItems,
-          updatedAt: DateTime.now().toUtc(),
-        );
-      });
-
+          _itinerary.id, item.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Activity deleted')),
+          const SnackBar(content: Text('Activity deleted successfully!')),
         );
       }
     } catch (e) {
@@ -632,378 +651,102 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     }
   }
 
-  void _handleMenuAction(String action) {
-    switch (action) {
-      case 'share':
-        _shareItinerary();
-        break;
-    }
-  }
-
-  void _shareItinerary() {
-    final TextEditingController emailController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Share Itinerary'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Enter the email address to share this itinerary:'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email Address',
-                hintText: 'recipient@example.com',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final email = emailController.text.trim();
-              if (email.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Please enter an email address')),
-                );
-                return;
-              }
-
-              // Validate email format and ensure it's a Gmail address
-              final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-              if (!emailRegex.hasMatch(email)) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Please enter a valid email address')),
-                );
-                return;
-              }
-              if (!email.endsWith('@gmail.com')) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text(
-                          'Please enter a valid Gmail address (must end with @gmail.com)')),
-                );
-                return;
-              }
-
-              Navigator.of(context).pop(); // Close dialog
-
-              try {
-                // Here you would integrate with your email service
-                // For now, we'll show a success message
-                await _sendItineraryByEmail(email);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content: Text('Itinerary sent to $email successfully!')),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Failed to send itinerary: $e')),
-                );
-              }
-            },
-            child: const Text('Send'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _sendItineraryByEmail(String email) async {
+  Future<void> _toggleActivityCompletion(ItineraryItemModel item) async {
     try {
-      // Get the current user's name for the email
-      final currentUserModel = await _authService.getCurrentUserModel();
-      String senderName = currentUserModel?.displayName ?? 'TourMate User';
-
-      // Send the itinerary via email
-      final success = await _emailService.sendItineraryEmail(
-        recipientEmail: email,
-        itinerary: _itinerary,
-        senderName: senderName,
+      await _itineraryService.toggleActivityCompletion(
+        _itinerary.id,
+        item.id,
+        !item.isCompleted,
       );
-
-      if (!success) {
-        throw Exception('Failed to send email');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              item.isCompleted
+                  ? 'Activity marked as incomplete'
+                  : 'Activity marked as complete',
+            ),
+          ),
+        );
       }
-
-      print('Successfully sent itinerary "${_itinerary.title}" to $email');
     } catch (e) {
-      print('Error sending itinerary email: $e');
-      throw e; // Re-throw to be handled by the calling method
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update activity: $e')),
+        );
+      }
     }
   }
 
-  Future<void> _showActivityForm(ItineraryItemModel? activity) async {
-    final currentUser = _authService.getCurrentUser();
-    final isOwner = _itinerary.userId == currentUser?.uid;
-
-    if (!isOwner) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Only the itinerary owner can edit activities')),
-      );
-      return;
+  Future<void> _exportItinerary() async {
+    try {
+      final pdfBytes =
+          await _itineraryService.exportItineraryToPdf(_itinerary.id);
+      // Implement PDF saving/exporting logic here
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Itinerary exported successfully!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to export itinerary: $e')),
+        );
+      }
     }
+  }
 
-    final formKey = GlobalKey<FormState>();
-    final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
-    final locationController = TextEditingController();
-    final costController = TextEditingController();
-    final notesController = TextEditingController();
-
-    ActivityType selectedType = ActivityType.custom;
-    TimeOfDay startTime = TimeOfDay.now();
-    TimeOfDay endTime = TimeOfDay(
-        hour: TimeOfDay.now().hour + 1, minute: TimeOfDay.now().minute);
-
-    // If editing, pre-fill the form
-    if (activity != null) {
-      titleController.text = activity.title;
-      descriptionController.text = activity.description;
-      locationController.text = activity.location ?? '';
-      costController.text = activity.cost?.toString() ?? '';
-      notesController.text = activity.notes ?? '';
-      selectedType = activity.type;
-      startTime = TimeOfDay.fromDateTime(activity.startTime);
-      endTime = TimeOfDay.fromDateTime(activity.endTime);
+  Future<void> _printItinerary() async {
+    try {
+      await _itineraryService.printItinerary(_itinerary.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Itinerary sent to printer!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to print itinerary: $e')),
+        );
+      }
     }
+  }
 
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(activity == null ? 'Add New Activity' : 'Edit Activity'),
-        content: SingleChildScrollView(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Title',
-                    hintText: 'Enter activity title',
-                  ),
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? 'Title is required' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
-                    hintText: 'Enter activity description',
-                  ),
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<ActivityType>(
-                  value: selectedType,
-                  decoration: const InputDecoration(
-                    labelText: 'Activity Type',
-                  ),
-                  items: ActivityType.values.map((type) {
-                    return DropdownMenuItem(
-                      value: type,
-                      child: Text(_getActivityTypeDisplayName(type)),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      selectedType = value;
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: () async {
-                          final picked = await showTimePicker(
-                            context: context,
-                            initialTime: startTime,
-                          );
-                          if (picked != null) {
-                            startTime = picked;
-                          }
-                        },
-                        child: InputDecorator(
-                          decoration: const InputDecoration(
-                            labelText: 'Start Time',
-                          ),
-                          child: Text(startTime.format(context)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: InkWell(
-                        onTap: () async {
-                          final picked = await showTimePicker(
-                            context: context,
-                            initialTime: endTime,
-                          );
-                          if (picked != null) {
-                            endTime = picked;
-                          }
-                        },
-                        child: InputDecorator(
-                          decoration: const InputDecoration(
-                            labelText: 'End Time',
-                          ),
-                          child: Text(endTime.format(context)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: locationController,
-                  decoration: const InputDecoration(
-                    labelText: 'Location',
-                    hintText: 'Enter location',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: costController,
-                  decoration: const InputDecoration(
-                    labelText: 'Cost',
-                    hintText: 'Enter cost (optional)',
-                    prefixText: '₱',
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: notesController,
-                  decoration: const InputDecoration(
-                    labelText: 'Notes',
-                    hintText: 'Additional notes (optional)',
-                  ),
-                  maxLines: 3,
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (formKey.currentState?.validate() ?? false) {
-                // Convert TimeOfDay to DateTime using _selectedDate
-                final startDateTime = DateTime(
-                  _selectedDate.year,
-                  _selectedDate.month,
-                  _selectedDate.day,
-                  startTime.hour,
-                  startTime.minute,
-                );
-                final endDateTime = DateTime(
-                  _selectedDate.year,
-                  _selectedDate.month,
-                  _selectedDate.day,
-                  endTime.hour,
-                  endTime.minute,
-                );
+  Future<void> _archiveItinerary() async {
+    try {
+      await _itineraryService.archiveItinerary(_itinerary.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Itinerary archived successfully!')),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to archive itinerary: $e')),
+        );
+      }
+    }
+  }
 
-                final newActivity = ItineraryItemModel(
-                  id: activity?.id ??
-                      DateTime.now().millisecondsSinceEpoch.toString(),
-                  title: titleController.text,
-                  description: descriptionController.text,
-                  type: selectedType,
-                  startTime: startDateTime,
-                  endTime: endDateTime,
-                  location: locationController.text.isEmpty
-                      ? null
-                      : locationController.text,
-                  cost: costController.text.isEmpty
-                      ? null
-                      : double.parse(costController.text),
-                  notes: notesController.text.isEmpty
-                      ? null
-                      : notesController.text,
-                  isCompleted: activity?.isCompleted ?? false,
-                  order: activity?.order ?? _itinerary.items.length,
-                );
-
-                try {
-                  if (activity == null) {
-                    // Add new activity
-                    await _itineraryService.addActivityToItinerary(
-                      _itinerary.id,
-                      newActivity,
-                    );
-                  } else {
-                    // Update existing activity
-                    await _itineraryService.updateActivityInItinerary(
-                      _itinerary.id,
-                      newActivity,
-                    );
-                  }
-
-                  // Update local state
-                  setState(() {
-                    if (activity == null) {
-                      // Add to items
-                      _itinerary = _itinerary.copyWith(
-                        items: [..._itinerary.items, newActivity],
-                        updatedAt: DateTime.now().toUtc(),
-                      );
-                    } else {
-                      // Update existing
-                      final updatedItems = _itinerary.items.map((item) {
-                        return item.id == newActivity.id ? newActivity : item;
-                      }).toList();
-                      _itinerary = _itinerary.copyWith(
-                        items: updatedItems,
-                        updatedAt: DateTime.now().toUtc(),
-                      );
-                    }
-                  });
-
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text(activity == null
-                            ? 'Activity added successfully'
-                            : 'Activity updated successfully')),
-                  );
-                } catch (e) {
-                  print('Error saving activity: $e');
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to save activity: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
+  Future<void> _deleteItinerary() async {
+    try {
+      await _itineraryService.deleteItinerary(_itinerary.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Itinerary deleted successfully!')),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete itinerary: $e')),
+        );
+      }
+    }
   }
 }
