@@ -153,20 +153,6 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                   ),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getStatusColor(_itinerary.status),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  _itinerary.status.toString().split('.').last.toUpperCase(),
-                  style: AppTheme.bodySmall.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -471,19 +457,6 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         );
       },
     );
-  }
-
-  Color _getStatusColor(ItineraryStatus status) {
-    switch (status) {
-      case ItineraryStatus.draft:
-        return Colors.grey;
-      case ItineraryStatus.published:
-        return AppTheme.primaryColor;
-      case ItineraryStatus.completed:
-        return Colors.green;
-      case ItineraryStatus.archived:
-        return Colors.blueGrey;
-    }
   }
 
   String _getActivityTypeDisplayName(ActivityType type) {

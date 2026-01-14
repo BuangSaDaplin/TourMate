@@ -325,7 +325,7 @@ class _BookingScreenState extends State<BookingScreen> {
                                             children: [
                                               Row(
                                                 children: [
-                                                  Expanded(
+                                                  Flexible(
                                                     child: Text(
                                                       tour.title,
                                                       style: AppTheme
@@ -336,22 +336,26 @@ class _BookingScreenState extends State<BookingScreen> {
                                                       ),
                                                     ),
                                                   ),
-                                                  TextButton(
-                                                    onPressed: () {
-                                                      Navigator.of(context)
-                                                          .pop();
-                                                      Navigator.push(
-                                                        context,
-                                                        MaterialPageRoute(
-                                                          builder: (context) =>
-                                                              TourDetailsScreen(
-                                                                  tourId:
-                                                                      tour.id),
-                                                        ),
-                                                      );
-                                                    },
-                                                    child: const Text(
-                                                        'View Details'),
+                                                  const SizedBox(width: 8),
+                                                  SizedBox(
+                                                    width: 100,
+                                                    child: TextButton(
+                                                      onPressed: () {
+                                                        Navigator.of(context)
+                                                            .pop();
+                                                        Navigator.push(
+                                                          context,
+                                                          MaterialPageRoute(
+                                                            builder: (context) =>
+                                                                TourDetailsScreen(
+                                                                    tourId: tour
+                                                                        .id),
+                                                          ),
+                                                        );
+                                                      },
+                                                      child: const Text(
+                                                          'View Details'),
+                                                    ),
                                                   ),
                                                 ],
                                               ),
@@ -398,7 +402,7 @@ class _BookingScreenState extends State<BookingScreen> {
                                                   ),
                                                   const SizedBox(width: 8),
                                                   _buildInfoChip(
-                                                      '${tour.duration} hours',
+                                                      '${tour.duration} hrs',
                                                       Icons.schedule),
                                                 ],
                                               ),
@@ -657,14 +661,28 @@ class _BookingScreenState extends State<BookingScreen> {
                       ],
                     ),
                   ),
-                  if (selectedGuide != null)
-                    TextButton(
-                      onPressed: () {},
-                      child: const Text('View Profile'),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (selectedGuide != null)
+                          SizedBox(
+                            width: double.infinity,
+                            child: TextButton(
+                              onPressed: () {},
+                              child: const Text('View Profile'),
+                            ),
+                          ),
+                        SizedBox(
+                          width: double.infinity,
+                          child: TextButton(
+                            onPressed: _showGuideSelectionDialog,
+                            child: const Text('Select Guide'),
+                          ),
+                        ),
+                      ],
                     ),
-                  TextButton(
-                    onPressed: _showGuideSelectionDialog,
-                    child: const Text('Select Guide'),
                   ),
                 ],
               ),

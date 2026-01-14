@@ -176,55 +176,6 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen>
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Review and moderate tour listings for compliance and quality',
-            style: AppTheme.bodyMedium,
-          ),
-          const SizedBox(height: 32),
-
-          // Search and Sort
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search tours or guides...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  onChanged: (value) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppTheme.dividerColor),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: DropdownButton<String>(
-                  value: _selectedSort,
-                  underline: Container(),
-                  items: _sortOptions.map((sort) {
-                    return DropdownMenuItem(
-                      value: sort,
-                      child: Text(sort),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _selectedSort = value);
-                    }
-                  },
-                ),
-              ),
-            ],
-          ),
           const SizedBox(height: 16),
 
           // Tabs

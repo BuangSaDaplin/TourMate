@@ -336,127 +336,141 @@ class _BookingsScreenState extends State<BookingsScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Total: ₱${booking.totalPrice.toStringAsFixed(0)}',
-                      style: AppTheme.bodyLarge.copyWith(
-                        color: AppTheme.primaryColor,
-                        fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Text(
+                        'Total: ₱${booking.totalPrice.toStringAsFixed(0)}',
+                        style: AppTheme.bodyLarge.copyWith(
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     if (isUpcoming) ...[
-                      Row(
-                        children: [
-                          // Pending status: Only Cancel button
-                          if (booking.status == BookingStatus.pending) ...[
-                            TextButton(
-                              onPressed: () {
-                                _showCancelDialog(booking);
-                              },
-                              style: TextButton.styleFrom(
-                                foregroundColor: AppTheme.errorColor,
-                              ),
-                              child: const Text('Cancel'),
-                            ),
-                          ],
-                          // Confirmed status (waiting for payment): Pay Now + Cancel
-                          if (booking.status == BookingStatus.confirmed) ...[
-                            TextButton(
-                              onPressed: () {
-                                _showPaymentDialog(booking);
-                              },
-                              child: const Text('Pay Now'),
-                            ),
-                            const SizedBox(width: 8),
-                            TextButton(
-                              onPressed: () {
-                                _showCancelReasonDialog(booking);
-                              },
-                              style: TextButton.styleFrom(
-                                foregroundColor: AppTheme.errorColor,
-                              ),
-                              child: const Text('Cancel'),
-                            ),
-                          ],
-                          // Paid status (ready to go): Complete + Cancel
-                          if (booking.status == BookingStatus.paid) ...[
-                            ElevatedButton(
-                              onPressed: () {
-                                _showCompleteDialog(booking);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                minimumSize: const Size(80, 36),
-                              ),
-                              child: const Text('Complete'),
-                            ),
-                            const SizedBox(width: 8),
-                            TextButton(
-                              onPressed: () {
-                                _showCancelReasonDialog(booking);
-                              },
-                              style: TextButton.styleFrom(
-                                foregroundColor: AppTheme.errorColor,
-                              ),
-                              child: const Text('Cancel'),
-                            ),
-                          ],
-                          // In Progress status: Complete + Cancel
-                          if (booking.status == BookingStatus.inProgress) ...[
-                            ElevatedButton(
-                              onPressed: () {
-                                _showCompleteDialog(booking);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                minimumSize: const Size(80, 36),
-                              ),
-                              child: const Text('Complete'),
-                            ),
-                            const SizedBox(width: 8),
-                            TextButton(
-                              onPressed: () {
-                                _showCancelReasonDialog(booking);
-                              },
-                              style: TextButton.styleFrom(
-                                foregroundColor: AppTheme.errorColor,
-                              ),
-                              child: const Text('Cancel'),
-                            ),
-                          ],
-                        ],
+                      Flexible(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              // Pending status: Only Cancel button
+                              if (booking.status == BookingStatus.pending) ...[
+                                TextButton(
+                                  onPressed: () {
+                                    _showCancelDialog(booking);
+                                  },
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppTheme.errorColor,
+                                  ),
+                                  child: const Text('Cancel'),
+                                ),
+                              ],
+                              // Confirmed status (waiting for payment): Pay Now + Cancel
+                              if (booking.status ==
+                                  BookingStatus.confirmed) ...[
+                                TextButton(
+                                  onPressed: () {
+                                    _showPaymentDialog(booking);
+                                  },
+                                  child: const Text('Pay Now'),
+                                ),
+                                const SizedBox(width: 8),
+                                TextButton(
+                                  onPressed: () {
+                                    _showCancelReasonDialog(booking);
+                                  },
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppTheme.errorColor,
+                                  ),
+                                  child: const Text('Cancel'),
+                                ),
+                              ],
+                              // Paid status (ready to go): Complete + Cancel
+                              if (booking.status == BookingStatus.paid) ...[
+                                ElevatedButton(
+                                  onPressed: () {
+                                    _showCompleteDialog(booking);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    minimumSize: const Size(80, 36),
+                                  ),
+                                  child: const Text('Complete'),
+                                ),
+                                const SizedBox(width: 8),
+                                TextButton(
+                                  onPressed: () {
+                                    _showCancelReasonDialog(booking);
+                                  },
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppTheme.errorColor,
+                                  ),
+                                  child: const Text('Cancel'),
+                                ),
+                              ],
+                              // In Progress status: Complete + Cancel
+                              if (booking.status ==
+                                  BookingStatus.inProgress) ...[
+                                ElevatedButton(
+                                  onPressed: () {
+                                    _showCompleteDialog(booking);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    minimumSize: const Size(80, 36),
+                                  ),
+                                  child: const Text('Complete'),
+                                ),
+                                const SizedBox(width: 8),
+                                TextButton(
+                                  onPressed: () {
+                                    _showCancelReasonDialog(booking);
+                                  },
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppTheme.errorColor,
+                                  ),
+                                  child: const Text('Cancel'),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
                     ] else ...[
-                      if (booking.rating != null) ...[
-                        Row(
-                          children: [
-                            const Text(
-                              'Rating: ',
-                              style: TextStyle(fontWeight: FontWeight.w500),
-                            ),
-                            Row(
-                              children: List.generate(
-                                5,
-                                (index) => Icon(
-                                  index < booking.rating!.round()
-                                      ? Icons.star
-                                      : Icons.star_border,
-                                  color: Colors.amber,
-                                  size: 16,
+                      Flexible(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              if (booking.rating != null) ...[
+                                const Text(
+                                  'Rating: ',
+                                  style: TextStyle(fontWeight: FontWeight.w500),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${booking.rating!.toStringAsFixed(1)}',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w500),
-                            ),
-                          ],
+                                Row(
+                                  children: List.generate(
+                                    5,
+                                    (index) => Icon(
+                                      index < booking.rating!.round()
+                                          ? Icons.star
+                                          : Icons.star_border,
+                                      color: Colors.amber,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${booking.rating!.toStringAsFixed(1)}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w500),
+                                ),
+                              ] else ...[
+                                const Text(
+                                  'No rating yet',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
-                      ] else ...[
-                        const Text(
-                          'No rating yet',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
+                      ),
                     ],
                   ],
                 ),
