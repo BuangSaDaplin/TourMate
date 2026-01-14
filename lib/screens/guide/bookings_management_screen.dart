@@ -8,6 +8,11 @@ import '../../services/notification_service.dart';
 import '../../models/notification_model.dart';
 import '../../models/message_model.dart';
 import '../messaging/chat_screen.dart';
+import '../itinerary/itinerary_screen.dart';
+import '../../services/itinerary_service.dart';
+import '../../models/itinerary_model.dart';
+import '../../models/tour_model.dart';
+import '../tour/tour_details_screen.dart';
 
 class BookingsManagementScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -25,6 +30,7 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
   final DatabaseService _db = DatabaseService();
   final AuthService _authService = AuthService();
   final NotificationService _notificationService = NotificationService();
+  final ItineraryService _itineraryService = ItineraryService();
 
   @override
   void initState() {
@@ -434,6 +440,12 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
                 tooltip: 'View Map',
                 color: AppTheme.primaryColor,
               ),
+              IconButton(
+                onPressed: () => _showBookingDetailsDialog(request),
+                icon: const Icon(Icons.visibility, size: 20),
+                tooltip: 'View Details',
+                color: AppTheme.primaryColor,
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -779,6 +791,12 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
                 tooltip: 'View Map',
                 color: AppTheme.primaryColor,
               ),
+              IconButton(
+                onPressed: () => _showBookingDetailsDialog(booking),
+                icon: const Icon(Icons.visibility, size: 20),
+                tooltip: 'View Details',
+                color: AppTheme.primaryColor,
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -895,6 +913,32 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
     );
   }
 
+  Widget _buildSummaryRow(String label, String value, {bool isTotal = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: isTotal
+                ? AppTheme.bodyLarge.copyWith(fontWeight: FontWeight.w600)
+                : AppTheme.bodyMedium,
+          ),
+          Text(
+            value,
+            style: isTotal
+                ? AppTheme.headlineSmall.copyWith(
+                    color: AppTheme.primaryColor,
+                    fontWeight: FontWeight.w600,
+                  )
+                : AppTheme.bodyMedium,
+          ),
+        ],
+      ),
+    );
+  }
+
   Color _getStatusColor(String status) {
     switch (status) {
       case 'pending':
@@ -941,75 +985,52 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
   }
 
   void _showItineraryDialog(Map<String, dynamic> booking) async {
-    // Get the current booking to access itinerary information
-    final currentBooking = await _db.getBooking(booking['id']);
-    String itineraryText = '';
-
-    if (currentBooking != null &&
-        currentBooking.specialRequests != null &&
-        currentBooking.specialRequests!.isNotEmpty) {
-      // Use the updated itinerary from specialRequests field
-      itineraryText = currentBooking.specialRequests!;
-    } else {
-      // Fallback to default itinerary
-      itineraryText = 'Day 1: Arrival & Check-in\n'
-          '• 7:00 AM - Hotel pickup\n'
-          '• 8:00 AM - Breakfast at local restaurant\n'
-          '• 9:00 AM - Start of tour activities\n\n'
-          'Day 2: Main Activities\n'
-          '• 6:00 AM - Early morning departure\n'
-          '• 8:00 AM - Main destination arrival\n'
-          '• 12:00 PM - Lunch break\n'
-          '• 3:00 PM - Return journey\n\n'
-          'Day 3: Departure\n'
-          '• 7:00 AM - Hotel checkout\n'
-          '• 8:00 AM - Airport transfer\n'
-          '• 10:00 AM - Flight departure';
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('${booking['tourTitle']} Itinerary'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  itineraryText,
-                  style: AppTheme.bodyMedium,
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _shareItinerary(booking),
-                        icon: const Icon(Icons.share),
-                        label: const Text('Share Itinerary'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
+    try {
+      // Get the current booking to access itinerary information
+      final currentBooking = await _db.getBooking(booking['id']);
+      if (currentBooking == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Booking not found')),
         );
-      },
-    );
+        return;
+      }
+
+      ItineraryModel? itinerary;
+
+      // Try to get existing itinerary if booking has itineraryId
+      if (currentBooking.itineraryId != null) {
+        itinerary =
+            await _itineraryService.getItinerary(currentBooking.itineraryId!);
+      }
+
+      // If no itinerary exists, try to get the tour and generate one
+      if (itinerary == null) {
+        final tour = await _db.getTour(currentBooking.tourId);
+        if (tour != null) {
+          itinerary = await _itineraryService.generateItineraryFromBooking(
+              currentBooking, tour);
+        }
+      }
+
+      if (itinerary == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to load itinerary')),
+        );
+        return;
+      }
+
+      // Navigate to itinerary screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ItineraryScreen(itinerary: itinerary!),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load itinerary: $e')),
+      );
+    }
   }
 
   void _showFeedbackDialog(Map<String, dynamic> booking) {
@@ -1805,6 +1826,253 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
                 foregroundColor: Colors.white,
               ),
               child: const Text('Update Itinerary'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showBookingDetailsDialog(Map<String, dynamic> booking) async {
+    // Convert Map to BookingModel for compatibility with tourist side implementation
+    final bookingModel = BookingModel(
+      tourTitle: booking['tourTitle'] ?? '',
+      id: booking['id'] ?? '',
+      tourId: booking['tourId'] ?? '',
+      touristId: booking['touristId'] ?? '',
+      guideId: booking['guideId'] ?? '',
+      bookingDate: DateTime.now(), // Not available in map, use current time
+      tourStartDate:
+          DateTime.parse(booking['date'] ?? DateTime.now().toString()),
+      numberOfParticipants: booking['participants'] ?? 1,
+      totalPrice: (booking['totalAmount'] ?? 0).toDouble(),
+      status: BookingStatus.values.firstWhere(
+        (e) => e.name == (booking['status'] ?? 'pending'),
+        orElse: () => BookingStatus.pending,
+      ),
+      specialRequests: booking['message'],
+      duration: booking['duration'],
+      reviewContent: booking['review'],
+      rating: booking['rating']?.toDouble(),
+      reviewStatus: booking['reviewStatus'] != null
+          ? ReviewSubmissionStatus.values[booking['reviewStatus']]
+          : null,
+    );
+
+    // Fetch tour data for location and price
+    TourModel? tour;
+    try {
+      tour = await _db.getTour(bookingModel.tourId);
+    } catch (e) {
+      // Handle error silently, tour will be null
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Booking Details'),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Booked Tour Information
+                  Text(
+                    'Booked Tour Information',
+                    style: AppTheme.headlineSmall.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context); // Close dialog
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => TourDetailsScreen(
+                            tourId: bookingModel.tourId,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppTheme.primaryColor.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            bookingModel.tourTitle,
+                            style: AppTheme.bodyLarge.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on,
+                                size: 16,
+                                color: AppTheme.textSecondary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                tour?.meetingPoint ?? 'Location not available',
+                                style: AppTheme.bodyMedium,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '₱${tour?.price.toStringAsFixed(0) ?? bookingModel.totalPrice.toStringAsFixed(0)} per person',
+                            style: AppTheme.bodyLarge.copyWith(
+                              color: AppTheme.primaryColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Booking Details
+                  Text(
+                    'Booking Details',
+                    style: AppTheme.headlineSmall.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Date
+                  _buildDetailRow(
+                    'Tour Date',
+                    '${bookingModel.tourStartDate.day}/${bookingModel.tourStartDate.month}/${bookingModel.tourStartDate.year}',
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Time (assuming start time from tour or default)
+                  _buildDetailRow(
+                    'Tour Start',
+                    tour?.startTime != null
+                        ? '${tour!.startTime.hour}:${tour.startTime.minute.toString().padLeft(2, '0')}'
+                        : 'Time not specified',
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Duration
+                  _buildDetailRow(
+                    'Duration',
+                    '${bookingModel.duration ?? tour?.duration ?? 0} Hours',
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Number of Participants
+                  _buildDetailRow(
+                    'Number of Participants',
+                    '${bookingModel.numberOfParticipants}',
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Participant's Names
+                  if (bookingModel.participantNames != null &&
+                      bookingModel.participantNames!.isNotEmpty)
+                    _buildDetailRow(
+                      'Participant\'s Names',
+                      bookingModel.participantNames!.join(', '),
+                    ),
+                  if (bookingModel.participantNames != null &&
+                      bookingModel.participantNames!.isNotEmpty)
+                    const SizedBox(height: 8),
+
+                  // Total Amount
+                  _buildDetailRow(
+                    'Total Amount',
+                    '₱${bookingModel.totalPrice.toStringAsFixed(2)}',
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Booking Summary
+                  Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Booking Summary',
+                              style: AppTheme.headlineSmall),
+                          const SizedBox(height: 16),
+                          if (tour != null &&
+                              tour.inclusionPrices.isNotEmpty) ...[
+                            ...() {
+                              // Calculate total from current inclusion prices
+                              double calculatedTotal =
+                                  tour!.inclusionPrices.entries.fold(
+                                      0.0,
+                                      (sum, entry) =>
+                                          sum +
+                                          entry.value *
+                                              bookingModel
+                                                  .numberOfParticipants);
+
+                              // Only show breakdown if it matches the booking total
+                              if (calculatedTotal == bookingModel.totalPrice) {
+                                return [
+                                  const SizedBox(height: 8),
+                                  ...tour.inclusionPrices.entries.map(
+                                    (entry) => _buildSummaryRow(
+                                      entry.key,
+                                      '₱${(entry.value * bookingModel.numberOfParticipants).toStringAsFixed(2)}',
+                                    ),
+                                  ),
+                                  const Divider(),
+                                ];
+                              } else {
+                                return [
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Price breakdown not available (tour details may have changed)',
+                                    style: AppTheme.bodySmall.copyWith(
+                                      color: AppTheme.textSecondary,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                  const Divider(),
+                                ];
+                              }
+                            }(),
+                          ],
+                          _buildSummaryRow(
+                            'Total Amount',
+                            '₱${bookingModel.totalPrice.toStringAsFixed(2)}',
+                            isTotal: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
             ),
           ],
         );

@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 
 enum ItineraryStatus {
-  draft,      // Being created/edited
-  published,  // Shared or finalized
-  completed,  // Trip completed
-  archived,   // No longer active
+  draft, // Being created/edited
+  published, // Shared or finalized
+  completed, // Trip completed
+  archived, // No longer active
 }
 
 enum ActivityType {
-  tour,           // Official tour activity
+  tour, // Official tour activity
   transportation, // Travel between locations
-  accommodation,  // Hotel/rest stay
-  meal,          // Dining/breakfast/lunch/dinner
-  attraction,    // Visit landmark/museum/etc
-  shopping,      // Shopping activity
-  rest,          // Free time/relaxation
-  custom,        // User-defined activity
+  accommodation, // Hotel/rest stay
+  meal, // Dining/breakfast/lunch/dinner
+  attraction, // Visit landmark/museum/etc
+  shopping, // Shopping activity
+  rest, // Free time/relaxation
+  custom, // User-defined activity
 }
 
 class ItineraryItemModel {
@@ -32,7 +32,8 @@ class ItineraryItemModel {
   final String? imageUrl;
   final bool isCompleted;
   final int order; // For sorting/reordering
-  final Map<String, dynamic>? metadata; // Additional data like contact info, reservations, etc.
+  final Map<String, dynamic>?
+      metadata; // Additional data like contact info, reservations, etc.
 
   ItineraryItemModel({
     required this.id,
@@ -211,8 +212,9 @@ class ItineraryModel {
       endDate: DateTime.parse(data['endDate']),
       status: ItineraryStatus.values[data['status'] ?? 0],
       items: (data['items'] as List<dynamic>?)
-          ?.map((item) => ItineraryItemModel.fromMap(item))
-          .toList() ?? [],
+              ?.map((item) => ItineraryItemModel.fromMap(item))
+              .toList() ??
+          [],
       coverImageUrl: data['coverImageUrl'],
       isPublic: data['isPublic'] ?? false,
       shareCode: data['shareCode'],
@@ -252,16 +254,19 @@ class ItineraryModel {
 
   List<ItineraryItemModel> getItemsForDate(DateTime date) {
     return items.where((item) {
-      final itemDate = DateTime(item.startTime.year, item.startTime.month, item.startTime.day);
+      final itemDate = DateTime(
+          item.startTime.year, item.startTime.month, item.startTime.day);
       final targetDate = DateTime(date.year, date.month, date.day);
       return itemDate.isAtSameMomentAs(targetDate);
     }).toList()
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
   }
 
-  List<ItineraryItemModel> get completedItems => items.where((item) => item.isCompleted).toList();
+  List<ItineraryItemModel> get completedItems =>
+      items.where((item) => item.isCompleted).toList();
 
-  List<ItineraryItemModel> get pendingItems => items.where((item) => !item.isCompleted).toList();
+  List<ItineraryItemModel> get pendingItems =>
+      items.where((item) => !item.isCompleted).toList();
 
   double get completionPercentage {
     if (items.isEmpty) return 0;
@@ -269,7 +274,8 @@ class ItineraryModel {
   }
 
   bool get isUpcoming => startDate.isAfter(DateTime.now());
-  bool get isOngoing => startDate.isBefore(DateTime.now()) && endDate.isAfter(DateTime.now());
+  bool get isOngoing =>
+      startDate.isBefore(DateTime.now()) && endDate.isAfter(DateTime.now());
   bool get isCompleted => endDate.isBefore(DateTime.now());
 
   // Generate share URL
@@ -280,7 +286,8 @@ class ItineraryModel {
     if (shareCode != null) return shareCode!;
     // Simple share code generation (in production, use more secure method)
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-    final code = '${id.substring(0, 8)}${timestamp.substring(timestamp.length - 4)}';
+    final code =
+        '${id.substring(0, 8)}${timestamp.substring(timestamp.length - 4)}';
     return code.toUpperCase();
   }
 }

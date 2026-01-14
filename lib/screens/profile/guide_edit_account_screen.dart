@@ -51,6 +51,11 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
   late TextEditingController _confirmPasswordController;
   bool _showPasswordSection = false;
 
+  // Email update states
+  late TextEditingController _emailPasswordController;
+  bool _showEmailPasswordDialog = false;
+  String? _originalEmail;
+
   // Loading states
   bool _isLoading = true;
   bool _isSaving = false;
@@ -91,6 +96,7 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
     _currentPasswordController = TextEditingController();
     _newPasswordController = TextEditingController();
     _confirmPasswordController = TextEditingController();
+    _emailPasswordController = TextEditingController();
   }
 
   Future<void> _loadUserProfile() async {
@@ -104,6 +110,7 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
             _currentUser = userProfile;
             _nameController.text = userProfile.displayName ?? '';
             _emailController.text = userProfile.email;
+            _originalEmail = userProfile.email;
             _phoneController.text = userProfile.phoneNumber ?? '';
             _selectedLanguages = userProfile.languages ?? ['English'];
             _selectedSpecializations = userProfile.specializations ?? [];
@@ -133,6 +140,7 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
     _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
+    _emailPasswordController.dispose();
     super.dispose();
   }
 
@@ -144,6 +152,33 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
     });
 
     try {
+      // Check if email has changed
+      final newEmail = _emailController.text.trim();
+      final emailChanged = newEmail != _originalEmail;
+
+      if (emailChanged) {
+        // Show password dialog for email update
+        final password = await _showEmailUpdatePasswordDialog();
+        if (password == null) {
+          setState(() {
+            _isSaving = false;
+          });
+          return;
+        }
+
+        // Update email in Firebase Auth with password verification
+        await _authService.updateEmail(newEmail, password);
+
+        // Show message that verification email has been sent
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Email update initiated. Please check your email for verification link.'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      }
+
       // Upload profile picture if selected
       String? photoURL = _currentUser!.photoURL;
       if (_selectedImage != null) {
@@ -154,6 +189,7 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
       // Update user profile
       final updates = {
         'displayName': _nameController.text.trim(),
+        'email': newEmail,
         'phoneNumber': _phoneController.text.trim(),
         'photoURL': photoURL,
         'languages': _selectedLanguages,
@@ -169,6 +205,7 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
         setState(() {
           _currentUser = updatedUserProfile;
           _selectedImage = null;
+          _originalEmail = updatedUserProfile.email;
           _isSaving = false;
         });
       }
@@ -414,7 +451,6 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
               label: 'Full Name',
               icon: Icons.person,
               hintText: 'Enter your full name',
-              readOnly: true,
             ),
             const SizedBox(height: 16),
             _buildTextField(
@@ -422,7 +458,6 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
               label: 'Email',
               icon: Icons.email,
               hintText: 'Enter your email',
-              readOnly: true,
             ),
             const SizedBox(height: 16),
             _buildTextField(
@@ -722,6 +757,56 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
           ),
         );
       }).toList(),
+    );
+  }
+
+  Future<String?> _showEmailUpdatePasswordDialog() async {
+    _emailPasswordController.clear();
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Email Change'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'To update your email address, please enter your current password for security verification.',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _emailPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Current Password',
+                  hintText: 'Enter your password',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final password = _emailPasswordController.text.trim();
+                if (password.isNotEmpty) {
+                  Navigator.of(context).pop(password);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Confirm'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

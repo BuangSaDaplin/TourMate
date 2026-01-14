@@ -4,6 +4,7 @@ import 'package:tourmate_app/models/itinerary_model.dart';
 import 'package:tourmate_app/services/itinerary_service.dart';
 import 'package:tourmate_app/services/auth_service.dart';
 import 'package:tourmate_app/services/email_service.dart';
+import 'package:tourmate_app/services/user_profile_service.dart';
 import '../../utils/app_theme.dart';
 
 class ItineraryScreen extends StatefulWidget {
@@ -19,9 +20,20 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   final ItineraryService _itineraryService = ItineraryService();
   final AuthService _authService = AuthService();
   final EmailService _emailService = EmailService();
+  final UserProfileService _userProfileService = UserProfileService();
   late ItineraryModel _itinerary;
-  bool _isEditMode = false;
   DateTime _selectedDate = DateTime.now();
+  bool _isGuide = false;
+
+  Future<bool> _isUserGuide(String userId) async {
+    try {
+      final userProfile =
+          await _userProfileService.getCompleteUserProfile(userId);
+      return userProfile?.role == 'guide';
+    } catch (e) {
+      return false;
+    }
+  }
 
   @override
   void initState() {
@@ -33,12 +45,24 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     } else {
       _selectedDate = _itinerary.startDate;
     }
+    _loadUserRole();
+  }
+
+  Future<void> _loadUserRole() async {
+    final currentUser = _authService.getCurrentUser();
+    if (currentUser != null) {
+      _isGuide = await _isUserGuide(currentUser.uid);
+      if (mounted) {
+        setState(() {});
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final itemsForDate = _itinerary.getItemsForDate(_selectedDate);
-    final isOwner = _itinerary.userId == _authService.getCurrentUser()?.uid;
+    final currentUser = _authService.getCurrentUser();
+    final isOwner = _itinerary.userId == currentUser?.uid;
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -47,22 +71,16 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
-          if (isOwner) ...[
-            IconButton(
-              icon: Icon(_isEditMode ? Icons.done : Icons.edit),
-              onPressed: () => setState(() => _isEditMode = !_isEditMode),
-              tooltip: _isEditMode ? 'Done Editing' : 'Edit Itinerary',
-            ),
-            PopupMenuButton<String>(
-              onSelected: _handleMenuAction,
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'share',
-                  child: Text('Share Itinerary'),
-                ),
-              ],
-            ),
-          ],
+          // Menu button for both tourists and guides
+          PopupMenuButton<String>(
+            onSelected: _handleMenuAction,
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'share',
+                child: Text('Share Itinerary'),
+              ),
+            ],
+          ),
         ],
       ),
       body: Column(
@@ -79,20 +97,6 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                 ? _buildEmptyState()
                 : _buildActivitiesTimeline(itemsForDate),
           ),
-
-          // Add Activity Button (Edit Mode)
-          if (_isEditMode && isOwner)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: ElevatedButton.icon(
-                onPressed: _addNewActivity,
-                icon: const Icon(Icons.add),
-                label: const Text('Add Activity'),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 48),
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -250,14 +254,6 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
             ),
             textAlign: TextAlign.center,
           ),
-          if (_isEditMode) ...[
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _addNewActivity,
-              icon: const Icon(Icons.add),
-              label: const Text('Add First Activity'),
-            ),
-          ],
         ],
       ),
     );
@@ -311,7 +307,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: InkWell(
-                  onTap: _isEditMode ? () => _editActivity(item) : null,
+                  onTap: null,
                   borderRadius: BorderRadius.circular(12),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -334,11 +330,6 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                                 ),
                               ),
                             ),
-                            if (_isEditMode)
-                              IconButton(
-                                icon: const Icon(Icons.more_vert, size: 20),
-                                onPressed: () => _showActivityOptions(item),
-                              ),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -428,33 +419,20 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                           ),
                         ],
                         const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: item.typeColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                item.typeDisplayName,
-                                style: AppTheme.bodySmall.copyWith(
-                                  color: item.typeColor,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: item.typeColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            item.typeDisplayName,
+                            style: AppTheme.bodySmall.copyWith(
+                              color: item.typeColor,
+                              fontWeight: FontWeight.w600,
                             ),
-                            Checkbox(
-                              value: item.isCompleted,
-                              onChanged: _isEditMode
-                                  ? (value) => _toggleActivityCompletion(
-                                      item, value ?? false)
-                                  : null,
-                              activeColor: Colors.green,
-                            ),
-                          ],
+                          ),
                         ),
                       ],
                     ),

@@ -52,15 +52,17 @@ class ItineraryService {
     final itineraryId = 'itinerary_${booking.id}';
     final now = DateTime.now();
 
-    // Create basic itinerary items based on tour category and booking details
-    final items = await _generateItineraryItems(tour, booking);
+    // Try to use the tour's itinerary data first, fallback to generated items
+    final items = tour.itinerary.isNotEmpty
+        ? _convertTourItineraryToItems(tour.itinerary, booking.tourStartDate)
+        : await _generateItineraryItems(tour, booking);
 
     final itinerary = ItineraryModel(
       id: itineraryId,
       userId: booking.touristId,
       title:
           '${tour.title} - ${booking.tourStartDate.toLocal().toString().split(' ')[0]}',
-      description: 'Auto-generated itinerary for your ${tour.title} tour',
+      description: 'Itinerary for your ${tour.title} tour',
       startDate: booking.tourStartDate,
       endDate:
           booking.tourStartDate.add(tour.endTime.difference(tour.startTime)),
@@ -74,6 +76,100 @@ class ItineraryService {
 
     await createItinerary(itinerary);
     return itinerary;
+  }
+
+  // Convert tour's itinerary data to ItineraryItemModel list
+  List<ItineraryItemModel> _convertTourItineraryToItems(
+      List<Map<String, String>> tourItinerary, DateTime startDate) {
+    final items = <ItineraryItemModel>[];
+
+    for (int i = 0; i < tourItinerary.length; i++) {
+      final item = tourItinerary[i];
+      final title = item['title'] ?? item['activity'] ?? 'Activity ${i + 1}';
+      final description = item['description'] ?? item['details'] ?? '';
+      final time = item['time'] ?? item['startTime'] ?? '';
+      final duration = item['duration'] ?? '60'; // Default 60 minutes
+
+      // Parse time and create start/end times
+      DateTime startTime = startDate;
+      DateTime endTime = startDate;
+
+      try {
+        if (time.isNotEmpty) {
+          // Try to parse time like "9:00 AM" or "14:00"
+          final timeParts = time.split(':');
+          if (timeParts.length >= 2) {
+            int hour = int.tryParse(timeParts[0]) ?? 9;
+            int minute = int.tryParse(timeParts[1].split(' ')[0]) ?? 0;
+
+            // Handle AM/PM
+            if (time.toUpperCase().contains('PM') && hour != 12) {
+              hour += 12;
+            } else if (time.toUpperCase().contains('AM') && hour == 12) {
+              hour = 0;
+            }
+
+            startTime = DateTime(
+                startDate.year, startDate.month, startDate.day, hour, minute);
+            endTime =
+                startTime.add(Duration(minutes: int.tryParse(duration) ?? 60));
+          }
+        }
+      } catch (e) {
+        // If parsing fails, use default times
+        startTime = startDate.add(Duration(hours: i));
+        endTime = startTime.add(const Duration(hours: 1));
+      }
+
+      // Determine activity type based on content
+      ActivityType type = ActivityType.tour;
+      final lowerTitle = title.toLowerCase();
+      final lowerDesc = description.toLowerCase();
+
+      if (lowerTitle.contains('lunch') ||
+          lowerTitle.contains('dinner') ||
+          lowerTitle.contains('breakfast') ||
+          lowerTitle.contains('meal') ||
+          lowerDesc.contains('eat') ||
+          lowerDesc.contains('food')) {
+        type = ActivityType.meal;
+      } else if (lowerTitle.contains('transport') ||
+          lowerTitle.contains('pickup') ||
+          lowerTitle.contains('transfer') ||
+          lowerDesc.contains('transport')) {
+        type = ActivityType.transportation;
+      } else if (lowerTitle.contains('hotel') ||
+          lowerTitle.contains('accommodation') ||
+          lowerDesc.contains('check-in') ||
+          lowerDesc.contains('stay')) {
+        type = ActivityType.accommodation;
+      } else if (lowerTitle.contains('visit') ||
+          lowerTitle.contains('sightseeing') ||
+          lowerDesc.contains('explore') ||
+          lowerDesc.contains('see')) {
+        type = ActivityType.attraction;
+      } else if (lowerTitle.contains('shopping') ||
+          lowerDesc.contains('shop')) {
+        type = ActivityType.shopping;
+      } else if (lowerTitle.contains('rest') ||
+          lowerTitle.contains('break') ||
+          lowerDesc.contains('relax')) {
+        type = ActivityType.rest;
+      }
+
+      items.add(ItineraryItemModel(
+        id: 'item_${i}',
+        title: title,
+        description: description,
+        type: type,
+        startTime: startTime,
+        endTime: endTime,
+        location: item['location'] ?? item['place'] ?? '',
+        order: i,
+      ));
+    }
+
+    return items;
   }
 
   // Generate itinerary items based on tour details

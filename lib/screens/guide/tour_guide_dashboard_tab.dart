@@ -5,6 +5,7 @@ import '../../services/database_service.dart';
 import '../../models/booking_model.dart';
 import '../../models/payment_model.dart';
 import '../../models/review_model.dart';
+import '../../models/user_model.dart';
 import 'create_tour_screen.dart';
 import 'bookings_management_screen.dart';
 import 'guide_submit_credentials_screen.dart';
@@ -50,6 +51,8 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
   List<Map<String, dynamic>> _bookingTrendsByTour = [];
   bool _isLoadingBookingTrendsByTour = true;
 
+  UserStatus? _userStatus;
+
   @override
   void initState() {
     super.initState();
@@ -79,6 +82,7 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
       // Load user profile to get display name
       final userProfile = await _db.getUser(currentUser.uid);
       final userName = userProfile?.displayName ?? 'Guide';
+      final userStatus = userProfile?.status;
 
       // Load overview stats
       await _loadOverviewStats(currentUser.uid);
@@ -91,6 +95,7 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
 
       setState(() {
         _userName = userName;
+        _userStatus = userStatus;
         _isLoading = false;
         _isLoadingBookingTrendsByTour = false;
       });
@@ -294,63 +299,66 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
           ),
           const SizedBox(height: 16),
 
-          // Verification Status Banner
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.accentColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                  color: AppTheme.accentColor.withValues(alpha: 0.3)),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.verified_user,
-                  color: AppTheme.accentColor,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Verification Required',
-                        style: AppTheme.bodyLarge.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.accentColor,
+          if (_userStatus == UserStatus.pending ||
+              _userStatus == UserStatus.rejected) ...[
+            // Verification Status Banner
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.accentColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: AppTheme.accentColor.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.verified_user,
+                    color: AppTheme.accentColor,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Verification Required',
+                          style: AppTheme.bodyLarge.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.accentColor,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Submit your credentials to become a verified tour guide',
-                        style: AppTheme.bodySmall,
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          'Submit your credentials to become a verified tour guide',
+                          style: AppTheme.bodySmall,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            const GuideSubmitCredentialsScreen(),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentColor,
-                    foregroundColor: Colors.white,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const GuideSubmitCredentialsScreen(),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.accentColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                    ),
+                    child: const Text('Submit Now'),
                   ),
-                  child: const Text('Submit Now'),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
+          ],
 
           // Stats Overview
           Text('Overview', style: AppTheme.headlineSmall),

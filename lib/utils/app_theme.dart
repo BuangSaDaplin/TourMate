@@ -12,6 +12,7 @@ class AppTheme {
   static const Color cardColor = Colors.white;
   static const Color errorColor = Color(0xFFE91E63);
   static const Color successColor = Color(0xFF4CAF50);
+  static const Color warningColor = Color(0xFFFF9800);
 
   // Gradients
   static const LinearGradient primaryGradient = LinearGradient(

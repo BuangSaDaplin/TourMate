@@ -161,7 +161,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  _userProfile?.role != 'admin'
+                  _userProfile?.role == 'guide'
                       ? Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [

@@ -12,6 +12,9 @@ import '../../models/tour_model.dart';
 import '../notifications/notification_screen.dart';
 import '../messaging/chat_screen.dart';
 import '../tour/tour_details_screen.dart';
+import '../itinerary/itinerary_screen.dart';
+import '../../services/itinerary_service.dart';
+import '../../models/itinerary_model.dart';
 
 class BookingsScreen extends StatefulWidget {
   final int initialTab;
@@ -29,6 +32,7 @@ class _BookingsScreenState extends State<BookingsScreen>
   final DatabaseService _db = DatabaseService();
   final NotificationService _notificationService = NotificationService();
   final PaymentService _paymentService = PaymentService();
+  final ItineraryService _itineraryService = ItineraryService();
 
   @override
   void initState() {
@@ -94,7 +98,7 @@ class _BookingsScreenState extends State<BookingsScreen>
         ],
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [Tab(text: 'Upcoming'), Tab(text: 'Past')],
+          tabs: const [Tab(text: 'Ongoing'), Tab(text: 'History')],
         ),
       ),
       body: StreamBuilder<List<BookingModel>>(
@@ -751,67 +755,43 @@ class _BookingsScreenState extends State<BookingsScreen>
     );
   }
 
-  void _showItineraryDialog(BookingModel booking) {
-    // Use the updated itinerary from specialRequests field, or fallback to default
-    String itineraryText = booking.specialRequests ??
-        'Day 1: Arrival & Check-in\n'
-            '• 7:00 AM - Hotel pickup\n'
-            '• 8:00 AM - Breakfast at local restaurant\n'
-            '• 9:00 AM - Start of tour activities\n\n'
-            'Day 2: Main Activities\n'
-            '• 6:00 AM - Early morning departure\n'
-            '• 8:00 AM - Main destination arrival\n'
-            '• 12:00 PM - Lunch break\n'
-            '• 3:00 PM - Return journey\n\n'
-            'Day 3: Departure\n'
-            '• 7:00 AM - Hotel checkout\n'
-            '• 8:00 AM - Airport transfer\n'
-            '• 10:00 AM - Flight departure';
+  void _showItineraryDialog(BookingModel booking) async {
+    try {
+      ItineraryModel? itinerary;
 
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('${booking.tourTitle} Itinerary'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  itineraryText,
-                  style: AppTheme.bodyMedium,
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () =>
-                            _shareItinerary(booking, itineraryText),
-                        icon: const Icon(Icons.share),
-                        label: const Text('Share Itinerary'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
+      // Try to get existing itinerary if booking has itineraryId
+      if (booking.itineraryId != null) {
+        itinerary = await _itineraryService.getItinerary(booking.itineraryId!);
+      }
+
+      // If no itinerary exists, try to get the tour and generate one
+      if (itinerary == null) {
+        final tour = await _db.getTour(booking.tourId);
+        if (tour != null) {
+          itinerary = await _itineraryService.generateItineraryFromBooking(
+              booking, tour);
+        }
+      }
+
+      if (itinerary == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to load itinerary')),
         );
-      },
-    );
+        return;
+      }
+
+      // Navigate to itinerary screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ItineraryScreen(itinerary: itinerary!),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load itinerary: $e')),
+      );
+    }
   }
 
   void _showBookingDetailsDialog(BookingModel booking) async {

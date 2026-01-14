@@ -179,6 +179,58 @@ class AuthService {
     }
   }
 
+  // Update email with password verification and email verification
+  Future<void> updateEmail(String newEmail, String password) async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null && user.email != null) {
+        // Re-authenticate user before updating email
+        final credential = EmailAuthProvider.credential(
+          email: user.email!,
+          password: password,
+        );
+        await user.reauthenticateWithCredential(credential);
+
+        // Send verification email to the new email address
+        await user.verifyBeforeUpdateEmail(newEmail);
+        // Note: The email won't be updated until the user clicks the verification link
+      }
+    } catch (e) {
+      throw Exception('Failed to update email: ${e.toString()}');
+    }
+  }
+
+  // Update email with email verification (sends verification email to new address)
+  Future<void> updateEmailWithVerification(String newEmail) async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        // Send verification email to the new email address
+        await user.verifyBeforeUpdateEmail(newEmail);
+        // Note: The email won't be updated until the user clicks the verification link
+        // For now, we'll update the database and inform the user to check their email
+      }
+    } catch (e) {
+      throw Exception('Failed to send verification email: ${e.toString()}');
+    }
+  }
+
+  // Update email without password verification (for cases where verification is not required)
+  Future<void> updateEmailWithoutPassword(String newEmail) async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        // Firebase requires email verification for email updates
+        // Send verification email to the new email address
+        await user.verifyBeforeUpdateEmail(newEmail);
+        // Note: The email won't be updated until the user clicks the verification link
+        // For now, we'll update the database and inform the user to check their email
+      }
+    } catch (e) {
+      throw Exception('Failed to send verification email: ${e.toString()}');
+    }
+  }
+
   // Soft deactivate account
   Future<void> softDeactivateAccount() async {
     try {
