@@ -517,31 +517,33 @@ class _BookingScreenState extends State<BookingScreen> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      Column(
-                        children: [
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => TourDetailsScreen(
-                                      tourId: selectedTour!.id),
-                                ),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: AppTheme.primaryColor,
-                              side: BorderSide(color: AppTheme.primaryColor),
+                      Flexible(
+                        child: Column(
+                          children: [
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => TourDetailsScreen(
+                                        tourId: selectedTour!.id),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: AppTheme.primaryColor,
+                                side: BorderSide(color: AppTheme.primaryColor),
+                              ),
+                              child: const Text('View Details'),
                             ),
-                            child: const Text('View Details'),
-                          ),
-                          const SizedBox(height: 8),
-                          ElevatedButton(
-                            onPressed: _showTourSelectionDialog,
-                            child: const Text('Select Tour'),
-                          ),
-                        ],
+                            const SizedBox(height: 8),
+                            ElevatedButton(
+                              onPressed: _showTourSelectionDialog,
+                              child: const Text('Select Tour'),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),

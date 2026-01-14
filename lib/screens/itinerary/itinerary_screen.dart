@@ -360,6 +360,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                         ),
                         const SizedBox(height: 12),
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Icon(
                               Icons.access_time,
@@ -367,27 +368,30 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                               color: AppTheme.textSecondary,
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              '${DateFormat('HH:mm').format(item.startTime)} - ${DateFormat('HH:mm').format(item.startTime.add(const Duration(minutes: 15)))} (${item.title})',
-                              style: AppTheme.bodySmall.copyWith(
-                                color: AppTheme.textSecondary,
+
+                            /// THIS FIXES THE OVERFLOW
+                            Expanded(
+                              child: Text(
+                                '${DateFormat('HH:mm').format(item.startTime)} - '
+                                '${DateFormat('HH:mm').format(item.startTime.add(const Duration(minutes: 15)))} '
+                                '(${item.title})',
+                                style: AppTheme.bodySmall.copyWith(
+                                  color: AppTheme.textSecondary,
+                                ),
+                                softWrap: true,
                               ),
                             ),
+
                             if (item.cost != null && item.cost! > 0) ...[
-                              const SizedBox(width: 16),
-                              Text(
-                                '₱',
-                                style: AppTheme.bodySmall.copyWith(
-                                  color: AppTheme.textSecondary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${item.cost!.toStringAsFixed(2)}',
-                                style: AppTheme.bodySmall.copyWith(
-                                  color: AppTheme.textSecondary,
-                                  fontWeight: FontWeight.w600,
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  '₱${item.cost!.toStringAsFixed(2)}',
+                                  style: AppTheme.bodySmall.copyWith(
+                                    color: AppTheme.textSecondary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],

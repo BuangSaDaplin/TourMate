@@ -258,21 +258,20 @@ class _BookingsScreenState extends State<BookingsScreen>
                     ),
                   ],
                 ),
-                Row(
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  alignment: WrapAlignment.end,
                   children: [
                     IconButton(
-                      onPressed: () {
-                        _showItineraryDialog(booking);
-                      },
-                      icon: const Icon(Icons.map, size: 20),
+                      onPressed: () => _showItineraryDialog(booking),
+                      icon: const Icon(Icons.schedule, size: 20),
                       tooltip: 'View Itinerary',
                     ),
                     IconButton(
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Feature coming soon!'),
-                          ),
+                          const SnackBar(content: Text('Feature coming soon!')),
                         );
                       },
                       icon: const Icon(Icons.location_on, size: 20),
@@ -287,23 +286,6 @@ class _BookingsScreenState extends State<BookingsScreen>
                       onPressed: () => _showBookingDetailsDialog(booking),
                       icon: const Icon(Icons.visibility, size: 20),
                       tooltip: 'View Details',
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        booking.statusDisplayText,
-                        style: AppTheme.bodySmall.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
                     ),
                   ],
                 ),

@@ -705,9 +705,16 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
 
   Widget _buildScheduleItem(String label, String time) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTheme.bodyMedium),
+        Expanded(
+          child: Text(
+            label,
+            style: AppTheme.bodyMedium,
+            softWrap: true,
+          ),
+        ),
+        const SizedBox(width: 8),
         Text(
           time,
           style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
