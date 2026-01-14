@@ -107,9 +107,21 @@ class BookingModel {
       participantNames: List<String>.from(data['participantNames'] ?? []),
       contactNumber: data['contactNumber'],
       emergencyContact: data['emergencyContact'],
-      duration: data['duration'] as double?,
+      duration: data['duration'] != null
+          ? (data['duration'] is double
+              ? data['duration']
+              : (data['duration'] is int)
+                  ? data['duration'].toDouble()
+                  : double.tryParse(data['duration'].toString()) ?? 0.0)
+          : null,
       reviewContent: data['reviewContent'],
-      rating: data['rating']?.toDouble(),
+      rating: data['rating'] != null
+          ? ((data['rating'] is double)
+              ? data['rating']
+              : (data['rating'] is int)
+                  ? data['rating'].toDouble()
+                  : double.tryParse(data['rating'].toString()) ?? 0.0)
+          : null,
       reviewCreatedAt: data['reviewCreatedAt']?.toDate(),
       reviewerId: data['reviewerId'],
       reviewerName: data['reviewerName'],

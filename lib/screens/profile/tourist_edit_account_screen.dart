@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../utils/app_theme.dart';
@@ -315,6 +316,10 @@ class _TouristEditAccountScreenState extends State<TouristEditAccountScreen> {
               icon: Icons.phone,
               hintText: 'Enter your phone number',
               keyboardType: TextInputType.phone,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(11),
+              ],
             ),
             const SizedBox(height: 16),
             Column(
@@ -478,11 +483,13 @@ class _TouristEditAccountScreenState extends State<TouristEditAccountScreen> {
     required String hintText,
     TextInputType? keyboardType,
     bool readOnly = false,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
       readOnly: readOnly,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         labelText: label,
         hintText: hintText,
@@ -657,6 +664,18 @@ class _TouristEditAccountScreenState extends State<TouristEditAccountScreen> {
 
   Future<void> _saveProfile() async {
     if (_currentUser == null) return;
+
+    // Validate phone number
+    final phoneNumber = _phoneController.text.trim();
+    if (phoneNumber.isNotEmpty && phoneNumber.length != 11) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Phone number must be exactly 11 digits'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _isSaving = true;

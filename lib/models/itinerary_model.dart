@@ -63,7 +63,13 @@ class ItineraryItemModel {
       endTime: DateTime.parse(data['endTime']),
       location: data['location'],
       address: data['address'],
-      cost: data['cost']?.toDouble(),
+      cost: data['cost'] != null
+          ? ((data['cost'] is double)
+              ? data['cost']
+              : (data['cost'] is int)
+                  ? data['cost'].toDouble()
+                  : double.tryParse(data['cost'].toString()) ?? 0.0)
+          : null,
       notes: data['notes'],
       imageUrl: data['imageUrl'],
       isCompleted: data['isCompleted'] ?? false,

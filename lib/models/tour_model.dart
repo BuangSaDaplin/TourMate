@@ -49,10 +49,21 @@ class TourModel {
 
   factory TourModel.fromMap(Map<String, dynamic> data) {
     return TourModel(
+<<<<<<< HEAD
       id: data['id'] ?? '',
       title: data['title'] ?? '',
       description: data['description'] ?? '',
       price: (data['price'] as num?)?.toDouble() ?? 0.0,
+=======
+      id: data['id'],
+      title: data['title'],
+      description: data['description'],
+      price: (data['price'] is double)
+          ? data['price']
+          : (data['price'] is int)
+              ? data['price'].toDouble()
+              : double.tryParse(data['price']?.toString() ?? '0.0') ?? 0.0,
+>>>>>>> 13b7e6873f281171151280348e3a1efa6fdb55b2
       category: List<String>.from(data['category'] ?? []),
       maxParticipants: data['maxParticipants'] ?? 0,
       currentParticipants: data['currentParticipants'] ?? 0,
@@ -72,14 +83,40 @@ class TourModel {
             }) ??
             [],
       ),
+<<<<<<< HEAD
       status: data['status'] ?? '',
       duration: (data['duration'] as num?)?.toDouble() ?? 0.0,
       languages: List<String>.from(data['languages'] ?? []),
       highlights: List<String>.from(data['highlights'] ?? []),
       rating: (data['rating'] as num?)?.toDouble() ?? 0.0,
+=======
+      status: data['status'],
+      duration: (data['duration'] is double)
+          ? data['duration']
+          : (data['duration'] is int)
+              ? data['duration'].toDouble()
+              : double.tryParse(data['duration']?.toString() ?? '0.0') ?? 0.0,
+      languages: List<String>.from(data['languages'] ?? []),
+      highlights: List<String>.from(data['highlights'] ?? []),
+      rating: (data['rating'] is double)
+          ? data['rating']
+          : (data['rating'] is int)
+              ? data['rating'].toDouble()
+              : double.tryParse(data['rating']?.toString() ?? '0.0') ?? 0.0,
+>>>>>>> 13b7e6873f281171151280348e3a1efa6fdb55b2
       included: List<String>.from(data['included'] ?? []),
       notIncluded: List<String>.from(data['notIncluded'] ?? []),
-      inclusionPrices: Map<String, double>.from(data['inclusionPrices'] ?? {}),
+      inclusionPrices: (data['inclusionPrices'] as Map<String, dynamic>?)?.map(
+            (key, value) => MapEntry(
+              key,
+              (value is double)
+                  ? value
+                  : (value is int)
+                      ? value.toDouble()
+                      : double.tryParse(value?.toString() ?? '0.0') ?? 0.0,
+            ),
+          ) ??
+          {},
     );
   }
 

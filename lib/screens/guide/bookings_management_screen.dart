@@ -713,6 +713,8 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
         // Convert BookingModel to Map for compatibility with existing methods
         final historyBooking = {
           'id': booking.id,
+          'tourId': booking.tourId,
+          'touristId': booking.touristId,
           'touristName': touristName,
           'tourTitle': booking.tourTitle,
           'date': booking.tourStartDate.toString().split(' ')[0], // Format date
@@ -2018,43 +2020,14 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
                           const SizedBox(height: 16),
                           if (tour != null &&
                               tour.inclusionPrices.isNotEmpty) ...[
-                            ...() {
-                              // Calculate total from current inclusion prices
-                              double calculatedTotal =
-                                  tour!.inclusionPrices.entries.fold(
-                                      0.0,
-                                      (sum, entry) =>
-                                          sum +
-                                          entry.value *
-                                              bookingModel
-                                                  .numberOfParticipants);
-
-                              // Only show breakdown if it matches the booking total
-                              if (calculatedTotal == bookingModel.totalPrice) {
-                                return [
-                                  const SizedBox(height: 8),
-                                  ...tour.inclusionPrices.entries.map(
-                                    (entry) => _buildSummaryRow(
-                                      entry.key,
-                                      '₱${(entry.value * bookingModel.numberOfParticipants).toStringAsFixed(2)}',
-                                    ),
-                                  ),
-                                  const Divider(),
-                                ];
-                              } else {
-                                return [
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Price breakdown not available (tour details may have changed)',
-                                    style: AppTheme.bodySmall.copyWith(
-                                      color: AppTheme.textSecondary,
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                                  const Divider(),
-                                ];
-                              }
-                            }(),
+                            const SizedBox(height: 8),
+                            ...tour.inclusionPrices.entries.map(
+                              (entry) => _buildSummaryRow(
+                                entry.key,
+                                '₱${((entry.value is num ? entry.value.toDouble() : double.tryParse(entry.value.toString()) ?? 0.0) * bookingModel.numberOfParticipants).toStringAsFixed(2)}',
+                              ),
+                            ),
+                            const Divider(),
                           ],
                           _buildSummaryRow(
                             'Total Amount',
