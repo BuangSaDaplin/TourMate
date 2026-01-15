@@ -259,7 +259,9 @@ class _BookingScreenState extends State<BookingScreen> {
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Container(
-                width: double.maxFinite,
+                constraints: const BoxConstraints(
+                  maxWidth: 1000,
+                ),
                 height: MediaQuery.of(context).size.height * 0.8,
                 padding: const EdgeInsets.all(16),
                 child: Column(

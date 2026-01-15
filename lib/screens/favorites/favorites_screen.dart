@@ -82,15 +82,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             style: AppTheme.bodyMedium.copyWith(color: AppTheme.textSecondary),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              // Navigate back to home
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            },
-            icon: const Icon(Icons.explore),
-            label: const Text('Explore Tours'),
-          ),
         ],
       ),
     );

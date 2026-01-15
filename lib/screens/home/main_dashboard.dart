@@ -40,6 +40,11 @@ class _MainDashboardState extends State<MainDashboard> {
   List<TourModel> _alternativeTours = [];
   bool _isLoadingAlternativeTours = true;
 
+  // State for search functionality
+  List<TourModel> _searchResults = [];
+  bool _isSearching = false;
+  List<TourModel> _allTours = [];
+
   @override
   void initState() {
     super.initState();
@@ -120,7 +125,9 @@ class _MainDashboardState extends State<MainDashboard> {
       final databaseService = DatabaseService();
       final allApprovedTours = await databaseService.getApprovedTours();
       _recommendedTours = allApprovedTours.take(3).toList();
+      _allTours = allApprovedTours; // Store all tours for search functionality
       print('Recommended tours: ${_recommendedTours.length}');
+      print('All tours loaded for search: ${_allTours.length}');
     } catch (e) {
       print('Error loading tours: $e');
     } finally {
@@ -130,6 +137,41 @@ class _MainDashboardState extends State<MainDashboard> {
         _isLoadingAlternativeTours = false;
       });
     }
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) {
+      setState(() {
+        _isSearching = false;
+        _searchResults = [];
+      });
+    } else {
+      _performSearch(query);
+    }
+  }
+
+  void _performSearch(String query) {
+    final results = _allTours.where((tour) {
+      final titleMatch = tour.title.toLowerCase().contains(query);
+      final descriptionMatch = tour.description.toLowerCase().contains(query);
+      final meetingPointMatch = tour.meetingPoint.toLowerCase().contains(query);
+      final categoryMatch =
+          tour.category.any((cat) => cat.toLowerCase().contains(query));
+      final highlightsMatch = tour.highlights
+          .any((highlight) => highlight.toLowerCase().contains(query));
+
+      return titleMatch ||
+          descriptionMatch ||
+          meetingPointMatch ||
+          categoryMatch ||
+          highlightsMatch;
+    }).toList();
+
+    setState(() {
+      _searchResults = results;
+      _isSearching = true;
+    });
   }
 
   // Cebu-specific categories
@@ -152,6 +194,7 @@ class _MainDashboardState extends State<MainDashboard> {
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -470,30 +513,6 @@ class _MainDashboardState extends State<MainDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Search Bar
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Search Cebu tours, guides, or destinations',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.filter_list),
-                        onPressed: () {
-                          // Handle filters
-                        },
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                  ),
-                ),
-                // Recommended Tours Carousel
                 Padding(
                   padding: const EdgeInsets.only(left: 16, bottom: 8),
                   child: AutoTranslatedText(

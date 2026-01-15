@@ -264,6 +264,16 @@ class DatabaseService {
         .toList();
   }
 
+  Future<List<BookingModel>> getBookingsByTour(String tourId) async {
+    final snapshot = await _db
+        .collection('bookings')
+        .where('tourId', isEqualTo: tourId)
+        .get();
+    return snapshot.docs
+        .map((doc) => BookingModel.fromMap(doc.data()))
+        .toList();
+  }
+
   Future<List<PaymentModel>> getPaymentsByGuide(String guideId) async {
     try {
       // First try with index (if created)

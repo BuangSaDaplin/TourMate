@@ -388,7 +388,7 @@ class _AppPreviewScreenState extends State<AppPreviewScreen>
                     const SizedBox(height: 8),
                     _buildFAQItem(
                       'Can I cancel or reschedule a tour?',
-                      'Cancellation policies depend on the tour and guide.',
+                      'Tours may be cancelled or rescheduled before the tour starts, subject to the tour’s cancellation policy and guide approval.',
                     ),
                     const SizedBox(height: 8),
                     _buildFAQItem(

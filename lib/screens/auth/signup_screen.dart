@@ -164,7 +164,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         break;
     }
 
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => destination),
     );
   }

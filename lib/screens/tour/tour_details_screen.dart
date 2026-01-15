@@ -10,6 +10,8 @@ import 'package:tourmate_app/services/auth_service.dart';
 import 'package:tourmate_app/services/database_service.dart';
 import 'package:tourmate_app/screens/itinerary/itinerary_screen.dart';
 import 'package:tourmate_app/screens/tour/tour_map_screen.dart';
+import 'package:tourmate_app/data/cebu_graph_data.dart';
+import 'package:tourmate_app/data/tour_spot_model.dart';
 import 'package:intl/intl.dart';
 import '../../utils/app_theme.dart';
 
@@ -82,6 +84,49 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
     } catch (e) {
       // Handle error silently for alternative tours
       print('Failed to load alternative tours: $e');
+    }
+  }
+
+  void _viewMapForTour() async {
+    try {
+      // Get the meetingPoint from the tour data
+      final meetingPoint = tourData.meetingPoint;
+      if (meetingPoint.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Meeting location not available on map')),
+        );
+        return;
+      }
+
+      // Find matching tour spot in cebu_graph_data
+      TourSpot? matchingSpot;
+      for (final spot in CebuGraphData.allSpots) {
+        if (spot.name.toLowerCase() == meetingPoint.toLowerCase()) {
+          matchingSpot = spot;
+          break;
+        }
+      }
+
+      if (matchingSpot == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Meeting location not available on map')),
+        );
+        return;
+      }
+
+      // Navigate to the map screen with the matched spot's id
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TourMapScreen(tourId: matchingSpot!.id),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading map: $e')),
+      );
     }
   }
 
@@ -217,15 +262,7 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
                     bottom: 16,
                     right: 16,
                     child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                TourMapScreen(tourId: widget.tourId),
-                          ),
-                        );
-                      },
+                      onPressed: _viewMapForTour,
                       icon: const Icon(Icons.location_on),
                       label: const Text('View Map'),
                       style: ElevatedButton.styleFrom(

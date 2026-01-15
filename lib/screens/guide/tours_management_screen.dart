@@ -17,10 +17,11 @@ class _ToursManagementScreenState extends State<ToursManagementScreen> {
   String _selectedFilter = 'pending';
   List<TourModel> _tours = [];
   bool _isLoading = true;
+  Map<String, Map<String, dynamic>> _tourStats = {};
 
   final Map<String, String> _tabToStatus = {
     'Pending': 'pending',
-    'Approved': 'active',
+    'Approved': 'approved',
     'Rejected': 'rejected',
     'Suspended': 'suspended',
   };
@@ -36,6 +37,7 @@ class _ToursManagementScreenState extends State<ToursManagementScreen> {
     if (user != null) {
       try {
         final tours = await _databaseService.getToursByGuide(user.uid);
+        await _loadTourStats(tours);
         setState(() {
           _tours = tours;
           _isLoading = false;
@@ -47,6 +49,33 @@ class _ToursManagementScreenState extends State<ToursManagementScreen> {
         // Handle error
       }
     }
+  }
+
+  Future<void> _loadTourStats(List<TourModel> tours) async {
+    final stats = <String, Map<String, dynamic>>{};
+    for (final tour in tours) {
+      try {
+        final bookings = await _databaseService.getBookingsByTour(tour.id);
+        final bookingCount = bookings.length;
+        final totalEarnings = bookings.fold<double>(
+          0.0,
+          (sum, booking) => sum + booking.totalPrice,
+        );
+        stats[tour.id] = {
+          'bookingCount': bookingCount,
+          'totalEarnings': totalEarnings,
+        };
+      } catch (e) {
+        // Handle error for individual tour stats
+        stats[tour.id] = {
+          'bookingCount': 0,
+          'totalEarnings': 0.0,
+        };
+      }
+    }
+    setState(() {
+      _tourStats = stats;
+    });
   }
 
   List<TourModel> get _filteredTours {
@@ -210,7 +239,7 @@ class _ToursManagementScreenState extends State<ToursManagementScreen> {
             children: [
               Expanded(
                 child: _buildTourStat(
-                  '${tour.currentParticipants}',
+                  '${_tourStats[tour.id]?['bookingCount'] ?? 0}',
                   'Bookings',
                   Icons.people,
                 ),
@@ -224,7 +253,7 @@ class _ToursManagementScreenState extends State<ToursManagementScreen> {
               ),
               Expanded(
                 child: _buildTourStat(
-                  '₱${tour.price * tour.currentParticipants}',
+                  '₱${(_tourStats[tour.id]?['totalEarnings'] ?? 0.0).toStringAsFixed(2)}',
                   'Earnings',
                   Icons.attach_money,
                 ),
@@ -252,23 +281,6 @@ class _ToursManagementScreenState extends State<ToursManagementScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    _showDeleteDialog(tour);
-                  },
-                  icon: const Icon(Icons.delete, size: 16),
-                  label: const Text('Delete'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    foregroundColor: AppTheme.errorColor,
-                    side: const BorderSide(color: AppTheme.errorColor),
-                  ),
-                ),
-              ),
             ],
           ),
         ],

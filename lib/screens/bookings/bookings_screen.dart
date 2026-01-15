@@ -12,9 +12,12 @@ import '../../models/tour_model.dart';
 import '../notifications/notification_screen.dart';
 import '../messaging/chat_screen.dart';
 import '../tour/tour_details_screen.dart';
+import '../tour/tour_map_screen.dart';
 import '../itinerary/itinerary_screen.dart';
 import '../../services/itinerary_service.dart';
 import '../../models/itinerary_model.dart';
+import '../../data/cebu_graph_data.dart';
+import '../../data/tour_spot_model.dart';
 
 class BookingsScreen extends StatefulWidget {
   final int initialTab;
@@ -34,11 +37,29 @@ class _BookingsScreenState extends State<BookingsScreen>
   final PaymentService _paymentService = PaymentService();
   final ItineraryService _itineraryService = ItineraryService();
 
+  Widget _compactIconButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+    String? tooltip,
+  }) {
+    return IconButton(
+      icon: Icon(icon, size: 16),
+      tooltip: tooltip,
+      padding: EdgeInsets.zero, // ⬅ removes inner padding
+      constraints: const BoxConstraints(), // ⬅ removes min size
+      visualDensity: VisualDensity.compact, // ⬅ tighter touch area
+      onPressed: onPressed,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
-    _tabController =
-        TabController(length: 2, vsync: this, initialIndex: widget.initialTab);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialTab,
+    );
   }
 
   @override
@@ -98,7 +119,10 @@ class _BookingsScreenState extends State<BookingsScreen>
         ],
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [Tab(text: 'Ongoing'), Tab(text: 'History')],
+          tabs: const [
+            Tab(text: 'Ongoing'),
+            Tab(text: 'History'),
+          ],
         ),
       ),
       body: StreamBuilder<List<BookingModel>>(
@@ -117,17 +141,21 @@ class _BookingsScreenState extends State<BookingsScreen>
           final bookings = snapshot.data ?? [];
 
           final upcomingBookings = bookings
-              .where((booking) =>
-                  booking.status != BookingStatus.completed &&
-                  booking.status != BookingStatus.cancelled &&
-                  booking.status != BookingStatus.rejected)
+              .where(
+                (booking) =>
+                    booking.status != BookingStatus.completed &&
+                    booking.status != BookingStatus.cancelled &&
+                    booking.status != BookingStatus.rejected,
+              )
               .toList();
 
           final pastBookings = bookings
-              .where((booking) =>
-                  booking.status == BookingStatus.completed ||
-                  booking.status == BookingStatus.cancelled ||
-                  booking.status == BookingStatus.rejected)
+              .where(
+                (booking) =>
+                    booking.status == BookingStatus.completed ||
+                    booking.status == BookingStatus.cancelled ||
+                    booking.status == BookingStatus.rejected,
+              )
               .toList();
 
           return TabBarView(
@@ -215,10 +243,7 @@ class _BookingsScreenState extends State<BookingsScreen>
     );
   }
 
-  Widget _buildBookingCard(
-    BookingModel booking, {
-    required bool isUpcoming,
-  }) {
+  Widget _buildBookingCard(BookingModel booking, {required bool isUpcoming}) {
     final statusColor = booking.status == BookingStatus.confirmed
         ? AppTheme.successColor
         : booking.status == BookingStatus.pending
@@ -246,12 +271,12 @@ class _BookingsScreenState extends State<BookingsScreen>
                   children: [
                     Icon(
                       Icons.confirmation_number,
-                      size: 20,
+                      size: 18,
                       color: statusColor,
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Booking #${booking.id}',
+                      'Booking ${_formatBookingId(booking.id)}',
                       style: AppTheme.bodyMedium.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -259,33 +284,30 @@ class _BookingsScreenState extends State<BookingsScreen>
                   ],
                 ),
                 Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
+                  spacing: 0,
+                  runSpacing: 2,
                   alignment: WrapAlignment.end,
                   children: [
-                    IconButton(
-                      onPressed: () => _showItineraryDialog(booking),
-                      icon: const Icon(Icons.schedule, size: 20),
+                    _compactIconButton(
+                      icon: Icons.schedule,
                       tooltip: 'View Itinerary',
+                      onPressed: () => _showItineraryDialog(booking),
                     ),
-                    IconButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Feature coming soon!')),
-                        );
-                      },
-                      icon: const Icon(Icons.location_on, size: 20),
-                      tooltip: 'View Map',
-                    ),
-                    IconButton(
-                      onPressed: () => _openChatWithGuide(booking),
-                      icon: const Icon(Icons.message, size: 20),
+                    if (isUpcoming)
+                      _compactIconButton(
+                        icon: Icons.location_on,
+                        tooltip: 'View Map',
+                        onPressed: () => _viewMapForBooking(booking),
+                      ),
+                    _compactIconButton(
+                      icon: Icons.message,
                       tooltip: 'Message',
+                      onPressed: () => _openChatWithGuide(booking),
                     ),
-                    IconButton(
-                      onPressed: () => _showBookingDetailsDialog(booking),
-                      icon: const Icon(Icons.visibility, size: 20),
+                    _compactIconButton(
+                      icon: Icons.visibility,
                       tooltip: 'View Details',
+                      onPressed: () => _showBookingDetailsDialog(booking),
                     ),
                   ],
                 ),
@@ -313,7 +335,9 @@ class _BookingsScreenState extends State<BookingsScreen>
                     ),
                     const SizedBox(width: 24),
                     _buildInfoItem(
-                        Icons.access_time, '${booking.duration ?? 0} Hours'),
+                      Icons.access_time,
+                      '${booking.duration ?? 0} Hours',
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -324,12 +348,16 @@ class _BookingsScreenState extends State<BookingsScreen>
                       builder: (context, snapshot) {
                         final guideName = snapshot.data ?? 'Loading...';
                         return _buildInfoItem(
-                            Icons.person, 'Guide: $guideName');
+                          Icons.person,
+                          'Guide: $guideName',
+                        );
                       },
                     ),
                     const SizedBox(width: 24),
                     _buildInfoItem(
-                        Icons.people, '${booking.numberOfParticipants} People'),
+                      Icons.people,
+                      '${booking.numberOfParticipants} People',
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -459,7 +487,8 @@ class _BookingsScreenState extends State<BookingsScreen>
                                 Text(
                                   '${booking.rating!.toStringAsFixed(1)}',
                                   style: const TextStyle(
-                                      fontWeight: FontWeight.w500),
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ] else ...[
                                 const Text(
@@ -726,8 +755,9 @@ class _BookingsScreenState extends State<BookingsScreen>
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content:
-                              Text('Booking completed and review submitted'),
+                          content: Text(
+                            'Booking completed and review submitted',
+                          ),
                           backgroundColor: Colors.green,
                         ),
                       );
@@ -765,7 +795,9 @@ class _BookingsScreenState extends State<BookingsScreen>
         final tour = await _db.getTour(booking.tourId);
         if (tour != null) {
           itinerary = await _itineraryService.generateItineraryFromBooking(
-              booking, tour);
+            booking,
+            tour,
+          );
         }
       }
 
@@ -784,9 +816,9 @@ class _BookingsScreenState extends State<BookingsScreen>
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load itinerary: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load itinerary: $e')));
     }
   }
 
@@ -825,9 +857,8 @@ class _BookingsScreenState extends State<BookingsScreen>
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => TourDetailsScreen(
-                            tourId: booking.tourId,
-                          ),
+                          builder: (context) =>
+                              TourDetailsScreen(tourId: booking.tourId),
                         ),
                       );
                     },
@@ -939,14 +970,17 @@ class _BookingsScreenState extends State<BookingsScreen>
                   Card(
                     elevation: 4,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Booking Summary',
-                              style: AppTheme.headlineSmall),
+                          Text(
+                            'Booking Summary',
+                            style: AppTheme.headlineSmall,
+                          ),
                           const SizedBox(height: 16),
                           if (tour != null &&
                               tour.inclusionPrices.isNotEmpty) ...[
@@ -991,17 +1025,10 @@ class _BookingsScreenState extends State<BookingsScreen>
           width: 140,
           child: Text(
             '$label:',
-            style: AppTheme.bodyMedium.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
           ),
         ),
-        Expanded(
-          child: Text(
-            value,
-            style: AppTheme.bodyMedium,
-          ),
-        ),
+        Expanded(child: Text(value, style: AppTheme.bodyMedium)),
       ],
     );
   }
@@ -1052,9 +1079,9 @@ class _BookingsScreenState extends State<BookingsScreen>
       // Get guide user data
       final guideUser = await _db.getUser(booking.guideId!);
       if (guideUser == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Guide not found')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Guide not found')));
         return;
       }
 
@@ -1074,21 +1101,73 @@ class _BookingsScreenState extends State<BookingsScreen>
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ChatScreen(
-              chatRoom: chatRoom,
-              currentUserId: currentUser.uid,
-            ),
+            builder: (context) =>
+                ChatScreen(chatRoom: chatRoom, currentUserId: currentUser.uid),
           ),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to open chat')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to open chat')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error opening chat: $e')),
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error opening chat: $e')));
+    }
+  }
+
+  void _viewMapForBooking(BookingModel booking) async {
+    try {
+      // Fetch the tour document using tourId
+      final tour = await _db.getTour(booking.tourId);
+      if (tour == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tour information not found')),
+        );
+        return;
+      }
+
+      // Get the meetingPoint from the tour
+      final meetingPoint = tour.meetingPoint;
+      if (meetingPoint.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Meeting location not available on map'),
+          ),
+        );
+        return;
+      }
+
+      // Find matching tour spot in cebu_graph_data
+      TourSpot? matchingSpot;
+      for (final spot in CebuGraphData.allSpots) {
+        if (spot.name.toLowerCase() == meetingPoint.toLowerCase()) {
+          matchingSpot = spot;
+          break;
+        }
+      }
+
+      if (matchingSpot == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Meeting location not available on map'),
+          ),
+        );
+        return;
+      }
+
+      // Navigate to the map screen with the matched spot's id
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TourMapScreen(tourId: matchingSpot!.id),
+        ),
       );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error loading map: $e')));
     }
   }
 
@@ -1107,6 +1186,13 @@ class _BookingsScreenState extends State<BookingsScreen>
       default:
         return PaymentMethod.cash;
     }
+  }
+
+  String _formatBookingId(String id) {
+    if (id.length <= 5) {
+      return id;
+    }
+    return '${id.substring(0, 5)}...';
   }
 
   void _shareItinerary(BookingModel booking, String itineraryText) async {
@@ -1129,9 +1215,9 @@ class _BookingsScreenState extends State<BookingsScreen>
       // Get or create chat room with guide
       final guideUser = await _db.getUser(booking.guideId!);
       if (guideUser == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Guide not found')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Guide not found')));
         return;
       }
 
@@ -1175,9 +1261,9 @@ class _BookingsScreenState extends State<BookingsScreen>
         const SnackBar(content: Text('Itinerary shared successfully')),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to share itinerary: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to share itinerary: $e')));
     }
   }
 
@@ -1453,8 +1539,9 @@ class _BookingsScreenState extends State<BookingsScreen>
                         userId: currentUser.uid,
                         guideId: booking.guideId ?? '',
                         amount: booking.totalPrice,
-                        paymentMethod:
-                            _mapStringToPaymentMethod(selectedPaymentMethod),
+                        paymentMethod: _mapStringToPaymentMethod(
+                          selectedPaymentMethod,
+                        ),
                         paymentDetails: paymentDetails,
                       );
 
@@ -1463,7 +1550,8 @@ class _BookingsScreenState extends State<BookingsScreen>
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                                'Payment processed successfully via $selectedPaymentMethod'),
+                              'Payment processed successfully via $selectedPaymentMethod',
+                            ),
                             backgroundColor: Colors.green,
                           ),
                         );

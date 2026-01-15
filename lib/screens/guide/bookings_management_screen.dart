@@ -13,6 +13,9 @@ import '../../services/itinerary_service.dart';
 import '../../models/itinerary_model.dart';
 import '../../models/tour_model.dart';
 import '../tour/tour_details_screen.dart';
+import '../tour/tour_map_screen.dart';
+import '../../data/cebu_graph_data.dart';
+import '../../data/tour_spot_model.dart';
 
 class BookingsManagementScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -429,13 +432,7 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
                 color: AppTheme.primaryColor,
               ),
               IconButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Feature coming soon!'),
-                    ),
-                  );
-                },
+                onPressed: () => _viewMapForBooking(request),
                 icon: const Icon(Icons.location_on, size: 20),
                 tooltip: 'View Map',
                 color: AppTheme.primaryColor,
@@ -782,13 +779,7 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
                 color: AppTheme.primaryColor,
               ),
               IconButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Feature coming soon!'),
-                    ),
-                  );
-                },
+                onPressed: () => _viewMapForBooking(booking),
                 icon: const Icon(Icons.location_on, size: 20),
                 tooltip: 'View Map',
                 color: AppTheme.primaryColor,
@@ -2060,6 +2051,48 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
         backgroundColor: AppTheme.successColor,
       ),
     );
+  }
+
+  void _viewMapForBooking(Map<String, dynamic> booking) async {
+    try {
+      // Fetch the tour document using tourId
+      final tour = await _db.getTour(booking['tourId']);
+      if (tour == null) {
+        _showSnackBar('Tour information not found');
+        return;
+      }
+
+      // Get the meetingPoint from the tour
+      final meetingPoint = tour.meetingPoint;
+      if (meetingPoint.isEmpty) {
+        _showSnackBar('Meeting location not available on map');
+        return;
+      }
+
+      // Find matching tour spot in cebu_graph_data
+      TourSpot? matchingSpot;
+      for (final spot in CebuGraphData.allSpots) {
+        if (spot.name.toLowerCase() == meetingPoint.toLowerCase()) {
+          matchingSpot = spot;
+          break;
+        }
+      }
+
+      if (matchingSpot == null) {
+        _showSnackBar('Meeting location not available on map');
+        return;
+      }
+
+      // Navigate to the map screen with the matched spot's id
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TourMapScreen(tourId: matchingSpot!.id),
+        ),
+      );
+    } catch (e) {
+      _showSnackBar('Error loading map: $e');
+    }
   }
 
   String _getReviewDisplayText(Map<String, dynamic> booking) {

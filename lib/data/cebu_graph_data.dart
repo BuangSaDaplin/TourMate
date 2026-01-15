@@ -38,7 +38,7 @@ class CebuGraphData {
       name: 'Basilica del Santo Niño',
       description:
           'Oldest Roman Catholic church in the Philippines, home to the revered image of the Santo Niño de Cebu.',
-      coordinate: GeoCoordinate(latitude: 10.2931, longitude: 123.8858),
+      coordinate: GeoCoordinate(latitude: 10.293889, longitude: 123.901389),
       category: TourSpotCategory.religious,
       imageUrl: 'assets/images/basilica.jpg',
       estimatedDurationMinutes: 90,
@@ -51,7 +51,7 @@ class CebuGraphData {
       name: "Magellan's Cross",
       description:
           'A Christian cross planted by Ferdinand Magellan upon arriving in Cebu in 1521.',
-      coordinate: GeoCoordinate(latitude: 10.2970, longitude: 123.8859),
+      coordinate: GeoCoordinate(latitude: 10.2938, longitude: 123.9015),
       category: TourSpotCategory.historical,
       imageUrl: 'assets/images/magellans_cross.jpg',
       estimatedDurationMinutes: 90,
@@ -64,7 +64,7 @@ class CebuGraphData {
       name: 'Fort San Pedro',
       description:
           'Triangular bastion fort built by Spanish explorers in 1565, now a museum showcasing Cebu\'s colonial history.',
-      coordinate: GeoCoordinate(latitude: 10.2945, longitude: 123.8872),
+      coordinate: GeoCoordinate(latitude: 10.292506, longitude: 123.905824),
       category: TourSpotCategory.historical,
       imageUrl: 'assets/images/fort_san_pedro.jpg',
       estimatedDurationMinutes: 90,
@@ -77,7 +77,7 @@ class CebuGraphData {
       name: 'Colon Street',
       description:
           'The oldest street in the Philippines, lined with historical buildings, markets, and local shops.',
-      coordinate: GeoCoordinate(latitude: 10.2929, longitude: 123.8845),
+      coordinate: GeoCoordinate(latitude: 10.2965, longitude: 123.9019),
       category: TourSpotCategory.historical,
       imageUrl: 'assets/images/colon_street.jpg',
       estimatedDurationMinutes: 90,
@@ -90,7 +90,7 @@ class CebuGraphData {
       name: 'Cebu Metropolitan Cathedral',
       description:
           'The seat of the Archdiocese of Cebu, featuring beautiful Gothic architecture.',
-      coordinate: GeoCoordinate(latitude: 10.2949, longitude: 123.8858),
+      coordinate: GeoCoordinate(latitude: 10.2951, longitude: 123.9031),
       category: TourSpotCategory.religious,
       imageUrl: 'assets/images/cathedral.jpg',
       estimatedDurationMinutes: 90,
@@ -103,7 +103,7 @@ class CebuGraphData {
       name: 'Heritage of Cebu Monument',
       description:
           'A tableau of sculptures depicting significant events in Cebuano history and culture.',
-      coordinate: GeoCoordinate(latitude: 10.2928, longitude: 123.8852),
+      coordinate: GeoCoordinate(latitude: 10.2950, longitude: 123.9045),
       category: TourSpotCategory.historical,
       imageUrl: 'assets/images/heritage_monument.jpg',
       estimatedDurationMinutes: 90,
@@ -118,7 +118,7 @@ class CebuGraphData {
       name: 'Cebu Taoist Temple',
       description:
           'A Taoist temple built in 1972, featuring elaborate architecture and serene gardens.',
-      coordinate: GeoCoordinate(latitude: 10.3366, longitude: 123.9108),
+      coordinate: GeoCoordinate(latitude: 10.3071, longitude: 123.9333),
       category: TourSpotCategory.religious,
       imageUrl: 'assets/images/taoist_temple.jpg',
       estimatedDurationMinutes: 90,
@@ -131,7 +131,7 @@ class CebuGraphData {
       name: 'Sirao Flower Garden',
       description:
           'A scenic flower farm known as the "Little Amsterdam of Cebu" with vibrant celosia flowers.',
-      coordinate: GeoCoordinate(latitude: 10.3439, longitude: 123.9165),
+      coordinate: GeoCoordinate(latitude: 10.406766, longitude: 123.866667),
       category: TourSpotCategory.natural,
       imageUrl: 'assets/images/sirao_garden.jpg',
       estimatedDurationMinutes: 90,
@@ -144,7 +144,7 @@ class CebuGraphData {
       name: 'Temple of Leah',
       description:
           'A Roman-style temple built as a tribute to love, featuring grand architecture and panoramic views.',
-      coordinate: GeoCoordinate(latitude: 10.3401, longitude: 123.9145),
+      coordinate: GeoCoordinate(latitude: 10.3039, longitude: 123.9019),
       category: TourSpotCategory.religious,
       imageUrl: 'assets/images/temple_of_leah.jpg',
       estimatedDurationMinutes: 90,
@@ -157,7 +157,7 @@ class CebuGraphData {
       name: 'Tops Lookout',
       description:
           'A hilltop viewpoint offering breathtaking 360-degree views of Cebu City and the surrounding mountains.',
-      coordinate: GeoCoordinate(latitude: 10.3445, longitude: 123.9189),
+      coordinate: GeoCoordinate(latitude: 10.3002, longitude: 123.9057),
       category: TourSpotCategory.viewpoint,
       imageUrl: 'assets/images/tops_lookout.jpg',
       estimatedDurationMinutes: 90,
