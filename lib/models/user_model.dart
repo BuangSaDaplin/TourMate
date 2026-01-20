@@ -27,6 +27,8 @@ class UserModel {
   final bool?
       isLGUVerified; // Admin: Guide verification status (for tour guides only)
   final List<String>? category; // NEW: User category
+  final List<String>? certifications; // NEW: List of certifications
+  final List<String>? lguDocuments; // NEW: List of LGU documents
 
   // 1. Constructor
   UserModel({
@@ -47,6 +49,8 @@ class UserModel {
     this.isActive,
     this.isLGUVerified,
     this.category, // NEW: User category
+    this.certifications, // NEW: List of certifications
+    this.lguDocuments, // NEW: List of LGU documents
     String? experience,
     List<String>? certificationsURL,
     List<String>? lguDocumentsURL,

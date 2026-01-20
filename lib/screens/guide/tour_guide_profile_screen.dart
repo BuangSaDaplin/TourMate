@@ -226,24 +226,33 @@ class _TourGuideProfileScreenState extends State<TourGuideProfileScreen> {
                 children: [
                   Text('Certifications', style: AppTheme.headlineSmall),
                   const SizedBox(height: 16),
-                  Column(
-                    children: (_guideData['certifications'] as List<String>)
-                        .map((cert) => Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.verified,
-                                    color: AppTheme.successColor,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(cert, style: AppTheme.bodyMedium),
-                                ],
-                              ),
-                            ))
-                        .toList(),
-                  ),
+                  if (_userProfile?.certifications != null &&
+                      _userProfile!.certifications!.isNotEmpty)
+                    Column(
+                      children: _userProfile!.certifications!
+                          .map((cert) => Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.verified,
+                                      color: AppTheme.successColor,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(cert, style: AppTheme.bodyMedium),
+                                  ],
+                                ),
+                              ))
+                          .toList(),
+                    )
+                  else
+                    Text(
+                      'No certifications available',
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -259,24 +268,33 @@ class _TourGuideProfileScreenState extends State<TourGuideProfileScreen> {
                 children: [
                   Text('LGU Documents', style: AppTheme.headlineSmall),
                   const SizedBox(height: 16),
-                  Column(
-                    children: (_guideData['lguDocuments'] as List<String>)
-                        .map((doc) => Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.description,
-                                    color: AppTheme.accentColor,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(doc, style: AppTheme.bodyMedium),
-                                ],
-                              ),
-                            ))
-                        .toList(),
-                  ),
+                  if (_userProfile?.lguDocuments != null &&
+                      _userProfile!.lguDocuments!.isNotEmpty)
+                    Column(
+                      children: _userProfile!.lguDocuments!
+                          .map((doc) => Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.description,
+                                      color: AppTheme.accentColor,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(doc, style: AppTheme.bodyMedium),
+                                  ],
+                                ),
+                              ))
+                          .toList(),
+                    )
+                  else
+                    Text(
+                      'No LGU documents available',
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                 ],
               ),
             ),
