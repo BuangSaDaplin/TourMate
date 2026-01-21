@@ -34,6 +34,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   List<String> _selectedCategories = [];
   List<String> _selectedSpecializations = [];
   bool _agreeToTerms = false;
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
 
   final List<String> _categoryOptions = [
     'Adventure',
@@ -275,8 +277,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(11),
                         ],
-                        decoration: const InputDecoration(
-                          labelText: 'Phone Number',
+                        decoration: InputDecoration(
+                          labelText: 'Phone Number *',
                           prefixIcon: Icon(Icons.phone_outlined),
                         ),
                         validator: (value) {
@@ -362,10 +364,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _passwordController,
-                        obscureText: true,
-                        decoration: const InputDecoration(
+                        obscureText: !_isPasswordVisible,
+                        decoration: InputDecoration(
                           labelText: 'Password',
                           prefixIcon: Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _isPasswordVisible
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _isPasswordVisible = !_isPasswordVisible;
+                              });
+                            },
+                          ),
                         ),
                         validator: (value) {
                           if (value == null || value.length < 6) {
@@ -377,10 +391,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _confirmPasswordController,
-                        obscureText: true,
-                        decoration: const InputDecoration(
+                        obscureText: !_isConfirmPasswordVisible,
+                        decoration: InputDecoration(
                           labelText: 'Confirm Password',
                           prefixIcon: Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _isConfirmPasswordVisible
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _isConfirmPasswordVisible =
+                                    !_isConfirmPasswordVisible;
+                              });
+                            },
+                          ),
                         ),
                         validator: (value) {
                           if (value != _passwordController.text) {

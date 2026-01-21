@@ -59,7 +59,9 @@ class _BookingScreenState extends State<BookingScreen> {
   void initState() {
     super.initState();
     selectedTour = widget.tour;
-    _selectedDate = widget.initialDate ?? selectedTour?.startTime;
+    _selectedDate = widget.initialDate ??
+        selectedTour?.startTime ??
+        DateTime.now().add(const Duration(days: 1));
     _filteredTours = [];
     // Initialize participant name controllers
     for (int i = 0; i < _numberOfParticipants; i++) {
@@ -897,7 +899,7 @@ class _BookingScreenState extends State<BookingScreen> {
             LengthLimitingTextInputFormatter(11),
           ],
           decoration: InputDecoration(
-            labelText: 'Contact Number',
+            labelText: 'Contact Number *',
             hintText: '+63 912 345 6789',
             prefixIcon: const Icon(Icons.phone),
             border: OutlineInputBorder(
@@ -928,8 +930,9 @@ class _BookingScreenState extends State<BookingScreen> {
           onTap: () async {
             final DateTime? picked = await showDatePicker(
               context: context,
-              initialDate: _selectedDate ?? DateTime.now(),
-              firstDate: DateTime.now(),
+              initialDate:
+                  _selectedDate ?? DateTime.now().add(const Duration(days: 1)),
+              firstDate: DateTime.now().add(const Duration(days: 1)),
               lastDate: DateTime.now().add(const Duration(days: 365)),
             );
             if (picked != null && picked != _selectedDate) {

@@ -479,9 +479,10 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
           if (request['status'] == 'pending')
             _buildPendingBookingButtons(request)
           else if (request['status'] == 'confirmed' ||
-              request['status'] == 'paid' ||
-              request['status'] == 'inProgress')
+              request['status'] == 'paid')
             _buildActiveBookingButtons(request)
+          else if (request['status'] == 'inProgress')
+            _buildInProgressBookingButtons(request)
           else
             _buildAcceptedBookingButtons(request),
         ],
@@ -551,42 +552,48 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: OutlinedButton.icon(
+              child: ElevatedButton.icon(
                 onPressed: () {
-                  _showEditDateDialog(request);
+                  _openChatWithTourist(request);
                 },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.primaryColor,
-                  side: const BorderSide(color: AppTheme.primaryColor),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                icon: const Icon(Icons.edit_calendar, size: 16),
-                label: const Text('Edit Schedule'),
+                icon: const Icon(Icons.message, size: 16),
+                label: const Text('Message'),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildInProgressBookingButtons(Map<String, dynamic> request) {
+    return Column(
+      children: [
         Row(
           children: [
             Expanded(
-              child: OutlinedButton.icon(
+              child: ElevatedButton.icon(
                 onPressed: () {
-                  _showEditItineraryDialog(request);
+                  _receivePayment(request);
                 },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.accentColor,
-                  side: const BorderSide(color: AppTheme.accentColor),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.successColor,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                icon: const Icon(Icons.edit_note, size: 16),
-                label: const Text('Edit Itinerary'),
+                icon: const Icon(Icons.payment, size: 16),
+                label: const Text('Receive Payment'),
               ),
             ),
             const SizedBox(width: 8),
@@ -963,7 +970,7 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
       case 'paid':
         return 'Paid - Ready to Go';
       case 'inProgress':
-        return 'Tour in Progress';
+        return 'Payment in Progress';
       case 'completed':
         return 'Completed';
       case 'cancelled':
@@ -1519,6 +1526,61 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
                 foregroundColor: Colors.white,
               ),
               child: const Text('Mark Complete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _receivePayment(Map<String, dynamic> request) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Receive Payment'),
+          content: Text(
+            'Confirm that you have received the cash payment?\n\n'
+            'Tourist: ${request['touristName']}\n'
+            'Tour: ${request['tourTitle']}\n'
+            'Amount: ₱${request['totalAmount']}',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  // Update booking status to paid and paymentStatus to paid
+                  await _db.updateBookingWithPayment(
+                    request['id'],
+                    status: BookingStatus.paid,
+                    paymentStatus: BookingPaymentStatus.paid,
+                    paidAt: DateTime.now(),
+                  );
+
+                  // Send notification to tourist about payment confirmation
+                  final touristNotification =
+                      _notificationService.createPaymentRecordedNotification(
+                    userId: request['touristId'],
+                    tourTitle: request['tourTitle'],
+                  );
+                  await _notificationService
+                      .createNotification(touristNotification);
+
+                  Navigator.pop(context);
+                  _showSnackBar('Payment received successfully!');
+                } catch (e) {
+                  _showSnackBar('Failed to record payment: ${e.toString()}');
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.successColor,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Confirm Payment'),
             ),
           ],
         );

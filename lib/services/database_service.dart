@@ -565,6 +565,31 @@ class DatabaseService {
     await _db.collection('bookings').doc(bookingId).update(updateData);
   }
 
+  Future<void> updateBookingWithPayment(
+    String bookingId, {
+    BookingStatus? status,
+    BookingPaymentMethod? paymentMethod,
+    BookingPaymentStatus? paymentStatus,
+    DateTime? paidAt,
+  }) async {
+    final updateData = <String, dynamic>{};
+
+    if (status != null) {
+      updateData['status'] = status.index;
+    }
+    if (paymentMethod != null) {
+      updateData['paymentMethod'] = paymentMethod.index;
+    }
+    if (paymentStatus != null) {
+      updateData['paymentStatus'] = paymentStatus.index;
+    }
+    if (paidAt != null) {
+      updateData['paidAt'] = paidAt;
+    }
+
+    await _db.collection('bookings').doc(bookingId).update(updateData);
+  }
+
   // Itinerary operations
   Future<void> createItinerary(ItineraryModel itinerary) async {
     await _db

@@ -1,14 +1,9 @@
-# TODO: Implement Conversation List Behavior and Chat Blocking Feature
+# TODO for Signup Screen Enhancements
 
-## Tasks
-- [x] Modify DatabaseService.getUserChatRooms() to display all conversations regardless of status
-- [x] Add blockedBy field to ChatRoomModel to track who initiated the block
-- [x] Implement block functionality in chat_screen.dart
-- [x] Update chat_screen UI to handle blocked state (disable input, show notices)
-- [x] Test the implementation
+- [x] Add password visibility toggle to password field
+- [x] Add password visibility toggle to confirm password field
+- [x] Add asterisk (*) to phone number label to indicate mandatory field
 
-## Details
-- Remove status filter in getUserChatRooms() to show active, archived, and blocked conversations
-- Add blockedBy field to ChatRoomModel and update serialization methods
-- In chat_screen, implement _blockConversation() to set status to blocked and blockedBy to current user
-- Add UI logic: when blocked, disable message input and show appropriate notice based on blocker and blocked user's roles
+# TODO for Bookings Screen Enhancements
+
+- [x] Add asterisk (*) to phone number label in payment dialog for GCash/PayMaya

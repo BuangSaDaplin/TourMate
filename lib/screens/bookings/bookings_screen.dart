@@ -361,6 +361,26 @@ class _BookingsScreenState extends State<BookingsScreen>
                   ],
                 ),
                 const SizedBox(height: 16),
+                // Show pending payment confirmation for inProgress status
+                if (booking.status == BookingStatus.inProgress) ...[
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                    ),
+                    child: const Text(
+                      'Pending payment confirmation',
+                      style: TextStyle(
+                        color: Colors.orange,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -375,89 +395,89 @@ class _BookingsScreenState extends State<BookingsScreen>
                     ),
                     if (isUpcoming) ...[
                       Flexible(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              // Pending status: Only Cancel button
-                              if (booking.status == BookingStatus.pending) ...[
-                                TextButton(
-                                  onPressed: () {
-                                    _showCancelDialog(booking);
-                                  },
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: AppTheme.errorColor,
-                                  ),
-                                  child: const Text('Cancel'),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          alignment: WrapAlignment.end,
+                          children: [
+                            // Pending status: Only Cancel button
+                            if (booking.status == BookingStatus.pending) ...[
+                              TextButton(
+                                onPressed: () {
+                                  _showCancelDialog(booking);
+                                },
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppTheme.errorColor,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
                                 ),
-                              ],
-                              // Confirmed status (waiting for payment): Pay Now + Cancel
-                              if (booking.status ==
-                                  BookingStatus.confirmed) ...[
-                                TextButton(
-                                  onPressed: () {
-                                    _showPaymentDialog(booking);
-                                  },
-                                  child: const Text('Pay Now'),
-                                ),
-                                const SizedBox(width: 8),
-                                TextButton(
-                                  onPressed: () {
-                                    _showCancelReasonDialog(booking);
-                                  },
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: AppTheme.errorColor,
-                                  ),
-                                  child: const Text('Cancel'),
-                                ),
-                              ],
-                              // Paid status (ready to go): Complete + Cancel
-                              if (booking.status == BookingStatus.paid) ...[
-                                ElevatedButton(
-                                  onPressed: () {
-                                    _showCompleteDialog(booking);
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    minimumSize: const Size(80, 36),
-                                  ),
-                                  child: const Text('Complete'),
-                                ),
-                                const SizedBox(width: 8),
-                                TextButton(
-                                  onPressed: () {
-                                    _showCancelReasonDialog(booking);
-                                  },
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: AppTheme.errorColor,
-                                  ),
-                                  child: const Text('Cancel'),
-                                ),
-                              ],
-                              // In Progress status: Complete + Cancel
-                              if (booking.status ==
-                                  BookingStatus.inProgress) ...[
-                                ElevatedButton(
-                                  onPressed: () {
-                                    _showCompleteDialog(booking);
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    minimumSize: const Size(80, 36),
-                                  ),
-                                  child: const Text('Complete'),
-                                ),
-                                const SizedBox(width: 8),
-                                TextButton(
-                                  onPressed: () {
-                                    _showCancelReasonDialog(booking);
-                                  },
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: AppTheme.errorColor,
-                                  ),
-                                  child: const Text('Cancel'),
-                                ),
-                              ],
+                                child: const Text('Cancel'),
+                              ),
                             ],
-                          ),
+                            // Confirmed status (waiting for payment): Pay Now + Cancel
+                            if (booking.status == BookingStatus.confirmed) ...[
+                              TextButton(
+                                onPressed: () {
+                                  _showPaymentDialog(booking);
+                                },
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                ),
+                                child: const Text('Pay Now'),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  _showCancelReasonDialog(booking);
+                                },
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppTheme.errorColor,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                ),
+                                child: const Text('Cancel'),
+                              ),
+                            ],
+                            // Paid status (ready to go): Complete + Cancel
+                            if (booking.status == BookingStatus.paid) ...[
+                              ElevatedButton(
+                                onPressed: () {
+                                  _showCompleteDialog(booking);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  minimumSize: const Size(80, 36),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                ),
+                                child: const Text('Complete'),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  _showCancelReasonDialog(booking);
+                                },
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppTheme.errorColor,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                ),
+                                child: const Text('Cancel'),
+                              ),
+                            ],
+                            // In Progress status: Only Cancel (waiting for payment confirmation)
+                            if (booking.status == BookingStatus.inProgress) ...[
+                              TextButton(
+                                onPressed: () {
+                                  _showCancelReasonDialog(booking);
+                                },
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppTheme.errorColor,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                ),
+                                child: const Text('Cancel'),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ] else ...[
@@ -700,7 +720,7 @@ class _BookingsScreenState extends State<BookingsScreen>
                         icon: Icon(
                           index < _rating ? Icons.star : Icons.star_border,
                           color: Colors.amber,
-                          size: 30,
+                          size: 25,
                         ),
                       ),
                     ),
@@ -1379,7 +1399,7 @@ class _BookingsScreenState extends State<BookingsScreen>
                           decoration: InputDecoration(
                             border: const OutlineInputBorder(),
                             hintText: '09XX XXX XXXX',
-                            labelText: '${selectedPaymentMethod} Number',
+                            labelText: '${selectedPaymentMethod} Number *',
                             prefixIcon: const Icon(Icons.phone_android),
                           ),
                           keyboardType: TextInputType.phone,
@@ -1491,34 +1511,53 @@ class _BookingsScreenState extends State<BookingsScreen>
                     }
 
                     try {
-                      final payment = await _paymentService.processPayment(
-                        bookingId: booking.id,
-                        userId: currentUser.uid,
-                        guideId: booking.guideId ?? '',
-                        amount: booking.totalPrice,
-                        paymentMethod: _mapStringToPaymentMethod(
-                          selectedPaymentMethod,
-                        ),
-                        paymentDetails: paymentDetails,
-                      );
+                      if (selectedPaymentMethod == 'Cash') {
+                        // For cash payments, update booking status to inProgress
+                        await _db.updateBookingWithPayment(
+                          booking.id,
+                          paymentMethod: BookingPaymentMethod.cash,
+                          paymentStatus: BookingPaymentStatus.pending,
+                          status: BookingStatus.inProgress,
+                        );
 
-                      if (payment != null) {
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
+                          const SnackBar(
                             content: Text(
-                              'Payment processed successfully via $selectedPaymentMethod',
-                            ),
+                                'Cash payment selected. Booking is now in progress.'),
                             backgroundColor: Colors.green,
                           ),
                         );
                       } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Payment processing failed'),
-                            backgroundColor: Colors.red,
+                        final payment = await _paymentService.processPayment(
+                          bookingId: booking.id,
+                          userId: currentUser.uid,
+                          guideId: booking.guideId ?? '',
+                          amount: booking.totalPrice,
+                          paymentMethod: _mapStringToPaymentMethod(
+                            selectedPaymentMethod,
                           ),
+                          paymentDetails: paymentDetails,
                         );
+
+                        if (payment != null) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Payment processed successfully via $selectedPaymentMethod',
+                              ),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Payment processing failed'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
                       }
                     } catch (e) {
                       ScaffoldMessenger.of(context).showSnackBar(

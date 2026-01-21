@@ -11,6 +11,16 @@ enum BookingStatus {
   refunded, // Payment refunded
 }
 
+enum BookingPaymentMethod {
+  eWallet, // 0
+  cash, // 1
+}
+
+enum BookingPaymentStatus {
+  pending, // 0
+  paid, // 1
+}
+
 enum ReviewSubmissionStatus {
   pending, // 0 = submitted
   approved, // 1
@@ -29,6 +39,8 @@ class BookingModel {
   final int numberOfParticipants;
   final double totalPrice;
   final BookingStatus status;
+  final BookingPaymentMethod? paymentMethod;
+  final BookingPaymentStatus? paymentStatus;
   final String? specialRequests;
   final String? cancellationReason;
   final DateTime? cancelledAt;
@@ -63,6 +75,8 @@ class BookingModel {
     required this.numberOfParticipants,
     required this.totalPrice,
     this.status = BookingStatus.pending,
+    this.paymentMethod,
+    this.paymentStatus,
     this.specialRequests,
     this.cancellationReason,
     this.cancelledAt,
@@ -97,6 +111,12 @@ class BookingModel {
       numberOfParticipants: data['numberOfParticipants'],
       totalPrice: data['totalPrice'].toDouble(),
       status: BookingStatus.values[data['status'] ?? 0],
+      paymentMethod: data['paymentMethod'] != null
+          ? BookingPaymentMethod.values[data['paymentMethod']]
+          : null,
+      paymentStatus: data['paymentStatus'] != null
+          ? BookingPaymentStatus.values[data['paymentStatus']]
+          : null,
       specialRequests: data['specialRequests'],
       cancellationReason: data['cancellationReason'],
       cancelledAt: data['cancelledAt']?.toDate(),
@@ -146,6 +166,8 @@ class BookingModel {
       'numberOfParticipants': numberOfParticipants,
       'totalPrice': totalPrice,
       'status': status.index,
+      'paymentMethod': paymentMethod?.index,
+      'paymentStatus': paymentStatus?.index,
       'specialRequests': specialRequests,
       'cancellationReason': cancellationReason,
       'cancelledAt': cancelledAt,
