@@ -396,20 +396,22 @@ class _AdminGuideVerificationScreenState
 
   void _showReviewDialog(
       BuildContext context, GuideVerification verification, bool approve) {
-    final TextEditingController reasonController = TextEditingController();
+    if (approve) {
+      _showAssignDocumentsDialog(context, verification);
+    } else {
+      final TextEditingController reasonController = TextEditingController();
 
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(approve ? 'Approve Verification' : 'Reject Verification'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Are you sure you want to ${approve ? 'approve' : 'reject'} ${verification.guideName}\'s verification?',
-              ),
-              if (!approve) ...[
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('Reject Verification'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Are you sure you want to reject ${verification.guideName}\'s verification?',
+                ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: reasonController,
@@ -420,25 +422,133 @@ class _AdminGuideVerificationScreenState
                   maxLines: 3,
                 ),
               ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
             ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _processReview(verification, approve, reasonController.text);
-              },
-              style: TextButton.styleFrom(
-                foregroundColor:
-                    approve ? AppTheme.successColor : AppTheme.errorColor,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
               ),
-              child: Text(approve ? 'Approve' : 'Reject'),
-            ),
-          ],
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _processReview(verification, false, reasonController.text);
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.errorColor,
+                ),
+                child: const Text('Reject'),
+              ),
+            ],
+          );
+        },
+      );
+    }
+  }
+
+  void _showAssignDocumentsDialog(
+      BuildContext context, GuideVerification verification) {
+    final List<String> selectedCertifications = [];
+    final List<String> selectedLguDocuments = [];
+
+    final List<String> certificationOptions = [
+      'DOT Accredited Tour Guide',
+      'TESDA Tourism Certificate',
+      'Eco-Tourism Certification',
+      'Adventure Guide Certification',
+      'First Aid / CPR',
+      'Language Certification',
+    ];
+
+    final List<String> lguDocumentOptions = [
+      'Barangay Clearance',
+      'Mayor\'s Permit',
+      'Police Clearance',
+      'NBI Clearance',
+      'Health Certificate',
+      'LGU Tour Guide ID',
+      'Tourism Office Registration',
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Assign Verified Documents'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Select the verified documents for ${verification.guideName}:',
+                      style: AppTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Certifications:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    ...certificationOptions.map((cert) => CheckboxListTile(
+                          title: Text(cert, style: AppTheme.bodySmall),
+                          value: selectedCertifications.contains(cert),
+                          onChanged: (bool? value) {
+                            setState(() {
+                              if (value == true) {
+                                selectedCertifications.add(cert);
+                              } else {
+                                selectedCertifications.remove(cert);
+                              }
+                            });
+                          },
+                          dense: true,
+                          controlAffinity: ListTileControlAffinity.leading,
+                        )),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'LGU Documents:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    ...lguDocumentOptions.map((doc) => CheckboxListTile(
+                          title: Text(doc, style: AppTheme.bodySmall),
+                          value: selectedLguDocuments.contains(doc),
+                          onChanged: (bool? value) {
+                            setState(() {
+                              if (value == true) {
+                                selectedLguDocuments.add(doc);
+                              } else {
+                                selectedLguDocuments.remove(doc);
+                              }
+                            });
+                          },
+                          dense: true,
+                          controlAffinity: ListTileControlAffinity.leading,
+                        )),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _processApprovalWithDocuments(verification,
+                        selectedCertifications, selectedLguDocuments);
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.successColor,
+                  ),
+                  child: const Text('Approve'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -546,6 +656,27 @@ class _AdminGuideVerificationScreenState
         ],
       ),
     );
+  }
+
+  Future<void> _processApprovalWithDocuments(GuideVerification verification,
+      List<String> certifications, List<String> lguDocuments) async {
+    try {
+      // Update user's certifications and LGU documents
+      await _databaseService.updateUserField(
+          verification.guideId, 'certifications', certifications);
+      await _databaseService.updateUserField(
+          verification.guideId, 'lguDocuments', lguDocuments);
+
+      // Process the approval
+      await _processReview(verification, true, null);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to assign documents: $e'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
   }
 
   Future<void> _processReview(

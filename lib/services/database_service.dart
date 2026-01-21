@@ -896,16 +896,22 @@ class DatabaseService {
       return existingRoom;
     }
 
+    // Fetch real-time names from database to ensure accuracy
+    final currentUser = await getUser(currentUserId);
+    final otherUser = await getUser(otherUserId);
+    final realCurrentUserName = currentUser?.displayName ?? currentUserName;
+    final realOtherUserName = otherUser?.displayName ?? otherUserName;
+
     // Create new chat room
     final newChatRoom = ChatRoomModel(
       id: chatRoomId,
-      title: '$currentUserName & $otherUserName',
+      title: '$realCurrentUserName & $realOtherUserName',
       description: 'Private conversation',
       type: ChatRoomType.touristGuide,
       participants: [currentUserId, otherUserId],
       participantNames: {
-        currentUserId: currentUserName,
-        otherUserId: otherUserName,
+        currentUserId: realCurrentUserName,
+        otherUserId: realOtherUserName,
       },
       participantRoles: {
         currentUserId: currentUserRole,
@@ -921,19 +927,20 @@ class DatabaseService {
   }
 
   Stream<List<ChatRoomModel>> getUserChatRooms(String userId) {
+    // Use a simpler query without ordering to avoid index requirements
     return _db
         .collection('chat_rooms')
         .where('participants', arrayContains: userId)
-        .where('status', isEqualTo: ChatRoomStatus.active.index)
-        .orderBy('updatedAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
+      final chatRooms = snapshot.docs.map((doc) {
         final data = doc.data();
         // Add current user's unread count
         data['unreadCount'] = data['unreadCount_$userId'] ?? 0;
         return ChatRoomModel.fromMap(data);
-      }).toList();
+      }).toList()
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt)); // Sort in memory
+      return chatRooms;
     });
   }
 
@@ -967,6 +974,22 @@ class DatabaseService {
       String chatRoomId, ChatRoomStatus status) async {
     await _db.collection('chat_rooms').doc(chatRoomId).update({
       'status': status.index,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> blockChatRoom(String chatRoomId, String blockedByUserId) async {
+    await _db.collection('chat_rooms').doc(chatRoomId).update({
+      'status': ChatRoomStatus.blocked.index,
+      'blockedBy': blockedByUserId,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> unblockChatRoom(String chatRoomId) async {
+    await _db.collection('chat_rooms').doc(chatRoomId).update({
+      'status': ChatRoomStatus.active.index,
+      'blockedBy': FieldValue.delete(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }

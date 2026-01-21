@@ -23,10 +23,17 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
   List<Map<String, dynamic>> _bookingTrendsByTour = [];
   bool _isLoadingBookingTrendsByTour = true;
 
+  // Earnings data
+  double _totalRevenue = 0.0;
+  double _platformEarnings = 0.0;
+  String _selectedPeriod = 'Monthly'; // Weekly, Monthly, Yearly
+  bool _isLoadingEarnings = true;
+
   @override
   void initState() {
     super.initState();
     _loadOverviewData();
+    _loadEarningsData();
   }
 
   Future<void> _loadOverviewData() async {
@@ -56,6 +63,25 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
         _isLoadingBookingTrendsByTour = false;
       });
       // Handle error - could show snackbar
+    }
+  }
+
+  Future<void> _loadEarningsData() async {
+    setState(() {
+      _isLoadingEarnings = true;
+    });
+    try {
+      final earnings = await _fetchEarningsData(_selectedPeriod);
+      setState(() {
+        _totalRevenue = earnings['totalRevenue'] ?? 0.0;
+        _platformEarnings = earnings['platformEarnings'] ?? 0.0;
+        _isLoadingEarnings = false;
+      });
+    } catch (e) {
+      print('Error loading earnings data: $e');
+      setState(() {
+        _isLoadingEarnings = false;
+      });
     }
   }
 
@@ -177,6 +203,88 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
     result.sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
 
     return result;
+  }
+
+  Future<Map<String, dynamic>> _fetchEarningsData(String period) async {
+    try {
+      final now = DateTime.now();
+      DateTime startDate;
+
+      // Calculate date range based on period
+      switch (period) {
+        case 'Weekly':
+          startDate = now.subtract(const Duration(days: 7));
+          break;
+        case 'Monthly':
+          startDate = DateTime(now.year, now.month, 1);
+          break;
+        case 'Yearly':
+          startDate = DateTime(now.year, 1, 1);
+          break;
+        default:
+          startDate = DateTime(now.year, now.month, 1);
+      }
+
+      // Query bookings with status paid (2) or completed (4) within the date range
+      final bookingsSnapshot = await _firestore
+          .collection('bookings')
+          .where('status', whereIn: [2, 4]) // paid = 2, completed = 4
+          .where('bookingDate',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
+          .get();
+
+      double totalRevenue = 0.0;
+
+      // For each booking, fetch the tour to get inclusionPrices.professionalGuide
+      for (var bookingDoc in bookingsSnapshot.docs) {
+        final bookingData = bookingDoc.data();
+        final tourId = bookingData['tourId'] as String?;
+
+        if (tourId != null && tourId.isNotEmpty) {
+          try {
+            final tourDoc =
+                await _firestore.collection('tours').doc(tourId).get();
+            if (tourDoc.exists) {
+              final tourData = tourDoc.data();
+              final inclusionPrices =
+                  tourData?['inclusionPrices'] as Map<String, dynamic>?;
+
+              if (inclusionPrices != null &&
+                  inclusionPrices.containsKey('Professional Guide')) {
+                final professionalGuideFee =
+                    inclusionPrices['Professional Guide'];
+                if (professionalGuideFee != null) {
+                  final fee = (professionalGuideFee is double)
+                      ? professionalGuideFee
+                      : (professionalGuideFee is int)
+                          ? professionalGuideFee.toDouble()
+                          : double.tryParse(professionalGuideFee.toString()) ??
+                              0.0;
+                  totalRevenue += fee;
+                }
+              }
+            }
+          } catch (e) {
+            print('Error fetching tour data for booking ${bookingDoc.id}: $e');
+            // Continue with next booking
+          }
+        }
+      }
+
+      // Calculate platform earnings (5% of total revenue)
+      final platformEarnings = totalRevenue * 0.05;
+
+      return {
+        'totalRevenue': totalRevenue,
+        'platformEarnings': platformEarnings,
+      };
+    } catch (e) {
+      print('Error fetching earnings data: $e');
+      return {
+        'totalRevenue': 0.0,
+        'platformEarnings': 0.0,
+      };
+    }
   }
 
   Future<List<Map<String, dynamic>>> _fetchRecentActivities() async {
@@ -344,16 +452,6 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
             children: [
               Expanded(
                 child: _buildKPICard(
-                  'Monthly Revenue',
-                  '\$${(_overviewData['monthlyRevenue'] ?? 0).toStringAsFixed(0)}',
-                  Icons.attach_money,
-                  AppTheme.errorColor,
-                  '+22% from last month',
-                ),
-              ),
-              const SizedBox(width: 24),
-              Expanded(
-                child: _buildKPICard(
                   'Pending Verifications',
                   (_overviewData['pendingVerifications'] ?? 0).toString(),
                   Icons.verified_user,
@@ -372,6 +470,85 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 48),
+
+          // Earnings Statistics Section
+          Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Earnings Statistics',
+                        style: AppTheme.headlineSmall,
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButton<String>(
+                          value: _selectedPeriod,
+                          items: ['Weekly', 'Monthly', 'Yearly']
+                              .map((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value, style: AppTheme.bodyMedium),
+                            );
+                          }).toList(),
+                          onChanged: (String? newValue) {
+                            if (newValue != null) {
+                              setState(() {
+                                _selectedPeriod = newValue;
+                              });
+                              _loadEarningsData();
+                            }
+                          },
+                          underline: const SizedBox(),
+                          icon: Icon(Icons.arrow_drop_down,
+                              color: AppTheme.primaryColor),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  _isLoadingEarnings
+                      ? const Center(child: CircularProgressIndicator())
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: _buildEarningsCard(
+                                'Total Revenue',
+                                '₱${_totalRevenue.toStringAsFixed(2)}',
+                                Icons.attach_money,
+                                AppTheme.successColor,
+                              ),
+                            ),
+                            const SizedBox(width: 24),
+                            Expanded(
+                              child: _buildEarningsCard(
+                                'Platform Earnings (5%)',
+                                '₱${_platformEarnings.toStringAsFixed(2)}',
+                                Icons.account_balance_wallet,
+                                AppTheme.accentColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 48),
 
@@ -502,6 +679,42 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
             Text(
               subtitle,
               style: AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEarningsCard(
+      String title, String value, IconData icon, Color color) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 28, color: color),
+                const Spacer(),
+                Icon(Icons.trending_up, size: 18, color: AppTheme.successColor),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              value,
+              style: AppTheme.headlineMedium.copyWith(
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              style: AppTheme.bodyMedium,
             ),
           ],
         ),

@@ -10,7 +10,7 @@ import '../profile/profile_screen.dart';
 import '../bookings/bookings_screen.dart';
 import '../favorites/favorites_screen.dart';
 import '../notifications/notification_screen.dart';
-import '../messaging/tourist_messages_screen.dart';
+import '../messaging/conversations_screen.dart';
 import '../../widgets/auto_translated_text.dart';
 import '../../models/tour_model.dart';
 import '../../models/user_model.dart';
@@ -58,7 +58,7 @@ class _MainDashboardState extends State<MainDashboard> {
       case 1:
         return const BookingsScreen();
       case 2:
-        return const TouristMessagesScreen();
+        return const ConversationsScreen();
       case 3:
         return const FavoritesScreen();
       case 4:
@@ -439,6 +439,7 @@ class _MainDashboardState extends State<MainDashboard> {
             floating: true,
             backgroundColor: Colors.white,
             elevation: 0,
+            automaticallyImplyLeading: false,
             title: Row(
               children: [
                 Container(

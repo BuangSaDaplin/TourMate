@@ -55,7 +55,7 @@ class UserModel {
     List<String>? certificationsURL,
     List<String>? lguDocumentsURL,
   }) : this.status = status ??
-            (role == 'tourist' ? UserStatus.approved : UserStatus.pending);
+            (role == 'tourist' ? UserStatus.pending : UserStatus.pending);
 
   // 2. Factory Constructor for Firestore mapping
   factory UserModel.fromFirestore(Map<String, dynamic> data) {
@@ -94,6 +94,12 @@ class UserModel {
       category: (data['category'] as List?)
           ?.map((e) => e as String)
           .toList(), // NEW: User category
+      certifications: (data['certifications'] as List?)
+          ?.map((e) => e as String)
+          .toList(), // NEW: List of certifications
+      lguDocuments: (data['lguDocuments'] as List?)
+          ?.map((e) => e as String)
+          .toList(), // NEW: List of LGU documents
     );
   }
 
@@ -117,6 +123,8 @@ class UserModel {
       'isActive': isActive,
       'isLGUVerified': isLGUVerified,
       'category': category, // NEW: User category
+      'certifications': certifications, // NEW: List of certifications
+      'lguDocuments': lguDocuments, // NEW: List of LGU documents
     };
   }
 }

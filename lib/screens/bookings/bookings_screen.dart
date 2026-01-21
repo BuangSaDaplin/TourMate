@@ -1302,46 +1302,6 @@ class _BookingsScreenState extends State<BookingsScreen>
                       Column(
                         children: [
                           RadioListTile<String>(
-                            title: const Text('Credit Card'),
-                            value: 'Credit Card',
-                            groupValue: selectedPaymentMethod,
-                            onChanged: (value) {
-                              setState(() {
-                                selectedPaymentMethod = value!;
-                              });
-                            },
-                          ),
-                          RadioListTile<String>(
-                            title: const Text('GCash'),
-                            value: 'GCash',
-                            groupValue: selectedPaymentMethod,
-                            onChanged: (value) {
-                              setState(() {
-                                selectedPaymentMethod = value!;
-                              });
-                            },
-                          ),
-                          RadioListTile<String>(
-                            title: const Text('PayMaya'),
-                            value: 'PayMaya',
-                            groupValue: selectedPaymentMethod,
-                            onChanged: (value) {
-                              setState(() {
-                                selectedPaymentMethod = value!;
-                              });
-                            },
-                          ),
-                          RadioListTile<String>(
-                            title: const Text('Bank Transfer'),
-                            value: 'Bank Transfer',
-                            groupValue: selectedPaymentMethod,
-                            onChanged: (value) {
-                              setState(() {
-                                selectedPaymentMethod = value!;
-                              });
-                            },
-                          ),
-                          RadioListTile<String>(
                             title: const Text('Cash'),
                             value: 'Cash',
                             groupValue: selectedPaymentMethod,
@@ -1459,22 +1419,19 @@ class _BookingsScreenState extends State<BookingsScreen>
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          '• Pay in cash at our office or designated payment center\n• Bring valid ID for verification\n• Payment must be made at least 24 hours before tour date\n• You will receive a confirmation receipt after payment\n• For urgent bookings, contact us directly',
+                          '• Select Cash as your payment method\n'
+                          '• Pay the full amount in cash during the tour meetup\n'
+                          '• The tour guide will collect the payment on behalf of the platform\n'
+                          '• Platform commission is automatically recorded by the system\n'
+                          '• A digital receipt will be issued after payment is confirmed\n'
+                          '• For any payment concerns, please contact customer support',
                           style: TextStyle(fontSize: 12),
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Office Address: 123 Tourism Street, Cebu City\nBusiness Hours: 8:00 AM - 6:00 PM (Mon-Sat)',
+                          'Cash payments are settled through the platform’s internal tracking system.\n'
+                          'Bookings remain subject to verification to ensure proper commission handling.',
                           style: TextStyle(fontSize: 11, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: _referenceController,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            hintText: 'Booking Reference (Optional)',
-                            labelText: 'Booking Reference',
-                          ),
                         ),
                       ],
                       const SizedBox(height: 16),

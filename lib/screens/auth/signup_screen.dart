@@ -8,9 +8,9 @@ import '../../utils/app_theme.dart';
 import '../home/main_dashboard.dart';
 import '../home/tour_guide_main_dashboard.dart';
 import '../home/admin_dashboard.dart';
-import '../home/main_dashboard.dart';
 import 'terms_and_conditions_screen.dart';
 import 'privacy_policy_screen.dart';
+import 'email_verification_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -159,12 +159,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
         destination = const TourGuideMainDashboard();
         break;
       case 'tourist':
+        // For tourist, navigate to email verification screen instead of dashboard
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+              builder: (context) => const EmailVerificationScreen()),
+        );
+        return;
       default:
         destination = const MainDashboard();
         break;
     }
 
-    Navigator.of(context).push(
+    Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (context) => destination),
     );
   }

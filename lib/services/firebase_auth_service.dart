@@ -42,6 +42,11 @@ class FirebaseAuthService {
           category: category,
           specializations: specializations,
         );
+
+        // Send email verification for Tourist role
+        if (role == 'tourist') {
+          await user.sendEmailVerification();
+        }
       }
       return user;
     } on FirebaseAuthException catch (e) {

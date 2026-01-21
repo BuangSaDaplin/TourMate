@@ -28,12 +28,15 @@ class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
   bool _isTyping = false;
+  String? _displayTitle;
 
   @override
   void initState() {
     super.initState();
     // Mark messages as read when entering chat
     _markMessagesAsRead();
+    // Load the display title
+    _loadDisplayTitle();
   }
 
   @override
@@ -45,6 +48,14 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _markMessagesAsRead() async {
     await _db.markMessagesAsRead(widget.chatRoom.id, widget.currentUserId);
+  }
+
+  Future<void> _loadDisplayTitle() async {
+    final title =
+        await widget.chatRoom.getDisplayTitle(widget.currentUserId, _db);
+    setState(() {
+      _displayTitle = title;
+    });
   }
 
   Future<void> _sendMessage() async {
@@ -113,7 +124,7 @@ class _ChatScreenState extends State<ChatScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                widget.chatRoom.displayTitle,
+                _displayTitle ?? 'Loading...',
                 style: AppTheme.headlineSmall.copyWith(
                   color: AppTheme.textPrimary,
                   fontWeight: FontWeight.w600,
@@ -255,47 +266,49 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             child: widget.isAdminMonitoring
                 ? _buildReadOnlyIndicator()
-                : Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _messageController,
-                          decoration: InputDecoration(
-                            hintText: 'Type a message...',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: BorderSide.none,
-                            ),
-                            filled: true,
-                            fillColor: AppTheme.backgroundColor,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
+                : widget.chatRoom.status == ChatRoomStatus.blocked
+                    ? _buildBlockedIndicator()
+                    : Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _messageController,
+                              decoration: InputDecoration(
+                                hintText: 'Type a message...',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                  borderSide: BorderSide.none,
+                                ),
+                                filled: true,
+                                fillColor: AppTheme.backgroundColor,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                              ),
+                              maxLines: null,
+                              textInputAction: TextInputAction.send,
+                              onSubmitted: (_) => _sendMessage(),
+                              onChanged: (text) {
+                                setState(() {
+                                  _isTyping = text.trim().isNotEmpty;
+                                });
+                              },
                             ),
                           ),
-                          maxLines: null,
-                          textInputAction: TextInputAction.send,
-                          onSubmitted: (_) => _sendMessage(),
-                          onChanged: (text) {
-                            setState(() {
-                              _isTyping = text.trim().isNotEmpty;
-                            });
-                          },
-                        ),
+                          const SizedBox(width: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: AppTheme.primaryGradient,
+                              shape: BoxShape.circle,
+                            ),
+                            child: IconButton(
+                              icon: const Icon(Icons.send, color: Colors.white),
+                              onPressed: _sendMessage,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: AppTheme.primaryGradient,
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.send, color: Colors.white),
-                          onPressed: _sendMessage,
-                        ),
-                      ),
-                    ],
-                  ),
           ),
         ],
       ),
@@ -398,14 +411,27 @@ class _ChatScreenState extends State<ChatScreen> {
               style: AppTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.block),
-              title: const Text('Block Conversation'),
-              onTap: () {
-                Navigator.pop(context);
-                _blockConversation();
-              },
-            ),
+            ...[
+              if (widget.chatRoom.status == ChatRoomStatus.blocked &&
+                  widget.chatRoom.blockedBy == widget.currentUserId)
+                ListTile(
+                  leading: const Icon(Icons.block, color: Colors.green),
+                  title: const Text('Unblock Conversation'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _unblockConversation();
+                  },
+                )
+              else if (widget.chatRoom.status != ChatRoomStatus.blocked)
+                ListTile(
+                  leading: const Icon(Icons.block),
+                  title: const Text('Block Conversation'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _blockConversation();
+                  },
+                ),
+            ],
             ListTile(
               leading: const Icon(Icons.report),
               title: const Text('Report Conversation'),
@@ -414,25 +440,46 @@ class _ChatScreenState extends State<ChatScreen> {
                 _reportConversation();
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.delete),
-              title: const Text('Clear Chat History'),
-              onTap: () {
-                Navigator.pop(context);
-                _clearChatHistory();
-              },
-            ),
           ],
         ),
       ),
     );
   }
 
-  void _blockConversation() {
-    // Implement block functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Block functionality coming soon')),
-    );
+  void _blockConversation() async {
+    final user = _authService.getCurrentUser();
+    if (user == null) return;
+
+    try {
+      await _db.blockChatRoom(widget.chatRoom.id, user.uid);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Conversation blocked')),
+      );
+      // Refresh the chat room data
+      setState(() {});
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to block conversation: $e')),
+      );
+    }
+  }
+
+  void _unblockConversation() async {
+    final user = _authService.getCurrentUser();
+    if (user == null) return;
+
+    try {
+      await _db.unblockChatRoom(widget.chatRoom.id);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Conversation unblocked')),
+      );
+      // Refresh the chat room data
+      setState(() {});
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to unblock conversation: $e')),
+      );
+    }
   }
 
   void _reportConversation() {
@@ -446,6 +493,63 @@ class _ChatScreenState extends State<ChatScreen> {
     // Implement clear history functionality
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Clear history functionality coming soon')),
+    );
+  }
+
+  String? _getBlockedNotice() {
+    if (widget.chatRoom.status != ChatRoomStatus.blocked) return null;
+
+    final currentUserId = widget.currentUserId;
+    final blockedBy = widget.chatRoom.blockedBy;
+
+    if (blockedBy == null) return null;
+
+    final isCurrentUserBlocker = blockedBy == currentUserId;
+    final otherParticipantId = widget.chatRoom.participants
+        .firstWhere((id) => id != currentUserId, orElse: () => '');
+    final otherUserRole =
+        widget.chatRoom.participantRoles[otherParticipantId] ?? 'User';
+
+    if (isCurrentUserBlocker) {
+      return otherUserRole.toLowerCase() == 'tourist'
+          ? "You've blocked this tourist."
+          : "You've blocked this tour guide.";
+    } else {
+      return otherUserRole.toLowerCase() == 'tourist'
+          ? "You've been blocked by the tourist."
+          : "You've been blocked by the tour guide.";
+    }
+  }
+
+  Widget _buildBlockedIndicator() {
+    final notice = _getBlockedNotice();
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          if (notice != null)
+            Text(
+              notice,
+              style: AppTheme.bodyMedium.copyWith(
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          const SizedBox(height: 8),
+          Text(
+            'Message input is disabled',
+            style: AppTheme.bodySmall.copyWith(
+              color: AppTheme.textSecondary.withOpacity(0.7),
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

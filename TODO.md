@@ -1,15 +1,14 @@
-# TODO: Implement Itinerary Navigation
+# TODO: Implement Conversation List Behavior and Chat Blocking Feature
 
-## Tourist Side (bookings_screen.dart)
-- [x] Add import for ItineraryScreen
-- [x] Modify _showItineraryDialog to navigate to ItineraryScreen
-- [x] Add logic to get or generate itinerary for the booking
+## Tasks
+- [x] Modify DatabaseService.getUserChatRooms() to display all conversations regardless of status
+- [x] Add blockedBy field to ChatRoomModel to track who initiated the block
+- [x] Implement block functionality in chat_screen.dart
+- [x] Update chat_screen UI to handle blocked state (disable input, show notices)
+- [x] Test the implementation
 
-## Guide Side (bookings_management_screen.dart)
-- [x] Add import for ItineraryScreen
-- [x] Modify _showItineraryDialog to navigate to ItineraryScreen
-- [x] Add logic to get or generate itinerary for the booking
-
-## Testing
-- [ ] Test navigation from tourist bookings screen
-- [ ] Test navigation from guide bookings management screen
+## Details
+- Remove status filter in getUserChatRooms() to show active, archived, and blocked conversations
+- Add blockedBy field to ChatRoomModel and update serialization methods
+- In chat_screen, implement _blockConversation() to set status to blocked and blockedBy to current user
+- Add UI logic: when blocked, disable message input and show appropriate notice based on blocker and blocked user's roles

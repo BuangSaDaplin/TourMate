@@ -11,6 +11,7 @@ import '../../utils/app_theme.dart';
 import '../auth/login_screen.dart';
 import '../auth/terms_and_conditions_screen.dart';
 import '../auth/privacy_policy_screen.dart';
+import '../auth/email_verification_screen.dart';
 import '../notifications/notification_screen.dart';
 import 'tourist_edit_account_screen.dart';
 import 'change_password_screen.dart';
@@ -202,6 +203,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 24),
+            // Email Verification Section (only for tourist users with pending status)
+            if (_userProfile?.role == 'tourist' &&
+                _userProfile?.status == UserStatus.pending)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.email_outlined,
+                          color: Colors.orange.shade700,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Email Verification Required',
+                            style: AppTheme.headlineSmall.copyWith(
+                              color: Colors.orange.shade800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Please verify your email address to access all features of the app.',
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: Colors.orange.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const EmailVerificationScreen(),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange.shade600,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text('Verify Email'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (_userProfile?.role == 'tourist' &&
+                _userProfile?.status == UserStatus.pending)
+              const SizedBox(height: 16),
             // Account Information
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),

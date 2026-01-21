@@ -37,6 +37,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
     if (_currentUserId == null) {
       return Scaffold(
         appBar: AppBar(
+          automaticallyImplyLeading: false,
           title: const Text('Messages'),
           backgroundColor: Colors.white,
           elevation: 0,
@@ -48,6 +49,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('Messages'),
         backgroundColor: Colors.white,
         elevation: 0,
@@ -68,6 +70,42 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: AppTheme.errorColor,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Failed to load conversations',
+                    style: AppTheme.headlineSmall.copyWith(
+                      color: AppTheme.errorColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Please try again later',
+                    style: AppTheme.bodyMedium.copyWith(
+                      color: AppTheme.textSecondary.withOpacity(0.7),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {});
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
           }
 
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -110,11 +148,6 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showNewChatOptions,
-        backgroundColor: AppTheme.primaryColor,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
     );
   }
 
@@ -136,7 +169,8 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Delete Conversation'),
-            content: const Text('Are you sure you want to delete this conversation?'),
+            content: const Text(
+                'Are you sure you want to delete this conversation?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
@@ -189,7 +223,9 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
                     ),
                     child: Center(
                       child: Text(
-                        chatRoom.unreadCount > 99 ? '99+' : chatRoom.unreadCount.toString(),
+                        chatRoom.unreadCount > 99
+                            ? '99+'
+                            : chatRoom.unreadCount.toString(),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 8,
@@ -199,21 +235,57 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
                     ),
                   ),
                 ),
+              if (chatRoom.status == ChatRoomStatus.blocked)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.block,
+                      color: Colors.white,
+                      size: 10,
+                    ),
+                  ),
+                ),
             ],
           ),
           title: Row(
             children: [
               Expanded(
-                child: Text(
-                  chatRoom.displayTitle,
-                  style: AppTheme.bodyLarge.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: chatRoom.hasUnreadMessages
-                        ? AppTheme.textPrimary
-                        : AppTheme.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: FutureBuilder<String>(
+                  future: chatRoom.getDisplayTitle(_currentUserId!, _db),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Text(
+                        'Loading...',
+                        style: AppTheme.bodyLarge.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: chatRoom.hasUnreadMessages
+                              ? AppTheme.textPrimary
+                              : AppTheme.textSecondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      );
+                    }
+                    return Text(
+                      snapshot.data ?? 'Chat',
+                      style: AppTheme.bodyLarge.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: chatRoom.hasUnreadMessages
+                            ? AppTheme.textPrimary
+                            : AppTheme.textSecondary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    );
+                  },
                 ),
               ),
               if (chatRoom.lastMessageTime != null)
@@ -291,7 +363,8 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
                   color: AppTheme.primaryColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.support_agent, color: AppTheme.primaryColor),
+                child: const Icon(Icons.support_agent,
+                    color: AppTheme.primaryColor),
               ),
               title: const Text('Contact Support'),
               subtitle: const Text('Get help from our admin team'),

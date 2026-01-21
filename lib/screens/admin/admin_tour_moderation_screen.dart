@@ -108,7 +108,7 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen>
 
         // Determine moderation status based on tour status
         String moderationStatus;
-        if (tour.status == 'active') {
+        if (tour.status == 'approved') {
           moderationStatus = 'Approved';
         } else if (tour.status == 'suspended') {
           moderationStatus = 'Suspended';
@@ -841,7 +841,7 @@ class _AdminTourModerationScreenState extends State<AdminTourModerationScreen>
       String newStatus;
 
       if (action == 'approve') {
-        newStatus = 'active';
+        newStatus = 'approved';
       } else if (action == 'reject') {
         newStatus = 'rejected';
       } else if (action == 'suspend') {

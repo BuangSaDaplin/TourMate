@@ -28,11 +28,17 @@ class _GuideSubmitCredentialsScreenState
   List<PlatformFile> _lguDocuments = [];
   bool _isLoading = false;
   bool _hasExistingSubmission = false;
+  int _bioLength = 0;
 
   @override
   void initState() {
     super.initState();
     _checkExistingSubmission();
+    _bioController.addListener(() {
+      setState(() {
+        _bioLength = _bioController.text.length;
+      });
+    });
   }
 
   Future<void> _checkExistingSubmission() async {
@@ -195,6 +201,12 @@ class _GuideSubmitCredentialsScreenState
               Text(
                 'Guide Bio',
                 style: AppTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '$_bioLength characters',
+                style:
+                    AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 8),
               TextFormField(

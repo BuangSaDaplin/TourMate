@@ -115,6 +115,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       child: Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         appBar: AppBar(
+          automaticallyImplyLeading: false,
           title: Row(
             children: [
               Container(

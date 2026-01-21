@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tourmate_app/services/database_service.dart';
 
 enum ChatRoomType {
   touristGuide, // Tourist messaging with a specific guide
@@ -30,6 +31,8 @@ class ChatRoomModel {
   final DateTime updatedAt;
   final String? relatedBookingId; // If chat is related to a specific booking
   final String? relatedTourId; // If chat is related to a specific tour
+  final String?
+      blockedBy; // User ID who initiated the block, null if not blocked
 
   ChatRoomModel({
     required this.id,
@@ -49,6 +52,7 @@ class ChatRoomModel {
     required this.updatedAt,
     this.relatedBookingId,
     this.relatedTourId,
+    this.blockedBy,
   });
 
   factory ChatRoomModel.fromMap(Map<String, dynamic> data) {
@@ -59,8 +63,10 @@ class ChatRoomModel {
       type: ChatRoomType.values[data['type'] ?? 0],
       status: ChatRoomStatus.values[data['status'] ?? 0],
       participants: List<String>.from(data['participants'] ?? []),
-      participantNames: Map<String, String>.from(data['participantNames'] ?? {}),
-      participantRoles: Map<String, String>.from(data['participantRoles'] ?? {}),
+      participantNames:
+          Map<String, String>.from(data['participantNames'] ?? {}),
+      participantRoles:
+          Map<String, String>.from(data['participantRoles'] ?? {}),
       lastMessage: data['lastMessage'],
       lastMessageSenderId: data['lastMessageSenderId'],
       lastMessageSenderName: data['lastMessageSenderName'],
@@ -70,6 +76,7 @@ class ChatRoomModel {
       updatedAt: data['updatedAt']?.toDate() ?? DateTime.now(),
       relatedBookingId: data['relatedBookingId'],
       relatedTourId: data['relatedTourId'],
+      blockedBy: data['blockedBy'],
     );
   }
 
@@ -92,6 +99,7 @@ class ChatRoomModel {
       'updatedAt': updatedAt,
       'relatedBookingId': relatedBookingId,
       'relatedTourId': relatedTourId,
+      'blockedBy': blockedBy,
     };
   }
 
@@ -102,14 +110,16 @@ class ChatRoomModel {
 
   bool get hasUnreadMessages => unreadCount > 0;
 
-  String get displayTitle {
+  Future<String> getDisplayTitle(
+      String currentUserId, DatabaseService db) async {
     if (type == ChatRoomType.touristGuide && participants.length == 2) {
-      // For tourist-guide chats, show the other participant's name
-      final otherParticipant = participants.firstWhere(
-        (id) => id != 'current_user', // This will be replaced with actual current user ID
+      // For tourist-guide chats, always show the other participant's real-time name
+      final otherParticipantId = participants.firstWhere(
+        (id) => id != currentUserId,
         orElse: () => participants.first,
       );
-      return participantNames[otherParticipant] ?? 'Chat';
+      final otherUser = await db.getUser(otherParticipantId);
+      return otherUser?.displayName ?? 'User';
     }
     return title;
   }

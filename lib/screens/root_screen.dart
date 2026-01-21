@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tourmate_app/models/user_model.dart';
 import 'package:tourmate_app/screens/auth/login_screen.dart';
 import 'package:tourmate_app/screens/auth/suspended_account_screen.dart';
+import 'package:tourmate_app/screens/auth/email_verification_screen.dart';
 import 'package:tourmate_app/screens/home/admin_dashboard.dart';
 import 'package:tourmate_app/screens/home/tour_guide_main_dashboard.dart';
 import 'package:tourmate_app/screens/home/main_dashboard.dart';
