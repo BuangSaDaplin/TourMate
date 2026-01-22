@@ -113,13 +113,6 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
           ),
         ],
       ),
-      floatingActionButton: isOwner
-          ? FloatingActionButton(
-              onPressed: _addNewActivity,
-              backgroundColor: AppTheme.primaryColor,
-              child: const Icon(Icons.add, color: Colors.white),
-            )
-          : null,
     );
   }
 
