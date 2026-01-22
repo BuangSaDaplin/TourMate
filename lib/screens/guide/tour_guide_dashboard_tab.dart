@@ -14,13 +14,13 @@ import 'guide_submit_credentials_screen.dart';
 class ActivityItem {
   final String title;
   final String time;
-  final IconData icon;
+  final Widget iconWidget;
   final DateTime timestamp;
 
   ActivityItem({
     required this.title,
     required this.time,
-    required this.icon,
+    required this.iconWidget,
     required this.timestamp,
   });
 }
@@ -173,14 +173,16 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
         activities.add(ActivityItem(
           title: 'New booking request for ${booking.tourTitle}',
           time: _formatTimeAgo(booking.bookingDate),
-          icon: Icons.calendar_today,
+          iconWidget: Icon(Icons.calendar_today,
+              color: AppTheme.primaryColor, size: 20),
           timestamp: booking.bookingDate,
         ));
       } else if (booking.status == BookingStatus.completed) {
         activities.add(ActivityItem(
           title: 'Tour completed: ${booking.tourTitle}',
           time: _formatTimeAgo(booking.completedAt ?? booking.bookingDate),
-          icon: Icons.check_circle,
+          iconWidget:
+              Icon(Icons.check_circle, color: AppTheme.primaryColor, size: 20),
           timestamp: booking.completedAt ?? booking.bookingDate,
         ));
       }
@@ -192,7 +194,11 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
         activities.add(ActivityItem(
           title: 'Payment received for tour',
           time: _formatTimeAgo(payment.completedAt ?? payment.createdAt),
-          icon: Icons.attach_money,
+          iconWidget: Text('₱',
+              style: TextStyle(
+                  color: AppTheme.primaryColor,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold)),
           timestamp: payment.completedAt ?? payment.createdAt,
         ));
       }
@@ -203,7 +209,7 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
       activities.add(ActivityItem(
         title: 'New ${review.overallRating.round()}-star review received',
         time: _formatTimeAgo(review.createdAt),
-        icon: Icons.star,
+        iconWidget: Icon(Icons.star, color: AppTheme.primaryColor, size: 20),
         timestamp: review.createdAt,
       ));
     }
@@ -369,7 +375,7 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
                 child: _buildStatCard(
                   'Active Tours',
                   _activeTours.toString(),
-                  Icons.tour,
+                  Icon(Icons.tour, color: AppTheme.primaryColor, size: 32),
                   AppTheme.primaryColor,
                 ),
               ),
@@ -378,7 +384,11 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
                 child: _buildStatCard(
                   'Earnings',
                   '₱${_earnings.toStringAsFixed(0)}',
-                  Icons.attach_money,
+                  Text('₱',
+                      style: TextStyle(
+                          color: AppTheme.successColor,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold)),
                   AppTheme.successColor,
                 ),
               ),
@@ -391,7 +401,7 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
                 child: _buildStatCard(
                   'Rating',
                   _rating.toStringAsFixed(1),
-                  Icons.star,
+                  Icon(Icons.star, color: Colors.amber, size: 32),
                   Colors.amber,
                 ),
               ),
@@ -400,7 +410,8 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
                 child: _buildStatCard(
                   'Requests',
                   _requests.toString(),
-                  Icons.notifications,
+                  Icon(Icons.notifications,
+                      color: AppTheme.accentColor, size: 32),
                   AppTheme.accentColor,
                 ),
               ),
@@ -465,7 +476,7 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
             ..._recentActivities.map((activity) => _buildActivityItem(
                   activity.title,
                   activity.time,
-                  activity.icon,
+                  activity.iconWidget,
                 )),
         ],
       ),
@@ -473,13 +484,13 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
   }
 
   Widget _buildStatCard(
-      String title, String value, IconData icon, Color color) {
+      String title, String value, Widget iconWidget, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: AppTheme.cardDecoration,
       child: Column(
         children: [
-          Icon(icon, color: color, size: 32),
+          iconWidget,
           const SizedBox(height: 8),
           Text(
             value,
@@ -495,7 +506,7 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
     );
   }
 
-  Widget _buildActivityItem(String title, String time, IconData icon) {
+  Widget _buildActivityItem(String title, String time, Widget iconWidget) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -508,7 +519,7 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
               color: AppTheme.primaryColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: AppTheme.primaryColor, size: 20),
+            child: iconWidget,
           ),
           const SizedBox(width: 16),
           Expanded(

@@ -334,9 +334,20 @@ class _BookingsScreenState extends State<BookingsScreen>
                       '${booking.tourStartDate.day}/${booking.tourStartDate.month}/${booking.tourStartDate.year}',
                     ),
                     const SizedBox(width: 24),
-                    _buildInfoItem(
-                      Icons.access_time,
-                      '${booking.duration ?? 0} Hours',
+                    FutureBuilder<TourModel?>(
+                      future: _db.getTour(booking.tourId),
+                      builder: (context, snapshot) {
+                        final tour = snapshot.data;
+                        final startTime =
+                            '${booking.tourStartDate.hour}:${booking.tourStartDate.minute.toString().padLeft(2, '0')}';
+                        final endTime = tour != null
+                            ? '${tour.endTime.hour}:${tour.endTime.minute.toString().padLeft(2, '0')}'
+                            : '${booking.tourStartDate.add(Duration(hours: (booking.duration ?? 0).toInt())).hour}:${booking.tourStartDate.add(Duration(hours: (booking.duration ?? 0).toInt())).minute.toString().padLeft(2, '0')}';
+                        return _buildInfoItem(
+                          Icons.access_time,
+                          '${booking.duration ?? 0} Hrs ($startTime to $endTime)',
+                        );
+                      },
                     ),
                   ],
                 ),

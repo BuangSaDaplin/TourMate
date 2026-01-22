@@ -105,7 +105,8 @@ class _AdminBookingMonitoringScreenState
                         child: _buildStatCard(
                           'Total Bookings',
                           stats['total'].toString(),
-                          Icons.book_online,
+                          Icon(Icons.book_online,
+                              color: AppTheme.primaryColor, size: 32),
                           AppTheme.primaryColor,
                         ),
                       ),
@@ -114,7 +115,8 @@ class _AdminBookingMonitoringScreenState
                         child: _buildStatCard(
                           'Pending Approval',
                           stats['pending'].toString(),
-                          Icons.pending,
+                          Icon(Icons.pending,
+                              color: AppTheme.accentColor, size: 32),
                           AppTheme.accentColor,
                         ),
                       ),
@@ -127,7 +129,8 @@ class _AdminBookingMonitoringScreenState
                         child: _buildStatCard(
                           'Active Tours',
                           stats['active'].toString(),
-                          Icons.directions_walk,
+                          Icon(Icons.directions_walk,
+                              color: AppTheme.successColor, size: 32),
                           AppTheme.successColor,
                         ),
                       ),
@@ -136,7 +139,11 @@ class _AdminBookingMonitoringScreenState
                         child: _buildStatCard(
                           'Revenue',
                           '₱${stats['revenue'].toStringAsFixed(0)}',
-                          Icons.attach_money,
+                          Text('₱',
+                              style: TextStyle(
+                                  color: AppTheme.accentColor,
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold)),
                           AppTheme.accentColor,
                         ),
                       ),
@@ -375,7 +382,7 @@ class _AdminBookingMonitoringScreenState
   }
 
   Widget _buildStatCard(
-      String title, String value, IconData icon, Color color) {
+      String title, String value, Widget iconWidget, Color color) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -383,7 +390,7 @@ class _AdminBookingMonitoringScreenState
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Icon(icon, size: 32, color: color),
+            iconWidget,
             const SizedBox(height: 8),
             Text(
               value,

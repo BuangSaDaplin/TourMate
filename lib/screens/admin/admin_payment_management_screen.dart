@@ -113,8 +113,12 @@ class _AdminPaymentManagementScreenState
                         child: _buildAnalyticsCard(
                           'Total Revenue',
                           '₱${analytics['totalRevenue'].toStringAsFixed(0)}',
-                          Icons.attach_money,
-                          AppTheme.successColor,
+                          Text('₱',
+                              style: TextStyle(
+                                  color: AppTheme.accentColor,
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold)),
+                          AppTheme.accentColor,
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -122,7 +126,8 @@ class _AdminPaymentManagementScreenState
                         child: _buildAnalyticsCard(
                           'Platform Fees',
                           '₱${analytics['totalPlatformFees'].toStringAsFixed(0)}',
-                          Icons.account_balance_wallet,
+                          Icon(Icons.account_balance_wallet,
+                              color: AppTheme.primaryColor, size: 32),
                           AppTheme.primaryColor,
                         ),
                       ),
@@ -135,7 +140,8 @@ class _AdminPaymentManagementScreenState
                         child: _buildAnalyticsCard(
                           'Total Payments',
                           analytics['totalPayments'].toString(),
-                          Icons.payment,
+                          Icon(Icons.payment,
+                              color: AppTheme.accentColor, size: 32),
                           AppTheme.accentColor,
                         ),
                       ),
@@ -144,7 +150,8 @@ class _AdminPaymentManagementScreenState
                         child: _buildAnalyticsCard(
                           'Success Rate',
                           '${((analytics['completedPayments'] / analytics['totalPayments'] * 100)).toStringAsFixed(1)}%',
-                          Icons.trending_up,
+                          Icon(Icons.trending_up,
+                              color: AppTheme.accentColor, size: 32),
                           AppTheme.accentColor,
                         ),
                       ),
@@ -470,7 +477,7 @@ class _AdminPaymentManagementScreenState
   }
 
   Widget _buildAnalyticsCard(
-      String title, String value, IconData icon, Color color) {
+      String title, String value, Widget iconWidget, Color color) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -478,7 +485,7 @@ class _AdminPaymentManagementScreenState
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Icon(icon, size: 32, color: color),
+            iconWidget,
             const SizedBox(height: 8),
             Text(
               value,

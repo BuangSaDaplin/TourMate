@@ -445,7 +445,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                         child: _buildStatCard(
                             'Users',
                             _analyticsData['totalUsers']?.toString() ?? '0',
-                            Icons.people,
+                            Icon(Icons.people, color: Colors.blue, size: 20),
                             Colors.blue),
                       ),
                       const SizedBox(width: 12),
@@ -453,17 +453,22 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                         child: _buildStatCard(
                             'Bookings',
                             _analyticsData['totalBookings']?.toString() ?? '0',
-                            Icons.book_online,
+                            Icon(Icons.book_online,
+                                color: Colors.green, size: 20),
                             Colors.green),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: _buildStatCard(
-                            'Revenue',
-                            '₱${(_analyticsData['totalRevenue'] as double?)?.toStringAsFixed(0) ?? '0'}',
-                            Icons.attach_money,
-                            Colors.orange),
-                      ),
+                          child: _buildStatCard(
+                        'Revenue',
+                        '₱${(_analyticsData['totalRevenue'] as double?)?.toStringAsFixed(0) ?? '0'}',
+                        Text('₱',
+                            style: TextStyle(
+                                color: AppTheme.accentColor,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold)),
+                        AppTheme.accentColor,
+                      )),
                     ],
                   ),
 
@@ -573,7 +578,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   }
 
   Widget _buildStatCard(
-      String title, String value, IconData icon, Color color) {
+      String title, String value, Widget iconWidget, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -598,7 +603,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                   color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: color, size: 20),
+                child: iconWidget,
               ),
             ],
           ),

@@ -531,8 +531,12 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                               child: _buildEarningsCard(
                                 'Total Revenue',
                                 '₱${_totalRevenue.toStringAsFixed(2)}',
-                                Icons.attach_money,
-                                AppTheme.successColor,
+                                Text('₱',
+                                    style: TextStyle(
+                                        color: AppTheme.accentColor,
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.bold)),
+                                AppTheme.accentColor,
                               ),
                             ),
                             const SizedBox(width: 24),
@@ -540,7 +544,8 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                               child: _buildEarningsCard(
                                 'Platform Earnings (5%)',
                                 '₱${_platformEarnings.toStringAsFixed(2)}',
-                                Icons.account_balance_wallet,
+                                Icon(Icons.account_balance_wallet,
+                                    color: AppTheme.accentColor, size: 28),
                                 AppTheme.accentColor,
                               ),
                             ),
@@ -687,7 +692,7 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
   }
 
   Widget _buildEarningsCard(
-      String title, String value, IconData icon, Color color) {
+      String title, String value, Widget iconWidget, Color color) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -698,7 +703,7 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
           children: [
             Row(
               children: [
-                Icon(icon, size: 28, color: color),
+                iconWidget,
                 const Spacer(),
                 Icon(Icons.trending_up, size: 18, color: AppTheme.successColor),
               ],

@@ -696,7 +696,7 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
-  void _showGuideSelectionDialog() {
+  void _showGuideSelectionDialog() async {
     // Filter guides based on specializations matching all tour highlights
     final filteredGuides = guides.where((guide) {
       if (guide.specializations == null || guide.specializations!.isEmpty) {
@@ -705,6 +705,23 @@ class _BookingScreenState extends State<BookingScreen> {
       return selectedTour!.highlights
           .every((highlight) => guide.specializations!.contains(highlight));
     }).toList();
+
+    // Filter out unavailable guides (those with bookings in pending, confirmed, paid, or inProgress status)
+    final availableGuides = <UserModel>[];
+    for (final guide in filteredGuides) {
+      final bookings = await _db.getBookingsByGuide(guide.uid);
+      final unavailableStatuses = [
+        0,
+        1,
+        2,
+        3
+      ]; // pending, confirmed, paid, inProgress
+      final hasUnavailableBooking = bookings
+          .any((booking) => unavailableStatuses.contains(booking.status.index));
+      if (!hasUnavailableBooking) {
+        availableGuides.add(guide);
+      }
+    }
 
     showDialog(
       context: context,
@@ -716,14 +733,13 @@ class _BookingScreenState extends State<BookingScreen> {
             height: 400,
             child: isLoadingGuides
                 ? const Center(child: CircularProgressIndicator())
-                : filteredGuides.isEmpty
+                : availableGuides.isEmpty
                     ? const Center(
-                        child:
-                            Text('No matching guides available for this tour'))
+                        child: Text('No available guides for this tour'))
                     : ListView.builder(
-                        itemCount: filteredGuides.length,
+                        itemCount: availableGuides.length,
                         itemBuilder: (context, index) {
-                          final guide = filteredGuides[index];
+                          final guide = availableGuides[index];
                           final isOnline = guide.activeStatus == 1;
                           final color = isOnline ? Colors.black : Colors.grey;
 
