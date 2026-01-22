@@ -235,7 +235,7 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
 
       double totalRevenue = 0.0;
 
-      // For each booking, fetch the tour to get inclusionPrices.professionalGuide
+      // For each booking, fetch the tour to get inclusionPrices and sum all values
       for (var bookingDoc in bookingsSnapshot.docs) {
         final bookingData = bookingDoc.data();
         final tourId = bookingData['tourId'] as String?;
@@ -249,19 +249,19 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
               final inclusionPrices =
                   tourData?['inclusionPrices'] as Map<String, dynamic>?;
 
-              if (inclusionPrices != null &&
-                  inclusionPrices.containsKey('Professional Guide')) {
-                final professionalGuideFee =
-                    inclusionPrices['Professional Guide'];
-                if (professionalGuideFee != null) {
-                  final fee = (professionalGuideFee is double)
-                      ? professionalGuideFee
-                      : (professionalGuideFee is int)
-                          ? professionalGuideFee.toDouble()
-                          : double.tryParse(professionalGuideFee.toString()) ??
-                              0.0;
-                  totalRevenue += fee;
-                }
+              if (inclusionPrices != null) {
+                double totalInclusion = 0.0;
+                inclusionPrices.forEach((key, value) {
+                  if (value != null) {
+                    final fee = (value is double)
+                        ? value
+                        : (value is int)
+                            ? value.toDouble()
+                            : double.tryParse(value.toString()) ?? 0.0;
+                    totalInclusion += fee;
+                  }
+                });
+                totalRevenue += totalInclusion;
               }
             }
           } catch (e) {

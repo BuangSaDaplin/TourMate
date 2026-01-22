@@ -5,6 +5,7 @@ import '../../services/database_service.dart';
 import '../../models/booking_model.dart';
 import '../../models/payment_model.dart';
 import '../../models/review_model.dart';
+import '../../models/tour_model.dart';
 import '../../models/user_model.dart';
 import 'create_tour_screen.dart';
 import 'bookings_management_screen.dart';
@@ -124,12 +125,21 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
             ].contains(booking.status))
         .length;
 
-    // Earnings: total sum of totalPrice from bookings with status paid or completed
-    final earnings = bookings
-        .where((booking) =>
-            booking.status == BookingStatus.paid ||
-            booking.status == BookingStatus.completed)
-        .fold<double>(0.0, (total, booking) => total + booking.totalPrice);
+    // Earnings: calculate guide's share (95%) from tour inclusionPrices for paid/completed bookings
+    double earnings = 0.0;
+    final relevantBookings = bookings.where((booking) =>
+        booking.status == BookingStatus.paid ||
+        booking.status == BookingStatus.completed);
+
+    for (final booking in relevantBookings) {
+      final tour = await _db.getTour(booking.tourId);
+      if (tour != null && tour.inclusionPrices.isNotEmpty) {
+        final totalInclusionPrices = tour.inclusionPrices.values
+            .fold<double>(0.0, (sum, price) => sum + price);
+        final guideShare = totalInclusionPrices * 0.95; // Deduct 5%
+        earnings += guideShare;
+      }
+    }
 
     // Rating: average rating from bookings that contain a rating value
     final ratedBookings = bookings.where((booking) => booking.rating != null);

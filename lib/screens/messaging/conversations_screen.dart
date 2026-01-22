@@ -53,17 +53,6 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
         title: const Text('Messages'),
         backgroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: AppTheme.textPrimary),
-            onPressed: () {
-              // Implement search functionality
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Search coming soon!')),
-              );
-            },
-          ),
-        ],
       ),
       body: StreamBuilder<List<ChatRoomModel>>(
         stream: _db.getUserChatRooms(_currentUserId!),
@@ -338,64 +327,6 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
     } else {
       return '${timestamp.day}/${timestamp.month}';
     }
-  }
-
-  void _showNewChatOptions() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Start New Conversation',
-              style: AppTheme.headlineSmall,
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.support_agent,
-                    color: AppTheme.primaryColor),
-              ),
-              title: const Text('Contact Support'),
-              subtitle: const Text('Get help from our admin team'),
-              onTap: () {
-                Navigator.pop(context);
-                _startAdminSupportChat();
-              },
-            ),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.accentColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.explore, color: AppTheme.accentColor),
-              ),
-              title: const Text('Find Tour Guides'),
-              subtitle: const Text('Browse and contact available guides'),
-              onTap: () {
-                Navigator.pop(context);
-                // Navigate to tour browse or guide list
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Guide browsing coming soon!')),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Future<void> _startAdminSupportChat() async {
