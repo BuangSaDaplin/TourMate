@@ -33,6 +33,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   String _selectedRole = 'tourist';
   List<String> _selectedCategories = [];
   List<String> _selectedSpecializations = [];
+  List<String> _selectedAvailability = [];
   bool _agreeToTerms = false;
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
@@ -57,6 +58,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
     'Sirao Flower Garden',
     'Temple of Leah',
     'Tops Lookout',
+  ];
+
+  final List<String> _availabilityOptions = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
   ];
 
   @override
@@ -361,6 +372,38 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           ],
                         ),
                       ],
+                      if (_selectedRole == 'guide') ...[
+                        const SizedBox(height: 16),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Availability (Select one or more days)',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8.0,
+                              children: _availabilityOptions.map((day) {
+                                return FilterChip(
+                                  label: Text(day),
+                                  selected: _selectedAvailability.contains(day),
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      if (selected) {
+                                        _selectedAvailability.add(day);
+                                      } else {
+                                        _selectedAvailability.remove(day);
+                                      }
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _passwordController,
@@ -421,7 +464,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       _isLoading
                           ? const CircularProgressIndicator()
                           : ElevatedButton(
-                              onPressed: _agreeToTerms
+                              onPressed: (_agreeToTerms &&
+                                      !(_selectedRole == 'guide' &&
+                                          _selectedAvailability.isEmpty))
                                   ? () async {
                                       if (_formKey.currentState!.validate()) {
                                         setState(() {
@@ -442,6 +487,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                             specializations:
                                                 _selectedRole == 'guide'
                                                     ? _selectedSpecializations
+                                                    : null,
+                                            availability:
+                                                _selectedRole == 'guide'
+                                                    ? _selectedAvailability
                                                     : null,
                                           );
 
@@ -488,6 +537,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   : null,
                               child: const Text('Sign Up'),
                             ),
+                      if (_selectedRole == 'guide' &&
+                          _selectedAvailability.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8.0),
+                          child: Text(
+                            'Please select at least one availability day',
+                            style: TextStyle(color: Colors.red, fontSize: 12),
+                          ),
+                        ),
                       const SizedBox(height: 24),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,

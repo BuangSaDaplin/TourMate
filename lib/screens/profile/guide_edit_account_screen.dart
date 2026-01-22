@@ -32,6 +32,9 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
   // Specializations multi-select
   late List<String> _selectedSpecializations;
 
+  // Availability multi-select
+  late List<String> _selectedAvailability;
+
   // Available specializations
   final List<String> _availableSpecializations = [
     'Basilica del Santo Niño',
@@ -44,6 +47,16 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
     'Sirao Flower Garden',
     'Temple of Leah',
     'Tops Lookout'
+  ];
+
+  final List<String> _availableAvailability = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
   ];
 
   // Password change states
@@ -93,6 +106,7 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
     _phoneController = TextEditingController();
     _selectedLanguages = [];
     _selectedSpecializations = [];
+    _selectedAvailability = [];
 
     _currentPasswordController = TextEditingController();
     _newPasswordController = TextEditingController();
@@ -115,6 +129,7 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
             _phoneController.text = userProfile.phoneNumber ?? '';
             _selectedLanguages = userProfile.languages ?? ['English'];
             _selectedSpecializations = userProfile.specializations ?? [];
+            _selectedAvailability = userProfile.availability ?? [];
             _isLoading = false;
           });
         }
@@ -207,6 +222,7 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
         'photoURL': photoURL,
         'languages': _selectedLanguages,
         'specializations': _selectedSpecializations,
+        'availability': _selectedAvailability,
       };
 
       await _dbService.updateUserProfile(_currentUser!.uid, updates);
@@ -500,6 +516,25 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
               onSelectionChanged: (selected) {
                 setState(() {
                   _selectedSpecializations = selected;
+                });
+              },
+            ),
+            const SizedBox(height: 32),
+
+            // Availability Section
+            Text('Availability', style: AppTheme.headlineSmall),
+            const SizedBox(height: 8),
+            Text(
+              'Select the days you are available for tours',
+              style: AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            _buildMultiSelectChips(
+              items: _availableAvailability,
+              selectedItems: _selectedAvailability,
+              onSelectionChanged: (selected) {
+                setState(() {
+                  _selectedAvailability = selected;
                 });
               },
             ),

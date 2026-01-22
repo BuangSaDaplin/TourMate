@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+  import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -38,6 +38,7 @@ class _BookingScreenState extends State<BookingScreen> {
   List<UserModel> guides = [];
   bool isLoadingGuides = false;
   UserModel? selectedGuide;
+  String? selectedDayFilter; // NEW: Day filter for guide availability
 
   // Tour selection
   TourModel? selectedTour;
@@ -170,6 +171,19 @@ class _BookingScreenState extends State<BookingScreen> {
             0.0, (sum, price) => sum + price * _numberOfParticipants) ??
         0.0;
     return inclusionTotal;
+  }
+
+  String _getWeekdayName(DateTime date) {
+    const weekdays = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday'
+    ];
+    return weekdays[date.weekday - 1];
   }
 
   @override
@@ -697,10 +711,21 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   void _showGuideSelectionDialog() async {
+    // Get the selected date's weekday for availability filtering
+    final selectedDate = _selectedDate ?? selectedTour!.startTime;
+    final selectedWeekday = _getWeekdayName(selectedDate);
+
     // Filter guides based on specializations matching all tour highlights
     final filteredGuides = guides.where((guide) {
       if (guide.specializations == null || guide.specializations!.isEmpty) {
         return false;
+      }
+      // Check if guide has availability data and includes the selected weekday
+      if (guide.availability == null || guide.availability!.isEmpty) {
+        return false; // Exclude guides without availability data
+      }
+      if (!guide.availability!.contains(selectedWeekday)) {
+        return false; // Exclude guides not available on selected day
       }
       return selectedTour!.highlights
           .every((highlight) => guide.specializations!.contains(highlight));

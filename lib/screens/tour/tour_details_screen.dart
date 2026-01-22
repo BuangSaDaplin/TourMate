@@ -712,9 +712,6 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
     final returnTime = DateFormat('h:mm a').format(returnDateTime);
 
     return [
-      _buildScheduleItem('Tour Date (Subject to Tourist Preference)',
-          dateFormat.format(tourDate)),
-      const SizedBox(height: 12),
       _buildScheduleItem('Tour Start', meetupTime),
       const SizedBox(height: 12),
       _buildScheduleItem('Tour End', endTime),

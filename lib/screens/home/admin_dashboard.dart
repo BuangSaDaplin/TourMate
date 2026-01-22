@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tourmate_app/services/auth_service.dart';
+import 'package:tourmate_app/services/notification_service.dart';
 import 'package:tourmate_app/screens/auth/login_screen.dart';
 import '../../utils/app_theme.dart';
 
@@ -29,6 +30,7 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> {
   final AuthService _authService = AuthService();
+  final NotificationService _notificationService = NotificationService();
   int _selectedIndex = 0;
 
   final List<Widget> _pages = [
@@ -136,28 +138,38 @@ class _AdminDashboardState extends State<AdminDashboard> {
           foregroundColor: AppTheme.primaryColor,
           actions: [
             // Notifications
-            IconButton(
-              icon: Stack(
-                children: [
-                  const Icon(Icons.notifications_outlined),
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppTheme.accentColor,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
+            StreamBuilder<int>(
+              stream: FirebaseAuth.instance.currentUser != null
+                  ? _notificationService
+                      .getUnreadCount(FirebaseAuth.instance.currentUser!.uid)
+                  : Stream.value(0),
+              builder: (context, snapshot) {
+                final unreadCount = snapshot.data ?? 0;
+                return IconButton(
+                  icon: Stack(
+                    children: [
+                      const Icon(Icons.notifications_outlined),
+                      if (unreadCount > 0)
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: AppTheme.accentColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                ],
-              ),
-              onPressed: () {
-                setState(() {
-                  _selectedIndex = 7; // Notifications index
-                });
+                  onPressed: () {
+                    setState(() {
+                      _selectedIndex = 7; // Notifications index
+                    });
+                  },
+                );
               },
             ),
             // Profile Menu

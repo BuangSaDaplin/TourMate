@@ -211,6 +211,8 @@ class _TourGuideProfileScreenState extends State<TourGuideProfileScreen> {
                         Icons.language, 'Languages', _userProfile!.languages!),
                   _buildSpecializationsRow(Icons.star, 'Specializations',
                       _userProfile?.specializations ?? []),
+                  _buildAvailabilityRow(Icons.calendar_today, 'Availability',
+                      _userProfile?.availability ?? []),
                 ],
               ),
             ),
@@ -650,6 +652,65 @@ class _TourGuideProfileScreenState extends State<TourGuideProfileScreen> {
                           ))
                       .toList(),
                 ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvailabilityRow(
+      IconData icon, String label, List<String> availability) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: AppTheme.textSecondary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: AppTheme.bodySmall.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                if (availability.isNotEmpty)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: availability
+                        .map((day) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                day,
+                                style: TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ))
+                        .toList(),
+                  )
+                else
+                  Text(
+                    'No availability set',
+                    style: AppTheme.bodySmall.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
               ],
             ),
           ),

@@ -15,6 +15,7 @@ import '../../widgets/auto_translated_text.dart';
 import '../../models/tour_model.dart';
 import '../../models/user_model.dart';
 import '../../services/database_service.dart';
+import '../../services/notification_service.dart';
 
 class MainDashboard extends StatefulWidget {
   const MainDashboard({super.key});
@@ -26,6 +27,7 @@ class MainDashboard extends StatefulWidget {
 class _MainDashboardState extends State<MainDashboard> {
   int _selectedIndex = 0;
   final _searchController = TextEditingController();
+  final NotificationService _notificationService = NotificationService();
 
   // State for suggested tours
   List<TourModel> _suggestedTours = [];
@@ -466,30 +468,40 @@ class _MainDashboardState extends State<MainDashboard> {
               ],
             ),
             actions: [
-              IconButton(
-                icon: Stack(
-                  children: [
-                    const Icon(Icons.notifications_outlined),
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: AppTheme.accentColor,
-                          shape: BoxShape.circle,
+              StreamBuilder<int>(
+                stream: FirebaseAuth.instance.currentUser != null
+                    ? _notificationService
+                        .getUnreadCount(FirebaseAuth.instance.currentUser!.uid)
+                    : Stream.value(0),
+                builder: (context, snapshot) {
+                  final unreadCount = snapshot.data ?? 0;
+                  return IconButton(
+                    icon: Stack(
+                      children: [
+                        const Icon(Icons.notifications_outlined),
+                        if (unreadCount > 0)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: AppTheme.accentColor,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const NotificationScreen(),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const NotificationScreen(),
-                    ),
+                      );
+                    },
                   );
                 },
               ),

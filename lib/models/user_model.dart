@@ -29,6 +29,7 @@ class UserModel {
   final List<String>? category; // NEW: User category
   final List<String>? certifications; // NEW: List of certifications
   final List<String>? lguDocuments; // NEW: List of LGU documents
+  final List<String>? availability; // NEW: Availability days for tour guides
 
   // 1. Constructor
   UserModel({
@@ -51,6 +52,7 @@ class UserModel {
     this.category, // NEW: User category
     this.certifications, // NEW: List of certifications
     this.lguDocuments, // NEW: List of LGU documents
+    this.availability, // NEW: Availability days for tour guides
     String? experience,
     List<String>? certificationsURL,
     List<String>? lguDocumentsURL,
@@ -100,6 +102,9 @@ class UserModel {
       lguDocuments: (data['lguDocuments'] as List?)
           ?.map((e) => e as String)
           .toList(), // NEW: List of LGU documents
+      availability: (data['availability'] as List?)
+          ?.map((e) => e as String)
+          .toList(), // NEW: Availability days for tour guides
     );
   }
 
@@ -125,6 +130,7 @@ class UserModel {
       'category': category, // NEW: User category
       'certifications': certifications, // NEW: List of certifications
       'lguDocuments': lguDocuments, // NEW: List of LGU documents
+      'availability': availability, // NEW: Availability days for tour guides
     };
   }
 }

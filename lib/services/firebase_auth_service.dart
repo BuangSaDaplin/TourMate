@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+  import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -26,7 +26,8 @@ class FirebaseAuthService {
       required String role,
       String? phoneNumber,
       List<String>? category,
-      List<String>? specializations}) async {
+      List<String>? specializations,
+      List<String>? availability}) async {
     try {
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
@@ -41,6 +42,7 @@ class FirebaseAuthService {
           displayName: name ?? '',
           category: category,
           specializations: specializations,
+          availability: availability,
         );
 
         // Send email verification for Tourist role
@@ -152,7 +154,8 @@ class FirebaseAuthService {
       String displayName = '',
       String? phoneNumber,
       List<String>? category,
-      List<String>? specializations}) async {
+      List<String>? specializations,
+      List<String>? availability}) async {
     final usersRef = _firestore.collection('users').doc(user.uid);
     final doc = await usersRef.get();
 
@@ -173,6 +176,7 @@ class FirebaseAuthService {
         averageRating: 0.0,
         category: category,
         specializations: specializations,
+        availability: availability,
       );
       await usersRef.set(newUser.toMap());
 
