@@ -1,4 +1,4 @@
-  import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -39,6 +39,8 @@ class _BookingScreenState extends State<BookingScreen> {
   bool isLoadingGuides = false;
   UserModel? selectedGuide;
   String? selectedDayFilter; // NEW: Day filter for guide availability
+  int selectedGuideToursCompleted = 0;
+  double selectedGuideAverageRating = 0.0;
 
   // Tour selection
   TourModel? selectedTour;
@@ -671,7 +673,7 @@ class _BookingScreenState extends State<BookingScreen> {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                '${selectedGuide!.averageRating?.toStringAsFixed(1) ?? 'N/A'} • ${selectedGuide!.toursCompleted ?? 0} tours',
+                                '${selectedGuideAverageRating.toStringAsFixed(1)} • $selectedGuideToursCompleted tours',
                                 style: AppTheme.bodySmall,
                               ),
                             ],
@@ -688,7 +690,8 @@ class _BookingScreenState extends State<BookingScreen> {
                           SizedBox(
                             width: double.infinity,
                             child: TextButton(
-                              onPressed: () {},
+                              onPressed: () =>
+                                  _showGuideProfileDialog(selectedGuide!),
                               child: const Text('View Profile'),
                             ),
                           ),
@@ -708,6 +711,29 @@ class _BookingScreenState extends State<BookingScreen> {
           ),
       ],
     );
+  }
+
+  Future<Map<String, dynamic>> _computeGuideMetrics(UserModel guide) async {
+    final bookings = await _db.getBookingsByGuide(guide.uid);
+    final qualifyingBookings = bookings.where((booking) =>
+        booking.status == BookingStatus.completed ||
+        booking.status == BookingStatus.refunded);
+
+    final toursCompleted = qualifyingBookings.length;
+
+    final ratings = qualifyingBookings
+        .where((booking) => booking.rating != null)
+        .map((booking) => booking.rating!)
+        .toList();
+
+    final averageRating = ratings.isNotEmpty
+        ? ratings.reduce((a, b) => a + b) / ratings.length
+        : 0.0;
+
+    return {
+      'toursCompleted': toursCompleted,
+      'averageRating': averageRating,
+    };
   }
 
   void _showGuideSelectionDialog() async {
@@ -748,6 +774,14 @@ class _BookingScreenState extends State<BookingScreen> {
       }
     }
 
+    // Compute metrics for each available guide
+    final guideMetrics = <String, Map<String, dynamic>>{};
+    for (final guide in availableGuides) {
+      guideMetrics[guide.uid] = await _computeGuideMetrics(guide);
+    }
+
+    if (!mounted) return;
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -756,60 +790,141 @@ class _BookingScreenState extends State<BookingScreen> {
           content: SizedBox(
             width: double.maxFinite,
             height: 400,
-            child: isLoadingGuides
-                ? const Center(child: CircularProgressIndicator())
-                : availableGuides.isEmpty
-                    ? const Center(
-                        child: Text('No available guides for this tour'))
-                    : ListView.builder(
-                        itemCount: availableGuides.length,
-                        itemBuilder: (context, index) {
-                          final guide = availableGuides[index];
-                          final isOnline = guide.activeStatus == 1;
-                          final color = isOnline ? Colors.black : Colors.grey;
+            child: availableGuides.isEmpty
+                ? const Center(child: Text('No available guides for this tour'))
+                : ListView.builder(
+                    itemCount: availableGuides.length,
+                    itemBuilder: (context, index) {
+                      final guide = availableGuides[index];
+                      final metrics = guideMetrics[guide.uid]!;
+                      final toursCompleted = metrics['toursCompleted'] as int;
+                      final averageRating = metrics['averageRating'] as double;
+                      final isOnline = guide.activeStatus == 1;
+                      final color = isOnline ? Colors.black : Colors.grey;
 
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor:
-                                  AppTheme.primaryColor.withOpacity(0.2),
-                              child: Icon(
-                                Icons.person,
-                                color: isOnline
-                                    ? AppTheme.primaryColor
-                                    : Colors.grey,
-                              ),
-                            ),
-                            title: Text(
-                              guide.displayName ?? guide.email,
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor:
+                              AppTheme.primaryColor.withOpacity(0.2),
+                          child: Icon(
+                            Icons.person,
+                            color:
+                                isOnline ? AppTheme.primaryColor : Colors.grey,
+                          ),
+                        ),
+                        title: Text(
+                          guide.displayName ?? guide.email,
+                          style: TextStyle(color: color),
+                        ),
+                        subtitle: Row(
+                          children: [
+                            Icon(Icons.star,
+                                size: 16,
+                                color: isOnline ? Colors.amber : Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${averageRating.toStringAsFixed(1)} • $toursCompleted tours',
                               style: TextStyle(color: color),
                             ),
-                            subtitle: Row(
-                              children: [
-                                Icon(Icons.star,
-                                    size: 16,
-                                    color:
-                                        isOnline ? Colors.amber : Colors.grey),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${guide.averageRating?.toStringAsFixed(1) ?? 'N/A'} • ${guide.toursCompleted ?? 0} tours',
-                                  style: TextStyle(color: color),
-                                ),
-                              ],
-                            ),
-                            onTap: () {
-                              setState(() {
-                                selectedGuide = guide;
-                              });
-                              Navigator.of(context).pop();
-                            },
-                          );
+                          ],
+                        ),
+                        onTap: () async {
+                          final metrics = await _computeGuideMetrics(guide);
+                          setState(() {
+                            selectedGuide = guide;
+                            selectedGuideToursCompleted =
+                                metrics['toursCompleted'] as int;
+                            selectedGuideAverageRating =
+                                metrics['averageRating'] as double;
+                          });
+                          Navigator.of(context).pop();
                         },
-                      ),
+                      );
+                    },
+                  ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showGuideProfileDialog(UserModel guide) async {
+    final metrics = await _computeGuideMetrics(guide);
+    final toursCompleted = metrics['toursCompleted'] as int;
+    final averageRating = metrics['averageRating'] as double;
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(guide.displayName ?? guide.email),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (guide.photoURL != null)
+                  Center(
+                    child: CircleAvatar(
+                      radius: 50,
+                      backgroundImage: NetworkImage(guide.photoURL!),
+                    ),
+                  ),
+                const SizedBox(height: 16),
+                Text('Email: ${guide.email}', style: AppTheme.bodyMedium),
+                if (guide.phoneNumber != null) ...[
+                  const SizedBox(height: 8),
+                  Text('Phone: ${guide.phoneNumber}',
+                      style: AppTheme.bodyMedium),
+                ],
+                if (guide.languages != null && guide.languages!.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text('Languages: ${guide.languages!.join(', ')}',
+                      style: AppTheme.bodyMedium),
+                ],
+                const SizedBox(height: 8),
+                Text('Tours Completed: $toursCompleted',
+                    style: AppTheme.bodyMedium),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.star, color: Colors.amber, size: 16),
+                    const SizedBox(width: 4),
+                    Text('${averageRating.toStringAsFixed(1)}',
+                        style: AppTheme.bodyMedium),
+                  ],
+                ),
+                if (guide.specializations != null &&
+                    guide.specializations!.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text('Specializations: ${guide.specializations!.join(', ')}',
+                      style: AppTheme.bodyMedium),
+                ],
+                if (guide.favoriteDestination != null) ...[
+                  const SizedBox(height: 8),
+                  Text('Favorite Destination: ${guide.favoriteDestination}',
+                      style: AppTheme.bodyMedium),
+                ],
+                if (guide.certifications != null &&
+                    guide.certifications!.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text('Certifications: ${guide.certifications!.join(', ')}',
+                      style: AppTheme.bodyMedium),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
             ),
           ],
         );

@@ -3,7 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tourmate_app/screens/payments/payment_history_screen.dart';
 import 'package:tourmate_app/services/auth_service.dart';
 import 'package:tourmate_app/services/user_profile_service.dart';
+import 'package:tourmate_app/services/database_service.dart';
 import '../../models/user_model.dart';
+import '../../models/booking_model.dart';
 import '../../utils/app_theme.dart';
 import '../auth/login_screen.dart';
 import '../auth/terms_and_conditions_screen.dart';
@@ -22,9 +24,12 @@ class TourGuideProfileScreen extends StatefulWidget {
 class _TourGuideProfileScreenState extends State<TourGuideProfileScreen> {
   final AuthService _authService = AuthService();
   final UserProfileService _profileService = UserProfileService();
+  final DatabaseService _db = DatabaseService();
 
   UserModel? _userProfile;
   bool _isLoading = true;
+  int _computedToursCompleted = 0;
+  double _computedAverageRating = 0.0;
 
   // Mock tour guide data
   final Map<String, dynamic> _guideData = {
@@ -55,12 +60,39 @@ class _TourGuideProfileScreenState extends State<TourGuideProfileScreen> {
     _loadUserProfile();
   }
 
+  Future<Map<String, dynamic>> _computeGuideMetrics(String guideId) async {
+    final bookings = await _db.getBookingsByGuide(guideId);
+    final qualifyingBookings = bookings.where((booking) =>
+        booking.status == BookingStatus.completed ||
+        booking.status == BookingStatus.refunded);
+
+    final toursCompleted = qualifyingBookings.length;
+
+    final ratings = qualifyingBookings
+        .where((booking) => booking.rating != null)
+        .map((booking) => booking.rating!)
+        .toList();
+
+    final averageRating = ratings.isNotEmpty
+        ? ratings.reduce((a, b) => a + b) / ratings.length
+        : 0.0;
+
+    return {
+      'toursCompleted': toursCompleted,
+      'averageRating': averageRating,
+    };
+  }
+
   Future<void> _loadUserProfile() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       _userProfile = await _profileService.getCompleteUserProfile(user.uid);
       if (_userProfile != null) {
         _activeStatus = _userProfile!.activeStatus == 1;
+        // Compute real metrics from bookings
+        final metrics = await _computeGuideMetrics(user.uid);
+        _computedToursCompleted = metrics['toursCompleted'] as int;
+        _computedAverageRating = metrics['averageRating'] as double;
       }
     }
     if (mounted) {
@@ -133,7 +165,7 @@ class _TourGuideProfileScreenState extends State<TourGuideProfileScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       _buildStatItem(
-                        '${_userProfile?.toursCompleted ?? 0}',
+                        '$_computedToursCompleted',
                         'Tours Completed',
                         Icons.check_circle,
                       ),
@@ -143,7 +175,7 @@ class _TourGuideProfileScreenState extends State<TourGuideProfileScreen> {
                         color: AppTheme.dividerColor,
                       ),
                       _buildStatItem(
-                        '${_userProfile?.averageRating?.toStringAsFixed(1) ?? '0.0'}',
+                        '${_computedAverageRating.toStringAsFixed(1)}',
                         'Average Rating',
                         Icons.star,
                       ),
