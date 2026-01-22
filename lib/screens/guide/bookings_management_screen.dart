@@ -370,6 +370,7 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
           'touristName': touristName,
           'tourTitle': booking.tourTitle,
           'date': booking.tourStartDate.toString().split(' ')[0], // Format date
+          'tourStartDate': booking.tourStartDate, // Include full date with time
           'participants': booking.numberOfParticipants,
           'totalAmount': booking.totalPrice.toInt(),
           'status': booking.status.name, // Convert enum to string
@@ -451,7 +452,37 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
           _buildDetailRow('Date', request['date']),
           _buildDetailRow('Participants', '${request['participants']} people'),
           if (request['duration'] != null)
-            _buildDetailRow('Duration', '${request['duration']} Hours'),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: FutureBuilder<TourModel?>(
+                future: _db.getTour(request['tourId']),
+                builder: (context, snapshot) {
+                  final tour = snapshot.data;
+                  final startTime =
+                      '${request['tourStartDate'].hour}:${request['tourStartDate'].minute.toString().padLeft(2, '0')}';
+                  final endTime = tour != null
+                      ? '${tour.endTime.hour}:${tour.endTime.minute.toString().padLeft(2, '0')}'
+                      : '${request['tourStartDate'].add(Duration(hours: (request['duration'] ?? 0).toInt())).hour}:${request['tourStartDate'].add(Duration(hours: (request['duration'] ?? 0).toInt())).minute.toString().padLeft(2, '0')}';
+                  return Row(
+                    children: [
+                      SizedBox(
+                        width: 80,
+                        child: Text(
+                          'Duration:',
+                          style: AppTheme.bodySmall.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${request['duration']} Hours ($startTime to $endTime)',
+                        style: AppTheme.bodyMedium,
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
           _buildDetailRow('Total Amount', '₱${request['totalAmount']}'),
           const SizedBox(height: 12),
 
@@ -722,6 +753,7 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
           'touristName': touristName,
           'tourTitle': booking.tourTitle,
           'date': booking.tourStartDate.toString().split(' ')[0], // Format date
+          'tourStartDate': booking.tourStartDate, // Include full date with time
           'participants': booking.numberOfParticipants,
           'totalAmount': booking.totalPrice.toInt(),
           'status': booking.status.name, // Convert enum to string
@@ -805,7 +837,37 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
           _buildDetailRow('Date', booking['date']),
           _buildDetailRow('Participants', '${booking['participants']} people'),
           if (booking['duration'] != null)
-            _buildDetailRow('Duration', '${booking['duration']} Hours'),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: FutureBuilder<TourModel?>(
+                future: _db.getTour(booking['tourId']),
+                builder: (context, snapshot) {
+                  final tour = snapshot.data;
+                  final startTime =
+                      '${booking['tourStartDate'].hour}:${booking['tourStartDate'].minute.toString().padLeft(2, '0')}';
+                  final endTime = tour != null
+                      ? '${tour.endTime.hour}:${tour.endTime.minute.toString().padLeft(2, '0')}'
+                      : '${booking['tourStartDate'].add(Duration(hours: (booking['duration'] ?? 0).toInt())).hour}:${booking['tourStartDate'].add(Duration(hours: (booking['duration'] ?? 0).toInt())).minute.toString().padLeft(2, '0')}';
+                  return Row(
+                    children: [
+                      SizedBox(
+                        width: 80,
+                        child: Text(
+                          'Duration:',
+                          style: AppTheme.bodySmall.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${booking['duration']} Hours ($startTime to $endTime)',
+                        style: AppTheme.bodyMedium,
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
           _buildDetailRow('Total Amount', '₱${booking['totalAmount']}'),
           const SizedBox(height: 12),
 
