@@ -224,7 +224,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               ),
                             ),
                           ),
-                        _buildMessageBubble(message, isCurrentUser),
+                        _buildOppositeMessageBubble(message, isCurrentUser),
                       ],
                     );
                   },
@@ -315,67 +315,52 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildMessageBubble(MessageModel message, bool isCurrentUser) {
-    return Align(
-      alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isCurrentUser ? AppTheme.primaryColor : Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: isCurrentUser
-                ? const Radius.circular(16)
-                : const Radius.circular(4),
-            bottomRight: isCurrentUser
-                ? const Radius.circular(4)
-                : const Radius.circular(16),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+  // --- THE OPPOSITE UI FIX ---
+  Widget _buildOppositeMessageBubble(MessageModel message, bool isCurrentUser) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Row(
+        mainAxisAlignment: isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isCurrentUser) ...[
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: Colors.grey[300],
+              child: Text(message.senderName.isNotEmpty ? message.senderName[0] : '?', 
+                style: const TextStyle(fontSize: 12)),
             ),
+            const SizedBox(width: 8),
           ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              message.content,
-              style: AppTheme.bodyMedium.copyWith(
-                color: isCurrentUser ? Colors.white : AppTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _formatMessageTime(message.timestamp),
-                  style: AppTheme.bodySmall.copyWith(
-                    color:
-                        isCurrentUser ? Colors.white70 : AppTheme.textSecondary,
-                  ),
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isCurrentUser ? AppTheme.primaryColor : Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: isCurrentUser ? const Radius.circular(16) : const Radius.circular(4),
+                  bottomRight: isCurrentUser ? const Radius.circular(4) : const Radius.circular(16),
                 ),
-                if (isCurrentUser) ...[
-                  const SizedBox(width: 4),
-                  Icon(
-                    message.statusIcon,
-                    size: 12,
-                    color: message.statusColor,
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(message.content, 
+                    style: TextStyle(color: isCurrentUser ? Colors.white : Colors.black87)),
+                  const SizedBox(height: 4),
+                  Text(
+                    "${message.timestamp.hour}:${message.timestamp.minute.toString().padLeft(2, '0')}",
+                    style: TextStyle(fontSize: 10, color: isCurrentUser ? Colors.white70 : Colors.grey),
                   ),
                 ],
-              ],
+              ),
             ),
-          ],
-        ),
+          ),
+          if (isCurrentUser) const SizedBox(width: 24), // Spacer
+        ],
       ),
     );
   }
@@ -482,10 +467,70 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  // --- REPORT DIALOG ---
   void _reportConversation() {
-    // Implement report functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Report functionality coming soon')),
+    final reasonController = TextEditingController();
+    bool hasAttachedProof = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Report Conversation'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Reason for reporting:', style: TextStyle(fontWeight: FontWeight.bold)),
+                TextField(
+                  controller: reasonController,
+                  decoration: const InputDecoration(hintText: 'e.g. Harassment, Scam'),
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () => setState(() => hasAttachedProof = !hasAttachedProof),
+                  child: Row(
+                    children: [
+                      Icon(
+                        hasAttachedProof ? Icons.check_circle : Icons.attach_file,
+                        color: hasAttachedProof ? Colors.green : Colors.grey,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(hasAttachedProof ? 'Proof Attached' : 'Attach Screenshot'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+              ElevatedButton(
+                onPressed: () async {
+                  if (reasonController.text.isEmpty) return;
+                  Navigator.pop(context);
+                  
+                  // Save to Firestore
+                  await FirebaseFirestore.instance.collection('reports').add({
+                    'chatRoomId': widget.chatRoom.id,
+                    'reportedBy': widget.currentUserId,
+                    'reason': reasonController.text,
+                    'hasProof': hasAttachedProof,
+                    'timestamp': FieldValue.serverTimestamp(),
+                    'status': 'pending',
+                  });
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Report submitted.'), backgroundColor: Colors.green),
+                  );
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                child: const Text('Submit'),
+              ),
+            ],
+          );
+        }
+      ),
     );
   }
 
