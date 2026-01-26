@@ -23,9 +23,10 @@ class PaymentService {
   }) async {
     try {
       // Calculate fees
-      final platformFee = _calculatePlatformFee(amount);
-      final guideAmount = amount - platformFee;
+      final platformFee = await _calculatePlatformFee(bookingId);
+      final guideAmount = await _calculateGuideAmount(bookingId);
 
+      // Create payment record
       final paymentId = DateTime.now().millisecondsSinceEpoch.toString();
       final payment = PaymentModel(
         id: paymentId,
@@ -41,36 +42,43 @@ class PaymentService {
         paymentDetails: paymentDetails,
       );
 
+      // Save to database
       await _db.collection('payments').doc(paymentId).set(payment.toMap());
 
-      // Simulate Provider Success
+      // Process payment based on method
       final success = await _processPaymentWithProvider(payment);
 
       if (success) {
+        // Update payment status
         await _updatePaymentStatus(paymentId, PaymentStatus.completed);
         await _updateBookingPaymentStatus(bookingId, BookingStatus.paid);
 
-        // --- NEW: CREDIT THE GUIDE'S WALLET (Earnings) ---
-        // This ensures the Guide sees money in their Wallet Screen
-        await _db.collection('users').doc(guideId).update({
-          'walletBalance': FieldValue.increment(guideAmount),
+        // Update payment with completion details
+        final updatedPayment = payment.copyWith(
+          status: PaymentStatus.completed,
+          completedAt: DateTime.now(),
+          transactionId: 'txn_${paymentId}',
+        );
+
+        await _db.collection('payments').doc(paymentId).update({
+          'status': PaymentStatus.completed.index,
+          'completedAt': FieldValue.serverTimestamp(),
+          'transactionId': 'txn_${paymentId}',
         });
 
         // Get booking details for notification
-        final bookingDoc = await _db
-            .collection('bookings')
-            .doc(bookingId)
-            .get();
+        final bookingDoc =
+            await _db.collection('bookings').doc(bookingId).get();
         final bookingData = bookingDoc.data();
         final tourTitle = bookingData?['tourTitle'] ?? 'Tour';
 
         // Create payment completion notification
-        final paymentNotification = _notificationService
-            .createPaymentNotification(
-              userId: userId,
-              amount: amount,
-              tourTitle: tourTitle,
-            );
+        final paymentNotification =
+            _notificationService.createPaymentNotification(
+          userId: userId,
+          amount: amount,
+          tourTitle: tourTitle,
+        );
         await _notificationService.createNotification(paymentNotification);
 
         return updatedPayment;
@@ -79,26 +87,24 @@ class PaymentService {
         await _updatePaymentStatus(paymentId, PaymentStatus.failed);
 
         // Get booking details for notification
-        final bookingDoc = await _db
-            .collection('bookings')
-            .doc(bookingId)
-            .get();
+        final bookingDoc =
+            await _db.collection('bookings').doc(bookingId).get();
         final bookingData = bookingDoc.data();
         final tourTitle = bookingData?['tourTitle'] ?? 'Tour';
 
         // Create payment failure notification
-        final failureNotification = _notificationService
-            .createPaymentFailedNotification(
-              userId: userId,
-              amount: amount,
-              tourTitle: tourTitle,
-            );
+        final failureNotification =
+            _notificationService.createPaymentFailedNotification(
+          userId: userId,
+          amount: amount,
+          tourTitle: tourTitle,
+        );
         await _notificationService.createNotification(failureNotification);
 
         return null;
       }
     } catch (e) {
-      print('Payment error: $e');
+      print('Payment processing error: $e');
       return null;
     }
   }
