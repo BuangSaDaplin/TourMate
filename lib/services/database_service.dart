@@ -8,6 +8,7 @@ import 'package:tourmate_app/models/chat_room_model.dart';
 import 'package:tourmate_app/models/guide_verification_model.dart';
 import 'package:tourmate_app/models/itinerary_model.dart';
 import 'package:tourmate_app/models/message_model.dart';
+import 'package:tourmate_app/models/notification_model.dart';
 import 'package:tourmate_app/models/payment_model.dart';
 import 'package:tourmate_app/models/review_model.dart';
 import 'package:tourmate_app/models/tour_model.dart';
@@ -1318,6 +1319,7 @@ class DatabaseService {
       // Set status to approvedRefund after payment processing
       await _db.collection('bookings').doc(bookingId).update({
         'refundStatus': RefundStatus.approvedRefund.index,
+        'status': BookingStatus.refunded.index,
       });
 
       return true;
@@ -1373,6 +1375,329 @@ class DatabaseService {
     } catch (e) {
       print('Get refund requests error: $e');
       return [];
+    }
+  }
+
+  // Create notifications for refund request submission
+  Future<void> createRefundRequestNotifications(BookingModel booking) async {
+    print(
+        'DEBUG: createRefundRequestNotifications called for booking ${booking.id}');
+    try {
+      // Validate required data
+      if (booking.guideId == null) {
+        print(
+            'DEBUG: Error: Cannot create refund notifications - guideId is null');
+        return;
+      }
+
+      if (booking.refundReason == null || booking.refundReason!.isEmpty) {
+        print(
+            'DEBUG: Error: Cannot create refund notifications - refundReason is null or empty');
+        return;
+      }
+      print('DEBUG: Validation passed, proceeding with notification creation');
+
+      // Get guide information for notification
+      final guide = await getUser(booking.guideId!);
+      final guideName = guide?.displayName ?? 'Guide';
+
+      // Use batch to create all notifications, bypassing user settings checks
+      final batch = _db.batch();
+      final now = DateTime.now();
+
+      // Notification for tourist (confirmation)
+      final touristNotification = NotificationModel(
+        id: 'refund_request_${booking.id}_${now.millisecondsSinceEpoch}',
+        userId: booking.touristId,
+        title: 'Refund Request Submitted',
+        message:
+            'Your refund request for "${booking.tourTitle}" has been submitted and is pending admin review.',
+        type: NotificationType.system,
+        priority: NotificationPriority.normal,
+        data: {
+          'bookingId': booking.id,
+          'tourTitle': booking.tourTitle,
+          'refundReason': booking.refundReason,
+        },
+        createdAt: now,
+      );
+      batch.set(_db.collection('notifications').doc(touristNotification.id),
+          touristNotification.toMap());
+
+      // Notification for guide (inform about refund request)
+      final guideNotification = NotificationModel(
+        id: 'refund_request_guide_${booking.id}_${now.millisecondsSinceEpoch}',
+        userId: booking.guideId!,
+        title: 'Refund Request Submitted',
+        message:
+            'A refund request has been submitted for your tour "${booking.tourTitle}". The admin will review this request.',
+        type: NotificationType.system,
+        priority: NotificationPriority.normal,
+        data: {
+          'bookingId': booking.id,
+          'tourTitle': booking.tourTitle,
+          'touristId': booking.touristId,
+          'refundReason': booking.refundReason,
+        },
+        createdAt: now,
+      );
+      batch.set(_db.collection('notifications').doc(guideNotification.id),
+          guideNotification.toMap());
+
+      // Notification for admins (new refund request needs review)
+      final adminIds = await _notificationService.getAdminUsers();
+
+      if (adminIds.isNotEmpty) {
+        for (final adminId in adminIds) {
+          final adminNotification = NotificationModel(
+            id: 'refund_request_admin_${booking.id}_${adminId}_${now.millisecondsSinceEpoch}',
+            userId: adminId,
+            title: 'New Refund Request',
+            message:
+                'A new refund request for "${booking.tourTitle}" requires your review.',
+            type: NotificationType.system,
+            priority: NotificationPriority.high,
+            data: {
+              'bookingId': booking.id,
+              'tourTitle': booking.tourTitle,
+              'touristId': booking.touristId,
+              'guideId': booking.guideId,
+              'refundReason': booking.refundReason,
+            },
+            createdAt: now,
+          );
+          batch.set(_db.collection('notifications').doc(adminNotification.id),
+              adminNotification.toMap());
+        }
+      } else {
+        print('Warning: No admin users found to notify about refund request');
+      }
+
+      await batch.commit();
+      print(
+          'Successfully created refund request notifications for booking ${booking.id}');
+    } catch (e) {
+      print('Error creating refund request notifications: $e');
+      // Re-throw to allow caller to handle
+      rethrow;
+    }
+  }
+
+  // Create notifications for refund approval
+  Future<void> createRefundApprovalNotifications(BookingModel booking,
+      {String? adminId}) async {
+    try {
+      // Get guide information for notification
+      final guide = await getUser(booking.guideId!);
+      final guideName = guide?.displayName ?? 'Guide';
+
+      // Calculate refund amount
+      final refundAmount =
+          booking.paymentDetails?['refundAmount'] ?? booking.totalPrice;
+
+      // Notification for tourist (refund approved)
+      final touristNotification = NotificationModel(
+        id: 'refund_approved_${booking.id}_${DateTime.now().millisecondsSinceEpoch}',
+        userId: booking.touristId,
+        title: 'Refund Approved',
+        message:
+            'Your refund request for "${booking.tourTitle}" has been approved. Refund request under processing.',
+        type: NotificationType.system,
+        priority: NotificationPriority.high,
+        createdAt: DateTime.now(),
+      );
+      await _notificationService.createNotification(touristNotification);
+
+      // Notification for guide (inform about refund approval)
+      final guideNotification = NotificationModel(
+        id: 'refund_approved_guide_${booking.id}_${DateTime.now().millisecondsSinceEpoch}',
+        userId: booking.guideId!,
+        title: 'Refund Approved',
+        message:
+            'The refund request for your tour "${booking.tourTitle}" has been approved. The tourist will receive ₱${refundAmount.toStringAsFixed(2)}.',
+        type: NotificationType.system,
+        priority: NotificationPriority.normal,
+        createdAt: DateTime.now(),
+      );
+      await _notificationService.createNotification(guideNotification);
+
+      // Notification for admin who approved the refund
+      if (adminId != null) {
+        final adminNotification = NotificationModel(
+          id: 'refund_approved_admin_${booking.id}_${adminId}_${DateTime.now().millisecondsSinceEpoch}',
+          userId: adminId,
+          title: 'Refund Approved',
+          message:
+              'You approved the refund request for "${booking.tourTitle}". The refund is now being processed.',
+          type: NotificationType.system,
+          priority: NotificationPriority.normal,
+          data: {
+            'bookingId': booking.id,
+            'tourTitle': booking.tourTitle,
+            'touristId': booking.touristId,
+            'guideId': booking.guideId,
+            'refundAmount': refundAmount,
+          },
+          createdAt: DateTime.now(),
+        );
+        await _notificationService.createNotification(adminNotification);
+      }
+    } catch (e) {
+      print('Error creating refund approval notifications: $e');
+    }
+  }
+
+  // Create notifications for refund processing completion
+  Future<void> createRefundProcessedNotifications(BookingModel booking,
+      {String? adminId}) async {
+    try {
+      // Get guide information for notification
+      final guide = await getUser(booking.guideId!);
+      final guideName = guide?.displayName ?? 'Guide';
+
+      // Calculate refund amount
+      final refundAmount =
+          booking.paymentDetails?['refundAmount'] ?? booking.totalPrice;
+
+      // Notification for tourist (refund processed)
+      final touristNotification = NotificationModel(
+        id: 'refund_processed_${booking.id}_${DateTime.now().millisecondsSinceEpoch}',
+        userId: booking.touristId,
+        title: 'Refund Processed',
+        message:
+            'Your refund of ₱${refundAmount.toStringAsFixed(2)} for "${booking.tourTitle}" has been processed and added to your wallet.',
+        type: NotificationType.system,
+        priority: NotificationPriority.high,
+        createdAt: DateTime.now(),
+      );
+      await _notificationService.createNotification(touristNotification);
+
+      // Notification for guide (inform about refund completion)
+      final guideNotification = NotificationModel(
+        id: 'refund_processed_guide_${booking.id}_${DateTime.now().millisecondsSinceEpoch}',
+        userId: booking.guideId!,
+        title: 'Refund Completed',
+        message:
+            'The refund for your tour "${booking.tourTitle}" has been processed. ₱${refundAmount.toStringAsFixed(2)} has been transferred to the tourist.',
+        type: NotificationType.system,
+        priority: NotificationPriority.normal,
+        createdAt: DateTime.now(),
+      );
+      await _notificationService.createNotification(guideNotification);
+
+      // Notification for admins (refund processed)
+      final adminIds = await _notificationService.getAdminUsers();
+      final batch = _db.batch();
+      final now = DateTime.now();
+
+      for (final adminId in adminIds) {
+        final adminNotification = NotificationModel(
+          id: 'refund_processed_admin_${booking.id}_${adminId}_${now.millisecondsSinceEpoch}',
+          userId: adminId,
+          title: 'Refund Processed',
+          message:
+              'The refund for "${booking.tourTitle}" has been processed successfully. ₱${refundAmount.toStringAsFixed(2)} transferred to tourist.',
+          type: NotificationType.system,
+          priority: NotificationPriority.normal,
+          data: {
+            'bookingId': booking.id,
+            'tourTitle': booking.tourTitle,
+            'touristId': booking.touristId,
+            'guideId': booking.guideId,
+            'refundAmount': refundAmount,
+          },
+          createdAt: now,
+        );
+        final docRef =
+            _db.collection('notifications').doc(adminNotification.id);
+        batch.set(docRef, adminNotification.toMap());
+      }
+      await batch.commit();
+
+      // Notification for admin who processed the refund
+      if (adminId != null) {
+        final adminNotification = NotificationModel(
+          id: 'refund_processed_admin_action_${booking.id}_${adminId}_${DateTime.now().millisecondsSinceEpoch}',
+          userId: adminId,
+          title: 'Refund Processed',
+          message:
+              'You processed the refund for "${booking.tourTitle}". ₱${refundAmount.toStringAsFixed(2)} has been transferred to the tourist.',
+          type: NotificationType.system,
+          priority: NotificationPriority.normal,
+          data: {
+            'bookingId': booking.id,
+            'tourTitle': booking.tourTitle,
+            'touristId': booking.touristId,
+            'guideId': booking.guideId,
+            'refundAmount': refundAmount,
+          },
+          createdAt: DateTime.now(),
+        );
+        await _notificationService.createNotification(adminNotification);
+      }
+    } catch (e) {
+      print('Error creating refund processed notifications: $e');
+    }
+  }
+
+  // Create notifications for refund rejection
+  Future<void> createRefundRejectionNotifications(
+      BookingModel booking, String reason,
+      {String? adminId}) async {
+    try {
+      // Get guide information for notification
+      final guide = await getUser(booking.guideId!);
+      final guideName = guide?.displayName ?? 'Guide';
+
+      // Notification for tourist (refund rejected)
+      final touristNotification = NotificationModel(
+        id: 'refund_rejected_${booking.id}_${DateTime.now().millisecondsSinceEpoch}',
+        userId: booking.touristId,
+        title: 'Refund Rejected',
+        message:
+            'Your refund request for "${booking.tourTitle}" has been rejected. Reason: $reason',
+        type: NotificationType.system,
+        priority: NotificationPriority.normal,
+        createdAt: DateTime.now(),
+      );
+      await _notificationService.createNotification(touristNotification);
+
+      // Notification for guide (inform about refund rejection)
+      final guideNotification = NotificationModel(
+        id: 'refund_rejected_guide_${booking.id}_${DateTime.now().millisecondsSinceEpoch}',
+        userId: booking.guideId!,
+        title: 'Refund Rejected',
+        message:
+            'The refund request for your tour "${booking.tourTitle}" has been rejected. Reason: $reason',
+        type: NotificationType.system,
+        priority: NotificationPriority.normal,
+        createdAt: DateTime.now(),
+      );
+      await _notificationService.createNotification(guideNotification);
+
+      // Notification for admin who rejected the refund
+      if (adminId != null) {
+        final adminNotification = NotificationModel(
+          id: 'refund_rejected_admin_${booking.id}_${adminId}_${DateTime.now().millisecondsSinceEpoch}',
+          userId: adminId,
+          title: 'Refund Rejected',
+          message:
+              'You rejected the refund request for "${booking.tourTitle}".',
+          type: NotificationType.system,
+          priority: NotificationPriority.normal,
+          data: {
+            'bookingId': booking.id,
+            'tourTitle': booking.tourTitle,
+            'touristId': booking.touristId,
+            'guideId': booking.guideId,
+            'rejectionReason': reason,
+          },
+          createdAt: DateTime.now(),
+        );
+        await _notificationService.createNotification(adminNotification);
+      }
+    } catch (e) {
+      print('Error creating refund rejection notifications: $e');
     }
   }
 }

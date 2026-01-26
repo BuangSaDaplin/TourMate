@@ -56,6 +56,18 @@ class NotificationService {
     });
   }
 
+  // Get admin users
+  Future<List<String>> getAdminUsers() async {
+    try {
+      final adminUsers =
+          await _db.collection('users').where('role', isEqualTo: 'admin').get();
+      return adminUsers.docs.map((doc) => doc.id).toList();
+    } catch (e) {
+      print('Error getting admin users: $e');
+      return [];
+    }
+  }
+
   // Get unread notifications count
   Stream<int> getUnreadCount(String userId) {
     return _db

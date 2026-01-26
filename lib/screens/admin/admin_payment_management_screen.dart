@@ -5,6 +5,7 @@ import 'package:tourmate_app/models/booking_model.dart';
 import 'package:tourmate_app/models/user_model.dart';
 import 'package:tourmate_app/services/payment_service.dart';
 import 'package:tourmate_app/services/database_service.dart';
+import 'package:tourmate_app/services/auth_service.dart';
 import '../../utils/app_theme.dart';
 
 class AdminPaymentManagementScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class _AdminPaymentManagementScreenState
   late TabController _tabController;
   final PaymentService _paymentService = PaymentService();
   final DatabaseService _databaseService = DatabaseService();
+  final AuthService _authService = AuthService();
 
   String _selectedStatus = 'All';
   String _selectedMethod = 'All';
@@ -1071,6 +1073,15 @@ class _AdminPaymentManagementScreenState
                     final success =
                         await _databaseService.approveRefund(booking.id);
                     if (success && mounted) {
+                      // Get current admin user ID
+                      final adminUser = _authService.getCurrentUser();
+                      final adminId = adminUser?.uid;
+
+                      // Create notifications for both parties
+                      await _databaseService.createRefundApprovalNotifications(
+                          booking,
+                          adminId: adminId);
+
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
@@ -1117,6 +1128,15 @@ class _AdminPaymentManagementScreenState
                     final success =
                         await _databaseService.processRefund(booking.id);
                     if (success && mounted) {
+                      // Get current admin user ID
+                      final adminUser = _authService.getCurrentUser();
+                      final adminId = adminUser?.uid;
+
+                      // Create notifications for both parties
+                      await _databaseService.createRefundProcessedNotifications(
+                          booking,
+                          adminId: adminId);
+
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content:
@@ -1220,6 +1240,15 @@ class _AdminPaymentManagementScreenState
                 );
 
                 if (success && mounted) {
+                  // Get current admin user ID
+                  final adminUser = _authService.getCurrentUser();
+                  final adminId = adminUser?.uid;
+
+                  // Create notifications for both parties
+                  await _databaseService.createRefundRejectionNotifications(
+                      booking, reasonController.text.trim(),
+                      adminId: adminId);
+
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Refund rejected successfully'),

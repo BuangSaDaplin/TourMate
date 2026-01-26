@@ -712,13 +712,30 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                         return;
                       }
 
-                      Navigator.pop(context);
+                      // Show loading indicator
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
 
                       try {
                         final success = await _databaseService.requestRefund(
                           bookingId: booking.id,
                           refundReason: reasonController.text.trim(),
                         );
+
+                        // Close loading dialog
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context);
+                        }
+
+                        // Close refund modal
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context);
+                        }
 
                         if (success && mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -728,6 +745,31 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                               backgroundColor: Colors.green,
                             ),
                           );
+
+                          // Refetch the updated booking with refund details
+                          final updatedBooking =
+                              await _databaseService.getBooking(booking.id);
+                          print(
+                              'DEBUG: Refetched booking: ${updatedBooking?.id}, refundReason: ${updatedBooking?.refundReason}');
+
+                          // Create notifications for both parties with updated booking data
+                          if (updatedBooking != null) {
+                            print(
+                                'DEBUG: Creating refund notifications for booking ${updatedBooking.id}');
+                            try {
+                              await _databaseService
+                                  .createRefundRequestNotifications(
+                                      updatedBooking);
+                              print(
+                                  'DEBUG: Refund notifications created successfully');
+                            } catch (e) {
+                              print(
+                                  'DEBUG: Error creating refund notifications: $e');
+                            }
+                          } else {
+                            print(
+                                'DEBUG: Failed to refetch booking after refund request');
+                          }
                         } else if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(

@@ -1,13 +1,20 @@
-# Admin Refund Management Logic Implementation
+# Refund Notification Fix - Task Progress
 
-## Tasks
-- [ ] Update BookingModel to add refundRejectionReason field
-- [ ] Modify database_service.dart refund methods for new workflow
-- [ ] Update admin_payment_management_screen.dart for new UI and logic
+## Task: Ensure notifications are generated for both tourist and admin when "Request Refund" button is clicked
 
-## Progress
-- [x] Plan confirmed and approved
-- [x] BookingModel updated
-- [x] Database service updated
-- [x] Admin screen updated
-- [x] Testing completed
+### Changes Made:
+- [x] Updated `payment_history_screen.dart` to refetch booking data after refund request submission
+- [x] Enhanced `createRefundRequestNotifications` method in `database_service.dart` with:
+  - [x] Validation for required fields (guideId, refundReason)
+  - [x] Better error handling and logging
+  - [x] Added data fields to notifications for better context
+  - [x] Warning when no admin users are found
+
+### Testing Required:
+- [ ] Test refund request flow to verify notifications appear in Firestore
+- [ ] Verify notifications are visible to tourist, guide, and admin users
+- [ ] Check notification data contains correct booking and refund information
+
+### Files Modified:
+- `lib/screens/payments/payment_history_screen.dart`
+- `lib/services/database_service.dart`
