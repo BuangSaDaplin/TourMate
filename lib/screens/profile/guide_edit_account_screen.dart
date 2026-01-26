@@ -22,7 +22,8 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
   final UserProfileService _profileService = UserProfileService();
   final ImagePicker _imagePicker = ImagePicker();
 
-  late TextEditingController _nameController;
+  late TextEditingController _firstNameController;
+  late TextEditingController _lastNameController;
   late TextEditingController _emailController;
   late TextEditingController _phoneController;
 
@@ -101,7 +102,8 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
   }
 
   void _initializeControllers() {
-    _nameController = TextEditingController();
+    _firstNameController = TextEditingController();
+    _lastNameController = TextEditingController();
     _emailController = TextEditingController();
     _phoneController = TextEditingController();
     _selectedLanguages = [];
@@ -123,7 +125,8 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
         if (userProfile != null) {
           setState(() {
             _currentUser = userProfile;
-            _nameController.text = userProfile.displayName ?? '';
+            _firstNameController.text = userProfile.firstName ?? '';
+            _lastNameController.text = userProfile.lastName ?? '';
             _emailController.text = userProfile.email;
             _originalEmail = userProfile.email;
             _phoneController.text = userProfile.phoneNumber ?? '';
@@ -150,7 +153,8 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
     _currentPasswordController.dispose();
@@ -216,7 +220,10 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
 
       // Update user profile
       final updates = {
-        'displayName': _nameController.text.trim(),
+        'firstName': _firstNameController.text.trim(),
+        'lastName': _lastNameController.text.trim(),
+        'displayName':
+            '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
         'email': newEmail,
         'phoneNumber': _phoneController.text.trim(),
         'photoURL': photoURL,
@@ -475,11 +482,26 @@ class _GuideEditAccountScreenState extends State<GuideEditAccountScreen> {
             // Basic Information Section
             Text('Basic Information', style: AppTheme.headlineSmall),
             const SizedBox(height: 16),
-            _buildTextField(
-              controller: _nameController,
-              label: 'Full Name',
-              icon: Icons.person,
-              hintText: 'Enter your full name',
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    controller: _firstNameController,
+                    label: 'First Name',
+                    icon: Icons.person,
+                    hintText: 'Enter your first name',
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildTextField(
+                    controller: _lastNameController,
+                    label: 'Last Name',
+                    icon: Icons.person_outline,
+                    hintText: 'Enter your last name',
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             _buildTextField(

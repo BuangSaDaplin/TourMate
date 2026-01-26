@@ -306,6 +306,18 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   void _showBookNowModal(BuildContext context) {
+    // Check if user status is approved before allowing booking
+    if (_currentUser?.status != UserStatus.approved) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              AutoTranslatedText('Please verify your email to book a tour.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     _selectedTourDate = null;
     showDialog(
       context: context,
@@ -419,10 +431,9 @@ class _MainDashboardState extends State<MainDashboard> {
                 controller: _amountController,
                 keyboardType: TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
-                  labelText: 'Amount (₱)',
+                  labelText: 'Amount',
                   border: OutlineInputBorder(),
-                  prefixIcon:
-                      Icon(Icons.attach_money, color: AppTheme.primaryColor),
+                  prefixText: '₱',
                 ),
               ),
             ],

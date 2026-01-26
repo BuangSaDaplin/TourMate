@@ -12,6 +12,8 @@ class UserModel {
   final String email;
   final String role;
   final String? displayName;
+  final String? firstName; // NEW: First name
+  final String? lastName; // NEW: Last name
   final String? phoneNumber; // NEW
   final List<String>? languages; // NEW
   final int? toursCompleted; // NEW
@@ -38,6 +40,8 @@ class UserModel {
     required this.email,
     required this.role,
     this.displayName,
+    this.firstName, // NEW: First name
+    this.lastName, // NEW: Last name
     this.phoneNumber, // Include new fields
     this.languages,
     this.toursCompleted,
@@ -68,6 +72,8 @@ class UserModel {
       email: data['email'] as String,
       role: data['role'] as String,
       displayName: data['displayName'] as String?,
+      firstName: data['firstName'] as String?, // NEW: First name
+      lastName: data['lastName'] as String?, // NEW: Last name
       phoneNumber: data['phoneNumber'] as String?, // Map new field
       languages: (data['languages'] as List?)?.map((e) => e as String).toList(),
       toursCompleted: data['toursCompleted'] as int?,
@@ -124,6 +130,8 @@ class UserModel {
       'email': email,
       'role': role,
       'displayName': displayName,
+      'firstName': firstName, // NEW: First name
+      'lastName': lastName, // NEW: Last name
       'phoneNumber': phoneNumber,
       'languages': languages,
       'toursCompleted': toursCompleted,

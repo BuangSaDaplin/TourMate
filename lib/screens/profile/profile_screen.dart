@@ -518,29 +518,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const Divider(),
                         _buildOptionTile(
-                          Icons.help,
-                          'Help & Support',
-                          'Get help with your bookings',
-                          () {
-                            // Navigate to help
-                          },
-                        ),
-                        const Divider(),
-                        _buildOptionTile(
-                          Icons.lock,
-                          'Change Password',
-                          'Update your account password',
-                          () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const ChangePasswordScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        const Divider(),
-                        _buildOptionTile(
                           Icons.privacy_tip,
                           'Privacy Policy',
                           'Read our privacy policy',

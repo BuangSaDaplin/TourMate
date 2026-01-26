@@ -49,39 +49,45 @@ class PaymentService {
       final success = await _processPaymentWithProvider(payment);
 
       if (success) {
-        // Update payment status
-        await _updatePaymentStatus(paymentId, PaymentStatus.completed);
-        await _updateBookingPaymentStatus(bookingId, BookingStatus.paid);
+        // For cash payments, don't mark as completed since they require guide confirmation
+        if (paymentMethod != PaymentMethod.cash) {
+          // Update payment status
+          await _updatePaymentStatus(paymentId, PaymentStatus.completed);
+          await _updateBookingPaymentStatus(bookingId, BookingStatus.paid);
 
-        // Update payment with completion details
-        final updatedPayment = payment.copyWith(
-          status: PaymentStatus.completed,
-          completedAt: DateTime.now(),
-          transactionId: 'txn_${paymentId}',
-        );
+          // Update payment with completion details
+          final updatedPayment = payment.copyWith(
+            status: PaymentStatus.completed,
+            completedAt: DateTime.now(),
+            transactionId: 'txn_${paymentId}',
+          );
 
-        await _db.collection('payments').doc(paymentId).update({
-          'status': PaymentStatus.completed.index,
-          'completedAt': FieldValue.serverTimestamp(),
-          'transactionId': 'txn_${paymentId}',
-        });
+          await _db.collection('payments').doc(paymentId).update({
+            'status': PaymentStatus.completed.index,
+            'completedAt': FieldValue.serverTimestamp(),
+            'transactionId': 'txn_${paymentId}',
+          });
 
-        // Get booking details for notification
-        final bookingDoc =
-            await _db.collection('bookings').doc(bookingId).get();
-        final bookingData = bookingDoc.data();
-        final tourTitle = bookingData?['tourTitle'] ?? 'Tour';
+          // Get booking details for notification
+          final bookingDoc =
+              await _db.collection('bookings').doc(bookingId).get();
+          final bookingData = bookingDoc.data();
+          final tourTitle = bookingData?['tourTitle'] ?? 'Tour';
 
-        // Create payment completion notification
-        final paymentNotification =
-            _notificationService.createPaymentNotification(
-          userId: userId,
-          amount: amount,
-          tourTitle: tourTitle,
-        );
-        await _notificationService.createNotification(paymentNotification);
+          // Create payment completion notification
+          final paymentNotification =
+              _notificationService.createPaymentNotification(
+            userId: userId,
+            amount: amount,
+            tourTitle: tourTitle,
+          );
+          await _notificationService.createNotification(paymentNotification);
 
-        return updatedPayment;
+          return updatedPayment;
+        } else {
+          // For cash payments, just return the payment record without completion notification
+          return payment;
+        }
       } else {
         // Payment failed
         await _updatePaymentStatus(paymentId, PaymentStatus.failed);

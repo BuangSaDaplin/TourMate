@@ -102,9 +102,6 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
           // Itinerary Header
           _buildItineraryHeader(),
 
-          // Date Selector
-          _buildDateSelector(),
-
           // Activities Timeline
           Expanded(
             child: itemsForDate.isEmpty

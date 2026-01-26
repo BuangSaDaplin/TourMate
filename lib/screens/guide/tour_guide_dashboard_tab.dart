@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../utils/app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/database_service.dart';
@@ -7,6 +8,7 @@ import '../../models/payment_model.dart';
 import '../../models/review_model.dart';
 import '../../models/tour_model.dart';
 import '../../models/user_model.dart';
+import '../../widgets/auto_translated_text.dart';
 import 'create_tour_screen.dart';
 import 'bookings_management_screen.dart';
 import 'guide_submit_credentials_screen.dart';
@@ -41,6 +43,7 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
   String? _error;
   String? _userName;
   List<ActivityItem> _recentActivities = [];
+  UserModel? _currentUser;
 
   // Overview stats
   int _activeTours = 0;
@@ -84,6 +87,7 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
       final userProfile = await _db.getUser(currentUser.uid);
       final userName = userProfile?.displayName ?? 'Guide';
       final userStatus = userProfile?.status;
+      _currentUser = userProfile;
 
       // Load overview stats
       await _loadOverviewStats(currentUser.uid);
@@ -286,6 +290,121 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
     }
   }
 
+  void _showTopUpDialog(BuildContext context) {
+    final TextEditingController _amountController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const AutoTranslatedText(
+            'Top Up E-Wallet',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const AutoTranslatedText(
+                'Enter the amount to add to your E-Wallet:',
+                style: TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _amountController,
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: 'Amount (₱)',
+                  border: OutlineInputBorder(),
+                  prefixText: '₱',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const AutoTranslatedText('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final amountText = _amountController.text.trim();
+                final amount = double.tryParse(amountText);
+                if (amount == null || amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: AutoTranslatedText(
+                          'Please enter a valid amount greater than 0'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                try {
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user != null && _currentUser != null) {
+                    final newBalance = (_currentUser!.eWallet ?? 0.0) + amount;
+                    await DatabaseService()
+                        .updateEWalletBalance(user.uid, newBalance);
+
+                    // Update local state immediately
+                    setState(() {
+                      _currentUser = UserModel(
+                        uid: _currentUser!.uid,
+                        email: _currentUser!.email,
+                        role: _currentUser!.role,
+                        displayName: _currentUser!.displayName,
+                        phoneNumber: _currentUser!.phoneNumber,
+                        languages: _currentUser!.languages,
+                        toursCompleted: _currentUser!.toursCompleted,
+                        averageRating: _currentUser!.averageRating,
+                        photoURL: _currentUser!.photoURL,
+                        createdAt: _currentUser!.createdAt,
+                        activeStatus: _currentUser!.activeStatus,
+                        favoriteDestination: _currentUser!.favoriteDestination,
+                        specializations: _currentUser!.specializations,
+                        status: _currentUser!.status,
+                        isActive: _currentUser!.isActive,
+                        isLGUVerified: _currentUser!.isLGUVerified,
+                        category: _currentUser!.category,
+                        certifications: _currentUser!.certifications,
+                        lguDocuments: _currentUser!.lguDocuments,
+                        availability: _currentUser!.availability,
+                        eWallet: newBalance,
+                      );
+                    });
+
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: AutoTranslatedText(
+                            'Successfully topped up ₱${amount.toStringAsFixed(2)}'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: AutoTranslatedText(
+                          'Failed to top up. Please try again.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.buttonHighlight,
+              ),
+              child: const AutoTranslatedText('Top Up'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -375,6 +494,56 @@ class _TourGuideDashboardTabState extends State<TourGuideDashboardTab> {
             ),
             const SizedBox(height: 24),
           ],
+
+          // E-Wallet Section
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: AppTheme.cardDecoration,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      AutoTranslatedText(
+                        'E-Wallet',
+                        style: AppTheme.headlineSmall,
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () => _showTopUpDialog(context),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const AutoTranslatedText('Top Up'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.buttonHighlight,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.account_balance_wallet,
+                        color: AppTheme.primaryColor,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 8),
+                      AutoTranslatedText(
+                        'Balance: ₱${_currentUser?.eWallet?.toStringAsFixed(2) ?? '0.00'}',
+                        style: AppTheme.bodyLarge.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
 
           // Stats Overview
           Text('Overview', style: AppTheme.headlineSmall),

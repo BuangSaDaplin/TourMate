@@ -1615,6 +1615,50 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
             ElevatedButton(
               onPressed: () async {
                 try {
+                  // Get current user (guide)
+                  final currentUser = _authService.getCurrentUser();
+                  if (currentUser == null) {
+                    _showSnackBar('User not authenticated');
+                    return;
+                  }
+
+                  // Get guide's current eWallet balance
+                  final guide = await _db.getUser(currentUser.uid);
+                  if (guide == null) {
+                    _showSnackBar('Guide information not found');
+                    return;
+                  }
+
+                  // Get the booking to access tour information
+                  final booking = await _db.getBooking(request['id']);
+                  if (booking == null) {
+                    _showSnackBar('Booking not found');
+                    return;
+                  }
+
+                  // Fetch tour data to get inclusion prices
+                  final tour = await _db.getTour(booking.tourId);
+                  if (tour == null) {
+                    _showSnackBar('Tour information not found');
+                    return;
+                  }
+
+                  // Calculate amountDue = totalPrice - (0.95 * inclusionPrices['Professional Guide'])
+                  double amountDue = booking.totalPrice;
+                  if (tour.inclusionPrices.containsKey('Professional Guide')) {
+                    final guideInclusionPrice =
+                        tour.inclusionPrices['Professional Guide']!;
+                    amountDue =
+                        booking.totalPrice - (0.95 * guideInclusionPrice);
+                  }
+
+                  // Calculate finalAmount = guide.eWallet - amountDue
+                  final currentBalance = guide.eWallet ?? 0.0;
+                  final finalAmount = currentBalance - amountDue;
+
+                  // Update guide's eWallet balance in database
+                  await _db.updateEWalletBalance(currentUser.uid, finalAmount);
+
                   // Update booking status to paid and paymentStatus to paid
                   await _db.updateBookingWithPayment(
                     request['id'],
@@ -1625,12 +1669,24 @@ class _BookingsManagementScreenState extends State<BookingsManagementScreen>
 
                   // Send notification to tourist about payment confirmation
                   final touristNotification =
-                      _notificationService.createPaymentRecordedNotification(
+                      _notificationService.createPaymentNotification(
                     userId: request['touristId'],
+                    amount: booking.totalPrice,
                     tourTitle: request['tourTitle'],
                   );
                   await _notificationService
                       .createNotification(touristNotification);
+
+                  // Send notification to guide about payment received
+                  final guideNotification = _notificationService
+                      .createPaymentReceivedForGuideNotification(
+                    userId: currentUser.uid,
+                    bookingId: request['id'],
+                    touristName: request['touristName'],
+                    amount: booking.totalPrice,
+                  );
+                  await _notificationService
+                      .createNotification(guideNotification);
 
                   Navigator.pop(context);
                   _showSnackBar('Payment received successfully!');

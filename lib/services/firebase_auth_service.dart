@@ -1,4 +1,4 @@
-  import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -20,7 +20,8 @@ class FirebaseAuthService {
   }
 
   Future<User?> signUp(
-      {required String? name,
+      {required String? firstName,
+      required String? lastName,
       required String email,
       required String password,
       required String role,
@@ -39,7 +40,8 @@ class FirebaseAuthService {
           user,
           role: role,
           phoneNumber: phoneNumber,
-          displayName: name ?? '',
+          firstName: firstName ?? '',
+          lastName: lastName ?? '',
           category: category,
           specializations: specializations,
           availability: availability,
@@ -151,7 +153,8 @@ class FirebaseAuthService {
 
   Future<void> _createUserDocument(User user,
       {String role = 'tourist',
-      String displayName = '',
+      String firstName = '',
+      String lastName = '',
       String? phoneNumber,
       List<String>? category,
       List<String>? specializations,
@@ -165,8 +168,10 @@ class FirebaseAuthService {
         uid: user.uid,
         email: user.email ?? '',
         role: role,
-        displayName: displayName.isNotEmpty
-            ? displayName
+        firstName: firstName,
+        lastName: lastName,
+        displayName: (firstName.isNotEmpty && lastName.isNotEmpty)
+            ? '$firstName $lastName'
             : user.displayName ?? 'New User',
         photoURL: user.photoURL,
         createdAt: DateTime.now(),

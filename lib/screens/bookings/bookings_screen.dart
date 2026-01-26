@@ -1590,6 +1590,29 @@ class _BookingsScreenState extends State<BookingsScreen>
                             status: BookingStatus.inProgress,
                           );
 
+                          // Send notification to tourist about cash payment initiation
+                          final touristNotification = _notificationService
+                              .createCashPaymentInitiatedNotification(
+                            userId: currentUser.uid,
+                            amount: booking.totalPrice,
+                            tourTitle: booking.tourTitle,
+                          );
+                          await _notificationService
+                              .createNotification(touristNotification);
+
+                          // Send notification to guide about cash payment pending
+                          if (booking.guideId != null) {
+                            final guideNotification = _notificationService
+                                .createCashPaymentPendingForGuideNotification(
+                              userId: booking.guideId!,
+                              bookingId: booking.id,
+                              touristName: currentUser.displayName ?? 'Tourist',
+                              amount: booking.totalPrice,
+                            );
+                            await _notificationService
+                                .createNotification(guideNotification);
+                          }
+
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -1622,6 +1645,27 @@ class _BookingsScreenState extends State<BookingsScreen>
                           return;
                         }
 
+                        // Fetch tour data to get inclusion prices
+                        final tour = await _db.getTour(booking.tourId);
+                        if (tour == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Tour information not found'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        // Calculate guide amount (95% of Professional Guide's inclusion price)
+                        double guideAmount = 0.0;
+                        if (tour.inclusionPrices
+                            .containsKey('Professional Guide')) {
+                          guideAmount =
+                              (tour.inclusionPrices['Professional Guide']! *
+                                  0.95);
+                        }
+
                         // Create payment record for eWallet payment
                         final payment = await _paymentService.processPayment(
                           bookingId: booking.id,
@@ -1633,32 +1677,52 @@ class _BookingsScreenState extends State<BookingsScreen>
                         );
 
                         if (payment != null) {
-                          // Use transaction to deduct balance and update booking
+                          // Use transaction to deduct from tourist, add to guide, and update booking
                           await FirebaseFirestore.instance
                               .runTransaction((transaction) async {
-                            // Get fresh user data
-                            final userDoc = await transaction.get(
+                            // Get fresh tourist data
+                            final touristDoc = await transaction.get(
                                 FirebaseFirestore.instance
                                     .collection('users')
                                     .doc(currentUser.uid));
-                            final currentBalance =
-                                (userDoc.data()?['eWallet'] as num?)
+                            final touristBalance =
+                                (touristDoc.data()?['eWallet'] as num?)
                                         ?.toDouble() ??
                                     0.0;
 
-                            if (currentBalance < booking.totalPrice) {
+                            if (touristBalance < booking.totalPrice) {
                               throw Exception('Insufficient balance');
                             }
 
-                            // Deduct from eWallet
-                            final newBalance =
-                                currentBalance - booking.totalPrice;
+                            // Get fresh guide data
+                            final guideDoc = await transaction.get(
+                                FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(booking.guideId!));
+                            final guideBalance =
+                                (guideDoc.data()?['eWallet'] as num?)
+                                        ?.toDouble() ??
+                                    0.0;
+
+                            // Deduct from tourist's eWallet
+                            final newTouristBalance =
+                                touristBalance - booking.totalPrice;
                             transaction.update(
                                 FirebaseFirestore.instance
                                     .collection('users')
                                     .doc(currentUser.uid),
                                 {
-                                  'eWallet': newBalance,
+                                  'eWallet': newTouristBalance,
+                                });
+
+                            // Add to guide's eWallet
+                            final newGuideBalance = guideBalance + guideAmount;
+                            transaction.update(
+                                FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(booking.guideId!),
+                                {
+                                  'eWallet': newGuideBalance,
                                 });
 
                             // Update booking

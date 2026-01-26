@@ -78,10 +78,6 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
                 value: 'mark_all_read',
                 child: Text('Mark all as read'),
               ),
-              const PopupMenuItem(
-                value: 'settings',
-                child: Text('Notification settings'),
-              ),
             ],
           ),
         ],

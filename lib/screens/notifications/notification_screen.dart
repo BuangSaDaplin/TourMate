@@ -69,10 +69,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 value: 'mark_all_read',
                 child: Text('Mark all as read'),
               ),
-              const PopupMenuItem(
-                value: 'settings',
-                child: Text('Notification settings'),
-              ),
             ],
           ),
         ],
@@ -339,7 +335,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Notification Settings'),
-        content: const Text('Notification settings will be available in a future update.'),
+        content: const Text(
+            'Notification settings will be available in a future update.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

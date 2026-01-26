@@ -376,7 +376,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                         const DataColumn(label: Text('Role')),
                         const DataColumn(label: Text('Status')),
                         const DataColumn(label: Text('Join Date')),
-                        const DataColumn(label: Text('Last Active')),
                         const DataColumn(label: Text('Actions')),
                       ],
                       rows: _filteredUsers.map((user) {
@@ -428,8 +427,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                             DataCell(Text(
                                 user.createdAt?.toString().split(' ')[0] ??
                                     'N/A')),
-                            DataCell(Text(
-                                'Online')), // TODO: Implement last active tracking
                             DataCell(
                               PopupMenuButton<String>(
                                 onSelected: (action) {

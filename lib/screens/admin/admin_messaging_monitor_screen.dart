@@ -23,7 +23,7 @@ class _AdminMessagingMonitorScreenState
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -47,8 +47,6 @@ class _AdminMessagingMonitorScreenState
           indicatorColor: AppTheme.primaryColor,
           tabs: const [
             Tab(text: 'All Chats'),
-            Tab(text: 'Active'),
-            Tab(text: 'Issues'),
             Tab(text: 'Reports'),
           ],
         ),
@@ -57,8 +55,6 @@ class _AdminMessagingMonitorScreenState
         controller: _tabController,
         children: [
           _buildAllChatsTab(),
-          _buildActiveChatsTab(),
-          _buildIssuesTab(),
           _buildReportsTab(),
         ],
       ),
@@ -268,123 +264,107 @@ class _AdminMessagingMonitorScreenState
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
             children: [
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      chatRoom.title,
-                      style: AppTheme.headlineSmall.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  Text(
+                    'Conversation: ${_formatDateTime(chatRoom.createdAt)}',
+                    style: AppTheme.headlineSmall.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  if (showIssueIndicator)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  const SizedBox(height: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Tourist: ${chatRoom.participants.isNotEmpty ? chatRoom.participants[0] : 'N/A'}',
+                        style: AppTheme.bodyMedium,
                       ),
-                      child: Text(
-                        chatRoom.isBlocked ? 'Blocked' : 'Inactive',
-                        style: AppTheme.bodySmall.copyWith(
-                          color: Colors.red,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tour Guide: ${chatRoom.participants.length > 1 ? chatRoom.participants[1] : 'N/A'}',
+                        style: AppTheme.bodyMedium,
                       ),
-                    ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: chatRoom.statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      chatRoom.status.toString().split('.').last,
-                      style: AppTheme.bodySmall.copyWith(
-                        color: chatRoom.statusColor,
-                        fontWeight: FontWeight.w600,
+                      const SizedBox(height: 4),
+                      Text(
+                        'Conversation ID: ${chatRoom.id}',
+                        style: AppTheme.bodyMedium,
                       ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Type: ${chatRoom.type.toString().split('.').last}',
-                style: AppTheme.bodySmall.copyWith(
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${chatRoom.participants.length} participants',
-                style: AppTheme.bodySmall.copyWith(
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-              if (chatRoom.lastMessage != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Last: ${chatRoom.lastMessage}',
-                  style: AppTheme.bodyMedium,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-              if (chatRoom.lastMessageTime != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  'Updated: ${_formatDateTime(chatRoom.lastMessageTime!)}',
-                  style: AppTheme.bodySmall.copyWith(
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () => _openChatRoom(chatRoom),
-                    icon: const Icon(Icons.chat, size: 16),
-                    label: const Text('View Chat'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                    ),
-                  ),
-                  PopupMenuButton<String>(
-                    onSelected: (value) => _handleChatAction(chatRoom, value),
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'view_details',
-                        child: Text('View Details'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'block',
-                        child: Text('Block Chat'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'unblock',
-                        child: Text('Unblock Chat'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'archive',
-                        child: Text('Archive'),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Last Activity: ${chatRoom.lastMessageTime != null ? _formatDateTime(chatRoom.lastMessageTime!) : 'N/A'}',
+                        style: AppTheme.bodyMedium,
                       ),
                     ],
                   ),
                 ],
+              ),
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Row(
+                  children: [
+                    if (showIssueIndicator)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border:
+                              Border.all(color: Colors.red.withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          chatRoom.isBlocked ? 'Blocked' : 'Inactive',
+                          style: AppTheme.bodySmall.copyWith(
+                            color: Colors.red,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: chatRoom.statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        chatRoom.status.toString().split('.').last,
+                        style: AppTheme.bodySmall.copyWith(
+                          color: chatRoom.statusColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    PopupMenuButton<String>(
+                      onSelected: (value) => _handleChatAction(chatRoom, value),
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'view_details',
+                          child: Text('View Details'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'block',
+                          child: Text('Block Chat'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'unblock',
+                          child: Text('Unblock Chat'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'archive',
+                          child: Text('Archive'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

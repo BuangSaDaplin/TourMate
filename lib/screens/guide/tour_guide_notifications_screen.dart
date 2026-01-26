@@ -86,10 +86,6 @@ class _TourGuideNotificationsScreenState
                 value: 'mark_all_read',
                 child: Text('Mark all as read'),
               ),
-              const PopupMenuItem(
-                value: 'settings',
-                child: Text('Notification settings'),
-              ),
             ],
           ),
         ],

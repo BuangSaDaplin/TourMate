@@ -1207,6 +1207,73 @@ class NotificationService {
     );
   }
 
+  NotificationModel createCashPaymentInitiatedNotification({
+    required String userId,
+    required double amount,
+    required String tourTitle,
+  }) {
+    return NotificationModel(
+      id: 'cash_payment_initiated_${userId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: userId,
+      title: 'Cash Payment Initiated',
+      message:
+          'Cash payment of \$${amount.toStringAsFixed(2)} for "$tourTitle" has been initiated. Please pay in cash during the tour meetup.',
+      type: NotificationType.payment,
+      priority: NotificationPriority.normal,
+      data: {
+        'amount': amount,
+        'tourTitle': tourTitle,
+      },
+      createdAt: DateTime.now(),
+    );
+  }
+
+  NotificationModel createPaymentReceivedForGuideNotification({
+    required String userId,
+    required String bookingId,
+    required String touristName,
+    required double amount,
+  }) {
+    return NotificationModel(
+      id: 'payment_received_guide_${userId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: userId,
+      title: 'Payment Received',
+      message:
+          'Payment received for booking $bookingId from $touristName. Amount: \$${amount.toStringAsFixed(2)}.',
+      type: NotificationType.payment,
+      priority: NotificationPriority.normal,
+      data: {
+        'bookingId': bookingId,
+        'touristName': touristName,
+        'amount': amount,
+      },
+      createdAt: DateTime.now(),
+    );
+  }
+
+  NotificationModel createCashPaymentPendingForGuideNotification({
+    required String userId,
+    required String bookingId,
+    required String touristName,
+    required double amount,
+  }) {
+    return NotificationModel(
+      id: 'cash_payment_pending_guide_${userId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: userId,
+      title: 'Receive Payment Pending',
+      message:
+          'Cash payment pending for booking $bookingId from $touristName. Amount: \$${amount.toStringAsFixed(2)}. Please collect payment during the tour meetup.',
+      type: NotificationType.payment,
+      priority: NotificationPriority.normal,
+      data: {
+        'bookingId': bookingId,
+        'touristName': touristName,
+        'amount': amount,
+      },
+      createdAt: DateTime.now(),
+    );
+  }
+
   NotificationModel createTourSuggestionApprovedNotification({
     required String userId,
     required String tourTitle,

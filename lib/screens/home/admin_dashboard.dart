@@ -44,7 +44,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     const AdminReviewsManagementScreen(),
     const AdminNotificationsScreen(),
     const AdminAnalyticsScreen(),
-    const AdminSystemSettingsScreen(),
   ];
 
   final List<Map<String, dynamic>> _navigationItems = [
@@ -97,11 +96,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
       'icon': Icons.analytics,
       'label': 'Analytics',
       'color': AppTheme.successColor
-    },
-    {
-      'icon': Icons.settings,
-      'label': 'System Settings',
-      'color': AppTheme.textSecondary
     },
   ];
 
@@ -166,7 +160,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                   onPressed: () {
                     setState(() {
-                      _selectedIndex = 7; // Notifications index
+                      _selectedIndex = 8; // Notifications index
                     });
                   },
                 );
@@ -198,16 +192,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       Icon(Icons.person),
                       SizedBox(width: 8),
                       Text('Profile'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'settings',
-                  child: Row(
-                    children: [
-                      Icon(Icons.settings),
-                      SizedBox(width: 8),
-                      Text('Settings'),
                     ],
                   ),
                 ),

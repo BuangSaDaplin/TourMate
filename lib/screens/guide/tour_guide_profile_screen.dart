@@ -481,15 +481,6 @@ class _TourGuideProfileScreenState extends State<TourGuideProfileScreen> {
                   ),
                   const Divider(),
                   _buildOptionTile(
-                    Icons.help,
-                    'Help & Support',
-                    'Get help with your bookings',
-                    () {
-                      // Navigate to help
-                    },
-                  ),
-                  const Divider(),
-                  _buildOptionTile(
                     Icons.privacy_tip,
                     'Privacy Policy',
                     'Read our privacy policy',
