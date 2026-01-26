@@ -9,6 +9,7 @@ import '../../models/booking_model.dart';
 import '../../models/payment_model.dart';
 import '../../models/message_model.dart';
 import '../../models/tour_model.dart';
+import '../../models/user_model.dart';
 import '../notifications/notification_screen.dart';
 import '../messaging/chat_screen.dart';
 import '../tour/tour_details_screen.dart';
@@ -1299,7 +1300,7 @@ class _BookingsScreenState extends State<BookingsScreen>
   }
 
   void _showPaymentDialog(BookingModel booking) {
-    String selectedPaymentMethod = 'Credit Card';
+    String selectedPaymentMethod = 'Cash';
     final TextEditingController _cardNumberController = TextEditingController();
     final TextEditingController _expiryController = TextEditingController();
     final TextEditingController _cvvController = TextEditingController();
@@ -1342,108 +1343,21 @@ class _BookingsScreenState extends State<BookingsScreen>
                               });
                             },
                           ),
+                          RadioListTile<String>(
+                            title: const Text('E-Wallet'),
+                            value: 'E-Wallet',
+                            groupValue: selectedPaymentMethod,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedPaymentMethod = value!;
+                              });
+                            },
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
                       // Payment form fields
-                      if (selectedPaymentMethod == 'Credit Card') ...[
-                        const Text(
-                          'Card Details:',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: _cardNumberController,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            hintText: 'Card Number (1234 5678 9012 3456)',
-                            prefixIcon: Icon(Icons.credit_card),
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _expiryController,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  hintText: 'MM/YY',
-                                  labelText: 'Expiry',
-                                ),
-                                keyboardType: TextInputType.datetime,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: TextField(
-                                controller: _cvvController,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  hintText: '123',
-                                  labelText: 'CVV',
-                                ),
-                                keyboardType: TextInputType.number,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: _cardHolderController,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            hintText: 'John Doe',
-                            labelText: 'Card Holder Name',
-                          ),
-                        ),
-                      ] else if (selectedPaymentMethod == 'GCash' ||
-                          selectedPaymentMethod == 'PayMaya') ...[
-                        const Text(
-                          'Mobile Wallet Details:',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: _gcashNumberController,
-                          decoration: InputDecoration(
-                            border: const OutlineInputBorder(),
-                            hintText: '09XX XXX XXXX',
-                            labelText: '${selectedPaymentMethod} Number *',
-                            prefixIcon: const Icon(Icons.phone_android),
-                          ),
-                          keyboardType: TextInputType.phone,
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: _referenceController,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            hintText: 'Reference Number (Optional)',
-                            labelText: 'Reference Number',
-                          ),
-                        ),
-                      ] else if (selectedPaymentMethod == 'Bank Transfer') ...[
-                        const Text(
-                          'Bank Transfer Details:',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Bank: BDO Unibank\nAccount Name: TourMate Cebu\nAccount Number: 1234 5678 9012\nRouting Number: 123456789',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: _referenceController,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            hintText: 'Reference Number',
-                            labelText: 'Reference Number',
-                          ),
-                        ),
-                      ] else if (selectedPaymentMethod == 'Cash') ...[
+                      if (selectedPaymentMethod == 'Cash') ...[
                         const Text(
                           'Cash Payment Instructions:',
                           style: TextStyle(fontWeight: FontWeight.bold),
@@ -1463,6 +1377,130 @@ class _BookingsScreenState extends State<BookingsScreen>
                           'Cash payments are settled through the platform’s internal tracking system.\n'
                           'Bookings remain subject to verification to ensure proper commission handling.',
                           style: TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                      ] else if (selectedPaymentMethod == 'E-Wallet') ...[
+                        FutureBuilder<UserModel?>(
+                          future: _authService.getCurrentUser() != null
+                              ? _db.getUser(_authService.getCurrentUser()!.uid)
+                              : Future.value(null),
+                          builder: (context, snapshot) {
+                            final user = snapshot.data;
+                            final eWalletBalance = user?.eWallet ?? 0.0;
+                            final isSufficient =
+                                eWalletBalance >= booking.totalPrice;
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'E-Wallet Payment:',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isSufficient
+                                          ? Colors.green
+                                          : Colors.red,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          const Text(
+                                            'Current Balance:',
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.w500),
+                                          ),
+                                          Text(
+                                            '₱${eWalletBalance.toStringAsFixed(2)}',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: isSufficient
+                                                  ? Colors.green
+                                                  : Colors.red,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          const Text(
+                                            'Booking Total:',
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.w500),
+                                          ),
+                                          Text(
+                                            '₱${booking.totalPrice.toStringAsFixed(2)}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.blue,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 4, horizontal: 8),
+                                        decoration: BoxDecoration(
+                                          color: isSufficient
+                                              ? Colors.green.shade100
+                                              : Colors.red.shade100,
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          isSufficient
+                                              ? '✓ Sufficient Balance'
+                                              : '✗ Insufficient Balance',
+                                          style: TextStyle(
+                                            color: isSufficient
+                                                ? Colors.green.shade800
+                                                : Colors.red.shade800,
+                                            fontWeight: FontWeight.w500,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (!isSufficient) ...[
+                                  const SizedBox(height: 12),
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.shade50,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                          color: Colors.red.shade200),
+                                    ),
+                                    child: const Text(
+                                      'Your E-Wallet balance is insufficient. Please top up your wallet or choose another payment method.',
+                                      style: TextStyle(
+                                        color: Colors.red,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            );
+                          },
                         ),
                       ],
                       const SizedBox(height: 16),
@@ -1523,22 +1561,127 @@ class _BookingsScreenState extends State<BookingsScreen>
 
                     try {
                       if (selectedPaymentMethod == 'Cash') {
-                        // For cash payments, update booking status to inProgress
-                        await _db.updateBookingWithPayment(
-                          booking.id,
-                          paymentMethod: BookingPaymentMethod.cash,
-                          paymentStatus: BookingPaymentStatus.pending,
-                          status: BookingStatus.inProgress,
+                        // For cash payments, create payment record and update booking status to inProgress
+                        final payment = await _paymentService.processPayment(
+                          bookingId: booking.id,
+                          userId: currentUser.uid,
+                          guideId: booking.guideId ?? '',
+                          amount: booking.totalPrice,
+                          paymentMethod: PaymentMethod.cash,
+                          paymentDetails: paymentDetails,
                         );
 
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                                'Cash payment selected. Booking is now in progress.'),
-                            backgroundColor: Colors.green,
-                          ),
+                        if (payment != null) {
+                          await _db.updateBookingWithPayment(
+                            booking.id,
+                            paymentMethod: BookingPaymentMethod.cash,
+                            paymentStatus: BookingPaymentStatus.pending,
+                            status: BookingStatus.inProgress,
+                          );
+
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  'Cash payment selected. Booking is now in progress.'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Failed to process cash payment'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      } else if (selectedPaymentMethod == 'E-Wallet') {
+                        // Handle E-Wallet payment
+                        final user = await _db.getUser(currentUser.uid);
+                        final eWalletBalance = user?.eWallet ?? 0.0;
+
+                        if (eWalletBalance < booking.totalPrice) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  'Insufficient E-Wallet balance. Please top up to continue.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        // Create payment record for eWallet payment
+                        final payment = await _paymentService.processPayment(
+                          bookingId: booking.id,
+                          userId: currentUser.uid,
+                          guideId: booking.guideId ?? '',
+                          amount: booking.totalPrice,
+                          paymentMethod: PaymentMethod.eWallet,
+                          paymentDetails: paymentDetails,
                         );
+
+                        if (payment != null) {
+                          // Use transaction to deduct balance and update booking
+                          await FirebaseFirestore.instance
+                              .runTransaction((transaction) async {
+                            // Get fresh user data
+                            final userDoc = await transaction.get(
+                                FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(currentUser.uid));
+                            final currentBalance =
+                                (userDoc.data()?['eWallet'] as num?)
+                                        ?.toDouble() ??
+                                    0.0;
+
+                            if (currentBalance < booking.totalPrice) {
+                              throw Exception('Insufficient balance');
+                            }
+
+                            // Deduct from eWallet
+                            final newBalance =
+                                currentBalance - booking.totalPrice;
+                            transaction.update(
+                                FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(currentUser.uid),
+                                {
+                                  'eWallet': newBalance,
+                                });
+
+                            // Update booking
+                            transaction.update(
+                                FirebaseFirestore.instance
+                                    .collection('bookings')
+                                    .doc(booking.id),
+                                {
+                                  'status': BookingStatus.paid.index,
+                                  'paymentMethod':
+                                      BookingPaymentMethod.eWallet.index,
+                                  'paymentStatus':
+                                      BookingPaymentStatus.paid.index,
+                                  'paidAt': FieldValue.serverTimestamp(),
+                                });
+                          });
+
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  'Payment completed successfully using E-Wallet!'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content:
+                                  Text('Failed to process eWallet payment'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
                       } else {
                         final payment = await _paymentService.processPayment(
                           bookingId: booking.id,

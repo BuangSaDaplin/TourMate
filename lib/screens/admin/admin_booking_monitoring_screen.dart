@@ -57,7 +57,6 @@ class _AdminBookingMonitoringScreenState
           tabs: const [
             Tab(text: 'Overview'),
             Tab(text: 'All Bookings'),
-            Tab(text: 'Issues'),
           ],
         ),
       ),
@@ -66,7 +65,6 @@ class _AdminBookingMonitoringScreenState
         children: [
           _buildOverviewTab(),
           _buildAllBookingsTab(),
-          _buildIssuesTab(),
         ],
       ),
     );

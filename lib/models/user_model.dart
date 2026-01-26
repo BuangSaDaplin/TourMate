@@ -30,6 +30,7 @@ class UserModel {
   final List<String>? certifications; // NEW: List of certifications
   final List<String>? lguDocuments; // NEW: List of LGU documents
   final List<String>? availability; // NEW: Availability days for tour guides
+  final double? eWallet; // NEW: E-Wallet balance
 
   // 1. Constructor
   UserModel({
@@ -53,6 +54,7 @@ class UserModel {
     this.certifications, // NEW: List of certifications
     this.lguDocuments, // NEW: List of LGU documents
     this.availability, // NEW: Availability days for tour guides
+    this.eWallet = 0.0, // NEW: E-Wallet balance with default value
     String? experience,
     List<String>? certificationsURL,
     List<String>? lguDocumentsURL,
@@ -105,6 +107,13 @@ class UserModel {
       availability: (data['availability'] as List?)
           ?.map((e) => e as String)
           .toList(), // NEW: Availability days for tour guides
+      eWallet: data['eWallet'] != null
+          ? ((data['eWallet'] is double)
+              ? data['eWallet']
+              : (data['eWallet'] is int)
+                  ? data['eWallet'].toDouble()
+                  : double.tryParse(data['eWallet'].toString()) ?? 0.0)
+          : 0.0, // NEW: E-Wallet balance
     );
   }
 
@@ -131,6 +140,7 @@ class UserModel {
       'certifications': certifications, // NEW: List of certifications
       'lguDocuments': lguDocuments, // NEW: List of LGU documents
       'availability': availability, // NEW: Availability days for tour guides
+      'eWallet': eWallet, // NEW: E-Wallet balance
     };
   }
 }

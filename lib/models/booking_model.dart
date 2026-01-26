@@ -27,6 +27,13 @@ enum ReviewSubmissionStatus {
   moderated, // 2 = moderated
 }
 
+enum RefundStatus {
+  pendingRefund,
+  approvedRefund,
+  rejectedRefund,
+  processingRefund,
+}
+
 class BookingModel {
   final String tourTitle;
   final String id;
@@ -63,6 +70,13 @@ class BookingModel {
   final String? reviewModerateReason;
   final ReviewSubmissionStatus? reviewStatus;
 
+  // Refund fields
+  final String? refundReason;
+  final RefundStatus? refundStatus;
+  final DateTime? requestedAt;
+  final DateTime? processedAt;
+  final String? refundRejectionReason;
+
   BookingModel({
     required this.tourTitle,
     required this.id,
@@ -96,6 +110,11 @@ class BookingModel {
     this.reviewModeratedAt,
     this.reviewModerateReason,
     this.reviewStatus,
+    this.refundReason,
+    this.refundStatus,
+    this.requestedAt,
+    this.processedAt,
+    this.refundRejectionReason,
   });
 
   factory BookingModel.fromMap(Map<String, dynamic> data) {
@@ -150,6 +169,12 @@ class BookingModel {
       reviewStatus: data['reviewStatus'] != null
           ? ReviewSubmissionStatus.values[data['reviewStatus']]
           : null,
+      refundReason: data['refundReason'],
+      refundStatus: data['refundStatus'] != null
+          ? RefundStatus.values[data['refundStatus']]
+          : null,
+      requestedAt: data['requestedAt']?.toDate(),
+      processedAt: data['processedAt']?.toDate(),
     );
   }
 
@@ -187,6 +212,11 @@ class BookingModel {
       'reviewModeratedAt': reviewModeratedAt,
       'reviewModerateReason': reviewModerateReason,
       'reviewStatus': reviewStatus?.index,
+      'refundReason': refundReason,
+      'refundStatus': refundStatus?.index,
+      'requestedAt': requestedAt,
+      'processedAt': processedAt,
+      'refundRejectionReason': refundRejectionReason,
     };
   }
 

@@ -19,6 +19,9 @@ class DatabaseService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final NotificationService _notificationService = NotificationService();
 
+  // Getter to access FirebaseFirestore instance for transactions
+  FirebaseFirestore get firestore => _db;
+
   // User operations
   Future<void> createUser(UserModel user) async {
     await _db.collection('users').doc(user.uid).set(user.toMap());
@@ -61,6 +64,10 @@ class DatabaseService {
 
   Future<void> updateUserField(String uid, String field, dynamic value) async {
     await _db.collection('users').doc(uid).update({field: value});
+  }
+
+  Future<void> updateEWalletBalance(String uid, double newBalance) async {
+    await _db.collection('users').doc(uid).update({'eWallet': newBalance});
   }
 
   Future<String> uploadCredentialDocument(
@@ -1188,5 +1195,184 @@ class DatabaseService {
     // final ref = _storage.refFromURL(mediaUrl);
     // await ref.delete();
     throw UnimplementedError('deleteTourMedia not implemented yet');
+  }
+
+  // Refund operations
+  double _calculateRefundPercentage(
+      DateTime requestedAt, DateTime tourStartDate) {
+    // Use calendar date comparison (ignore time of day)
+    final requestDate =
+        DateTime(requestedAt.year, requestedAt.month, requestedAt.day);
+    final tourDate =
+        DateTime(tourStartDate.year, tourStartDate.month, tourStartDate.day);
+
+    // Calculate difference in days: positive means requested before tour
+    final daysDifference = tourDate.difference(requestDate).inDays;
+
+    if (daysDifference >= 3) {
+      return 100.0; // Full refund if requested 3 or more days before tour
+    } else if (daysDifference == 2 || daysDifference == 0) {
+      return 70.0; // 70% refund if requested 2 days before or on the same date as tour
+    } else {
+      return 0.0; // No refund if requested 1 day before or after tour date
+    }
+  }
+
+  Future<bool> requestRefund({
+    required String bookingId,
+    required String refundReason,
+  }) async {
+    try {
+      final booking = await getBooking(bookingId);
+      if (booking == null) return false;
+
+      // Check eligibility
+      final user = await getUser(booking.touristId);
+      if (user == null) return false;
+
+      if (booking.status != BookingStatus.completed &&
+          booking.status != BookingStatus.cancelled) {
+        return false;
+      }
+
+      if (booking.refundStatus != null) {
+        return false; // Already has refund status
+      }
+
+      await _db.collection('bookings').doc(bookingId).update({
+        'refundReason': refundReason,
+        'refundStatus': RefundStatus.pendingRefund.index,
+        'requestedAt': FieldValue.serverTimestamp(),
+      });
+
+      return true;
+    } catch (e) {
+      print('Request refund error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> approveRefund(String bookingId) async {
+    try {
+      final booking = await getBooking(bookingId);
+      if (booking == null) return false;
+
+      // Calculate refund percentage based on days before tour start
+      final refundPercentage = _calculateRefundPercentage(
+          booking.requestedAt!, booking.tourStartDate);
+      final refundAmount = booking.totalPrice * (refundPercentage / 100);
+
+      await _db.collection('bookings').doc(bookingId).update({
+        'refundStatus': RefundStatus.processingRefund.index,
+        'processedAt': FieldValue.serverTimestamp(),
+        // Store calculated refund amount in paymentDetails for reference
+        'paymentDetails.refundAmount': refundAmount,
+        'paymentDetails.refundPercentage': refundPercentage,
+      });
+      return true;
+    } catch (e) {
+      print('Approve refund error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> rejectRefund(String bookingId, String rejectionReason) async {
+    try {
+      await _db.collection('bookings').doc(bookingId).update({
+        'refundStatus': RefundStatus.rejectedRefund.index,
+        'processedAt': FieldValue.serverTimestamp(),
+        'refundRejectionReason': rejectionReason,
+      });
+      return true;
+    } catch (e) {
+      print('Reject refund error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> processRefund(String bookingId) async {
+    try {
+      final booking = await getBooking(bookingId);
+      if (booking == null) return false;
+
+      if (booking.refundStatus != RefundStatus.processingRefund) {
+        return false;
+      }
+
+      // Get calculated refund amount from paymentDetails
+      final refundAmount =
+          booking.paymentDetails?['refundAmount'] ?? booking.totalPrice;
+
+      // Handle refund based on payment method
+      if (booking.paymentMethod == BookingPaymentMethod.eWallet) {
+        // Add calculated refund amount back to tourist's eWallet
+        final tourist = await getUser(booking.touristId);
+        if (tourist != null) {
+          final currentBalance = tourist.eWallet ?? 0.0;
+          final newBalance = currentBalance + refundAmount;
+          await updateEWalletBalance(booking.touristId, newBalance);
+        }
+      }
+      // For cash payments, just mark as refunded logically
+
+      // Set status to approvedRefund after payment processing
+      await _db.collection('bookings').doc(bookingId).update({
+        'refundStatus': RefundStatus.approvedRefund.index,
+      });
+
+      return true;
+    } catch (e) {
+      print('Process refund error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> finalizeRefund(String bookingId) async {
+    try {
+      final booking = await getBooking(bookingId);
+      if (booking == null) return false;
+
+      if (booking.refundStatus != RefundStatus.processingRefund) {
+        return false;
+      }
+
+      // Finalize booking
+      await _db.collection('bookings').doc(bookingId).update({
+        'status': BookingStatus.refunded.index,
+        'processedAt': FieldValue.serverTimestamp(),
+      });
+
+      return true;
+    } catch (e) {
+      print('Finalize refund error: $e');
+      return false;
+    }
+  }
+
+  Future<List<BookingModel>> getRefundRequests() async {
+    try {
+      final snapshot =
+          await _db.collection('bookings').where('refundStatus', whereIn: [
+        RefundStatus.pendingRefund.index,
+        RefundStatus.approvedRefund.index,
+        RefundStatus.processingRefund.index,
+      ]).get();
+
+      final bookings =
+          snapshot.docs.map((doc) => BookingModel.fromMap(doc.data())).toList();
+
+      // Sort by requestedAt descending, with nulls last
+      bookings.sort((a, b) {
+        if (a.requestedAt == null && b.requestedAt == null) return 0;
+        if (a.requestedAt == null) return 1;
+        if (b.requestedAt == null) return -1;
+        return b.requestedAt!.compareTo(a.requestedAt!);
+      });
+
+      return bookings;
+    } catch (e) {
+      print('Get refund requests error: $e');
+      return [];
+    }
   }
 }

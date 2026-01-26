@@ -18,6 +18,7 @@ enum PaymentMethod {
   paymaya,
   bankTransfer,
   cash,
+  eWallet,
 }
 
 // Extension methods for PaymentMethod
@@ -38,6 +39,8 @@ extension PaymentMethodExtension on PaymentMethod {
         return 'Bank Transfer';
       case PaymentMethod.cash:
         return 'Cash';
+      case PaymentMethod.eWallet:
+        return 'eWallet';
     }
   }
 
@@ -55,6 +58,8 @@ extension PaymentMethodExtension on PaymentMethod {
         return Icons.account_balance;
       case PaymentMethod.cash:
         return Icons.money;
+      case PaymentMethod.eWallet:
+        return Icons.account_balance_wallet;
     }
   }
 }
@@ -217,6 +222,8 @@ class PaymentModel {
         return 'Bank Transfer';
       case PaymentMethod.cash:
         return 'Cash';
+      case PaymentMethod.eWallet:
+        return 'eWallet';
     }
   }
 
@@ -234,6 +241,8 @@ class PaymentModel {
         return Icons.account_balance;
       case PaymentMethod.cash:
         return Icons.money;
+      case PaymentMethod.eWallet:
+        return Icons.account_balance_wallet;
     }
   }
 }

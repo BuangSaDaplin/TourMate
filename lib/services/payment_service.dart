@@ -11,7 +11,6 @@ class PaymentService {
 
   // Platform fee configuration
   static const double platformFeePercentage = 0.05; // 5%
-  static const double platformFeeFixed = 25.0; // Fixed fee in PHP
 
   // Payment processing methods
   Future<PaymentModel?> processPayment({
@@ -24,8 +23,8 @@ class PaymentService {
   }) async {
     try {
       // Calculate fees
-      final platformFee = _calculatePlatformFee(amount);
-      final guideAmount = amount - platformFee;
+      final platformFee = await _calculatePlatformFee(bookingId);
+      final guideAmount = await _calculateGuideAmount(bookingId);
 
       // Create payment record
       final paymentId = DateTime.now().millisecondsSinceEpoch.toString();
@@ -68,20 +67,18 @@ class PaymentService {
         });
 
         // Get booking details for notification
-        final bookingDoc = await _db
-            .collection('bookings')
-            .doc(bookingId)
-            .get();
+        final bookingDoc =
+            await _db.collection('bookings').doc(bookingId).get();
         final bookingData = bookingDoc.data();
         final tourTitle = bookingData?['tourTitle'] ?? 'Tour';
 
         // Create payment completion notification
-        final paymentNotification = _notificationService
-            .createPaymentNotification(
-              userId: userId,
-              amount: amount,
-              tourTitle: tourTitle,
-            );
+        final paymentNotification =
+            _notificationService.createPaymentNotification(
+          userId: userId,
+          amount: amount,
+          tourTitle: tourTitle,
+        );
         await _notificationService.createNotification(paymentNotification);
 
         return updatedPayment;
@@ -90,20 +87,18 @@ class PaymentService {
         await _updatePaymentStatus(paymentId, PaymentStatus.failed);
 
         // Get booking details for notification
-        final bookingDoc = await _db
-            .collection('bookings')
-            .doc(bookingId)
-            .get();
+        final bookingDoc =
+            await _db.collection('bookings').doc(bookingId).get();
         final bookingData = bookingDoc.data();
         final tourTitle = bookingData?['tourTitle'] ?? 'Tour';
 
         // Create payment failure notification
-        final failureNotification = _notificationService
-            .createPaymentFailedNotification(
-              userId: userId,
-              amount: amount,
-              tourTitle: tourTitle,
-            );
+        final failureNotification =
+            _notificationService.createPaymentFailedNotification(
+          userId: userId,
+          amount: amount,
+          tourTitle: tourTitle,
+        );
         await _notificationService.createNotification(failureNotification);
 
         return null;
@@ -146,6 +141,10 @@ class PaymentService {
         // Cash payments are handled offline
         return true;
 
+      case PaymentMethod.eWallet:
+        // eWallet payments are handled internally
+        return true;
+
       default:
         return false;
     }
@@ -176,10 +175,68 @@ class PaymentService {
     return true;
   }
 
-  double _calculatePlatformFee(double amount) {
-    // Calculate platform fee: percentage + fixed fee
-    final percentageFee = amount * platformFeePercentage;
-    return percentageFee + platformFeeFixed;
+  Future<double> _calculatePlatformFee(String bookingId) async {
+    // Get booking to find tourId
+    final booking = await _db.collection('bookings').doc(bookingId).get();
+    if (!booking.exists) {
+      throw Exception('Booking not found');
+    }
+
+    final bookingData = booking.data()!;
+    final tourId = bookingData['tourId'] as String;
+
+    // Get tour to find inclusionPrices
+    final tour = await _db.collection('tours').doc(tourId).get();
+    if (!tour.exists) {
+      throw Exception('Tour not found');
+    }
+
+    final tourData = tour.data()!;
+    final inclusionPrices =
+        tourData['inclusionPrices'] as Map<String, dynamic>?;
+
+    if (inclusionPrices == null ||
+        !inclusionPrices.containsKey('Professional Guide')) {
+      throw Exception('Professional Guide inclusion price not found');
+    }
+
+    final professionalGuidePrice =
+        (inclusionPrices['Professional Guide'] as num).toDouble();
+
+    // Calculate platform fee: 5% of Professional Guide's inclusion price
+    return professionalGuidePrice * platformFeePercentage;
+  }
+
+  Future<double> _calculateGuideAmount(String bookingId) async {
+    // Get booking to find tourId
+    final booking = await _db.collection('bookings').doc(bookingId).get();
+    if (!booking.exists) {
+      throw Exception('Booking not found');
+    }
+
+    final bookingData = booking.data()!;
+    final tourId = bookingData['tourId'] as String;
+
+    // Get tour to find inclusionPrices
+    final tour = await _db.collection('tours').doc(tourId).get();
+    if (!tour.exists) {
+      throw Exception('Tour not found');
+    }
+
+    final tourData = tour.data()!;
+    final inclusionPrices =
+        tourData['inclusionPrices'] as Map<String, dynamic>?;
+
+    if (inclusionPrices == null ||
+        !inclusionPrices.containsKey('Professional Guide')) {
+      throw Exception('Professional Guide inclusion price not found');
+    }
+
+    final professionalGuidePrice =
+        (inclusionPrices['Professional Guide'] as num).toDouble();
+
+    // Calculate guide amount: 95% of Professional Guide's inclusion price
+    return professionalGuidePrice * 0.95;
   }
 
   Future<void> _updatePaymentStatus(
@@ -244,34 +301,32 @@ class PaymentService {
         });
 
         // Get booking details for notification
-        final bookingDoc = await _db
-            .collection('bookings')
-            .doc(payment.bookingId)
-            .get();
+        final bookingDoc =
+            await _db.collection('bookings').doc(payment.bookingId).get();
         final bookingData = bookingDoc.data();
         final tourTitle = bookingData?['tourTitle'] ?? 'Tour';
 
         // Create refund notification
         if (refundAmount < payment.amount) {
           // Partial refund
-          final partialRefundNotification = _notificationService
-              .createPartialRefundNotification(
-                userId: payment.userId,
-                amount: refundAmount,
-                tourTitle: tourTitle,
-                reason: reason,
-              );
+          final partialRefundNotification =
+              _notificationService.createPartialRefundNotification(
+            userId: payment.userId,
+            amount: refundAmount,
+            tourTitle: tourTitle,
+            reason: reason,
+          );
           await _notificationService.createNotification(
             partialRefundNotification,
           );
         } else {
           // Full refund
-          final refundNotification = _notificationService
-              .createRefundProcessedNotification(
-                userId: payment.userId,
-                amount: refundAmount,
-                tourTitle: tourTitle,
-              );
+          final refundNotification =
+              _notificationService.createRefundProcessedNotification(
+            userId: payment.userId,
+            amount: refundAmount,
+            tourTitle: tourTitle,
+          );
           await _notificationService.createNotification(refundNotification);
         }
 
@@ -304,9 +359,8 @@ class PaymentService {
           .orderBy('createdAt', descending: true)
           .get();
 
-      final payments = snapshot.docs
-          .map((doc) => PaymentModel.fromMap(doc.data()))
-          .toList();
+      final payments =
+          snapshot.docs.map((doc) => PaymentModel.fromMap(doc.data())).toList();
       print(
         'PaymentService: Found ${payments.length} user payments using query',
       );

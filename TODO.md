@@ -1,20 +1,13 @@
-# Tour Guide Dashboard Earnings Calculation Update
+# Admin Refund Management Logic Implementation
 
-## Completed Tasks
-- [x] Add TourModel import to tour_guide_dashboard_tab.dart
-- [x] Modify _loadOverviewStats method to calculate earnings based on tour inclusionPrices
-- [x] Filter bookings with status paid (2) or completed (4)
-- [x] For each booking, fetch tour and sum inclusionPrices values
-- [x] Calculate guide's share as 95% of total inclusionPrices (deduct 5%)
-- [x] Accumulate total earnings across all relevant bookings
+## Tasks
+- [ ] Update BookingModel to add refundRejectionReason field
+- [ ] Modify database_service.dart refund methods for new workflow
+- [ ] Update admin_payment_management_screen.dart for new UI and logic
 
-## Follow-up Steps
-- [ ] Test the dashboard to ensure earnings display correctly
-- [ ] Verify that tours with inclusionPrices are handled properly
-- [ ] Check for any edge cases (empty inclusionPrices, missing tours)
-- [ ] Ensure the calculation performs well with multiple bookings
-
-## Notes
-- Earnings now calculated as: sum of (tour.inclusionPrices total * 0.95) for each paid/completed booking
-- Previous calculation used booking.totalPrice directly
-- Added async tour fetching in the loop - monitor performance
+## Progress
+- [x] Plan confirmed and approved
+- [x] BookingModel updated
+- [x] Database service updated
+- [x] Admin screen updated
+- [x] Testing completed
