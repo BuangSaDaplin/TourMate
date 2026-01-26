@@ -10,6 +10,7 @@ import 'package:tourmate_app/models/itinerary_model.dart';
 import 'package:tourmate_app/models/message_model.dart';
 import 'package:tourmate_app/models/notification_model.dart';
 import 'package:tourmate_app/models/payment_model.dart';
+import 'package:tourmate_app/models/report_model.dart';
 import 'package:tourmate_app/models/review_model.dart';
 import 'package:tourmate_app/models/tour_model.dart';
 import 'package:tourmate_app/models/user_model.dart';
@@ -1079,6 +1080,245 @@ class DatabaseService {
           .where((doc) => doc.data()['status'] == ChatRoomStatus.active.index)
           .length,
     };
+  }
+
+  // Report operations
+  Future<void> createReport(ReportModel report) async {
+    final reportData = report.toMap();
+    reportData['reportedAt'] = FieldValue.serverTimestamp();
+
+    await _db.collection('reports').doc(report.reportId).set(reportData);
+
+    // Send notification to admins about new report
+    final adminIds = await _notificationService.getAdminUsers();
+    for (final adminId in adminIds) {
+      final notification = _notificationService.createReportNotification(
+        userId: adminId,
+        reportId: report.reportId,
+        reason: report.reasonText,
+      );
+      await _notificationService.createNotification(notification);
+    }
+
+    // Send confirmation notification to the reporter
+    final reporterNotification =
+        _notificationService.createReportStatusUpdateNotification(
+      userId: report.reportedByUserId,
+      reportId: report.reportId,
+      status: ReportStatus.pending,
+    );
+    await _notificationService.createNotification(reporterNotification);
+  }
+
+  Future<ReportModel?> getReport(String reportId) async {
+    final doc = await _db.collection('reports').doc(reportId).get();
+    if (doc.exists) {
+      return ReportModel.fromMap(doc.data()!);
+    }
+    return null;
+  }
+
+  Stream<List<ReportModel>> getAllReports() {
+    return _db
+        .collection('reports')
+        .orderBy('reportedAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => ReportModel.fromMap(doc.data()))
+          .toList();
+    });
+  }
+
+  Future<List<ReportModel>> getReportsByStatus(ReportStatus status) async {
+    final snapshot = await _db
+        .collection('reports')
+        .where('status', isEqualTo: status.index)
+        .orderBy('reportedAt', descending: true)
+        .get();
+    return snapshot.docs.map((doc) => ReportModel.fromMap(doc.data())).toList();
+  }
+
+  Future<void> updateReportStatus(
+    String reportId,
+    ReportStatus status, {
+    String? adminId,
+    String? adminActionLog,
+  }) async {
+    final updateData = {
+      'status': status.index,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    if (adminId != null) {
+      updateData['lastModifiedBy'] = adminId;
+    }
+    if (adminActionLog != null) {
+      updateData['adminActionLog'] = adminActionLog;
+    }
+
+    await _db.collection('reports').doc(reportId).update(updateData);
+
+    // Get report details for notification
+    final report = await getReport(reportId);
+    if (report != null) {
+      // Send notification to reporter about status update
+      final notification =
+          _notificationService.createReportStatusUpdateNotification(
+        userId: report.reportedByUserId,
+        reportId: report.reportId,
+        status: status,
+      );
+      await _notificationService.createNotification(notification);
+
+      // Send notification to reported user if applicable
+      if (status == ReportStatus.resolved || status == ReportStatus.dismissed) {
+        final reportedUserNotification =
+            _notificationService.createReportResolutionNotification(
+          userId: report.reportedUserId,
+          reportId: report.reportId,
+          status: status,
+        );
+        await _notificationService.createNotification(reportedUserNotification);
+      }
+    }
+  }
+
+  Future<void> resolveReport({
+    required String reportId,
+    required ResolutionAction resolutionAction,
+    required String adminNotes,
+    required String adminId,
+  }) async {
+    final now = DateTime.now();
+
+    // Update report with resolution details
+    await _db.collection('reports').doc(reportId).update({
+      'status': ReportStatus.resolved.index,
+      'resolvedAt': now,
+      'resolutionAction': resolutionAction.index,
+      'adminNotes': adminNotes,
+      'reviewedByAdminId': adminId,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    // Get report details for side effects and notifications
+    final report = await getReport(reportId);
+    if (report != null) {
+      // Execute side effects based on resolution action
+      await _executeResolutionAction(report, resolutionAction);
+
+      // Send notifications
+      await _sendResolutionNotifications(report, resolutionAction);
+    }
+  }
+
+  Future<void> _executeResolutionAction(
+      ReportModel report, ResolutionAction action) async {
+    switch (action) {
+      case ResolutionAction.noViolationFound:
+        // No action needed - just notification
+        break;
+
+      case ResolutionAction.blockConversation:
+        // Block the chat room
+        await updateChatRoomStatus(report.chatRoomId, ChatRoomStatus.blocked);
+        break;
+
+      case ResolutionAction.issueFormalWarning:
+        // Create a warning record for the reported user
+        await _createUserWarning(report.reportedUserId, report.reportId);
+        break;
+
+      case ResolutionAction.flagUser:
+        // Flag the user
+        await updateUserField(report.reportedUserId, 'isFlagged', true);
+        break;
+    }
+  }
+
+  Future<void> _createUserWarning(String userId, String reportId) async {
+    // Create a warning record in a warnings collection
+    await _db.collection('user_warnings').add({
+      'userId': userId,
+      'reportId': reportId,
+      'warningType': 'formal_warning',
+      'issuedAt': FieldValue.serverTimestamp(),
+      'issuedBy': 'admin_system',
+    });
+  }
+
+  Future<void> _sendResolutionNotifications(
+      ReportModel report, ResolutionAction action) async {
+    // Notification to reporter
+    final reporterNotification = NotificationModel(
+      id: 'report_resolved_reporter_${report.reportId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: report.reportedByUserId,
+      title: 'Message Report Resolved',
+      message: 'Your report has been reviewed and resolved.',
+      type: NotificationType.system,
+      priority: NotificationPriority.normal,
+      data: {'reportId': report.reportId},
+      createdAt: DateTime.now(),
+    );
+    await _notificationService.createNotification(reporterNotification);
+
+    // Notification to reported user based on resolution action
+    String title;
+    String message;
+
+    switch (action) {
+      case ResolutionAction.issueFormalWarning:
+        title = 'Message Report Resolution';
+        message =
+            'You have been reported for ${report.reasonText}. Please follow community guidelines.';
+        break;
+      case ResolutionAction.blockConversation:
+        title = 'Conversation Blocked';
+        message =
+            'Your conversation has been blocked due to a report resolution. You can no longer send messages in this chat.';
+        break;
+      case ResolutionAction.flagUser:
+        title = 'Account Flagged';
+        message =
+            'Your account has been flagged as a result of a report review. Please review our community guidelines to avoid further actions.';
+        break;
+      case ResolutionAction.noViolationFound:
+        title = 'Message Report Resolution';
+        message =
+            'A report involving your account has been resolved with no violation found. Please continue following community guidelines.';
+        break;
+    }
+
+    final reportedUserNotification = NotificationModel(
+      id: 'report_resolved_reported_${report.reportId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: report.reportedUserId,
+      title: title,
+      message: message,
+      type: NotificationType.system,
+      priority: NotificationPriority.normal,
+      data: {'reportId': report.reportId, 'resolutionAction': action.index},
+      createdAt: DateTime.now(),
+    );
+    await _notificationService.createNotification(reportedUserNotification);
+  }
+
+  Future<List<ReportModel>> getReportsByChatRoom(String chatRoomId) async {
+    final snapshot = await _db
+        .collection('reports')
+        .where('chatRoomId', isEqualTo: chatRoomId)
+        .orderBy('reportedAt', descending: true)
+        .get();
+    return snapshot.docs.map((doc) => ReportModel.fromMap(doc.data())).toList();
+  }
+
+  Future<List<ReportModel>> getReportsByUser(String userId) async {
+    final snapshot = await _db
+        .collection('reports')
+        .where('reportedByUserId', isEqualTo: userId)
+        .orderBy('reportedAt', descending: true)
+        .get();
+    return snapshot.docs.map((doc) => ReportModel.fromMap(doc.data())).toList();
   }
 
   // Guide Verification operations

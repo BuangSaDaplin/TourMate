@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/notification_model.dart';
 import '../models/notification_settings_model.dart';
+import '../models/report_model.dart';
 
 class NotificationService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -1592,5 +1593,118 @@ class NotificationService {
         adminNotification.toMap());
 
     await batch.commit();
+  }
+
+  // Report notification templates
+  NotificationModel createReportNotification({
+    required String userId,
+    required String reportId,
+    required String reason,
+  }) {
+    return NotificationModel(
+      id: 'report_new_${userId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: userId,
+      title: 'New Message Report Submitted',
+      message: 'A new report has been submitted for review. Reason: $reason',
+      type: NotificationType.system,
+      priority: NotificationPriority.high,
+      data: {'reportId': reportId, 'reason': reason, 'type': 'new_report'},
+      createdAt: DateTime.now(),
+    );
+  }
+
+  NotificationModel createReportStatusUpdateNotification({
+    required String userId,
+    required String reportId,
+    required ReportStatus status,
+  }) {
+    String title;
+    String message;
+    NotificationPriority priority;
+
+    switch (status) {
+      case ReportStatus.pending:
+        title = 'Message Report Submitted';
+        message =
+            'Your report status has been submitted and pending for review.';
+        priority = NotificationPriority.normal;
+        break;
+      case ReportStatus.underReview:
+        title = 'Message Report Under Review';
+        message = 'Your report is now under review by our moderation team.';
+        priority = NotificationPriority.normal;
+        break;
+      case ReportStatus.resolved:
+        title = 'Message Report Resolved';
+        message =
+            'Your report has been resolved. Thank you for helping keep our community safe.';
+        priority = NotificationPriority.normal;
+        break;
+      case ReportStatus.dismissed:
+        title = 'Message Report Dismissed';
+        message =
+            'Your report has been reviewed and dismissed. No further action will be taken.';
+        priority = NotificationPriority.normal;
+        break;
+    }
+
+    return NotificationModel(
+      id: 'report_status_update_${userId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: userId,
+      title: title,
+      message: message,
+      type: NotificationType.system,
+      priority: priority,
+      data: {
+        'reportId': reportId,
+        'status': status.index,
+        'type': 'report_status_update'
+      },
+      createdAt: DateTime.now(),
+    );
+  }
+
+  NotificationModel createReportResolutionNotification({
+    required String userId,
+    required String reportId,
+    required ReportStatus status,
+  }) {
+    String title;
+    String message;
+    NotificationPriority priority;
+
+    switch (status) {
+      case ReportStatus.resolved:
+        title = 'Report Resolution';
+        message =
+            'A report involving you has been resolved. Please review our community guidelines.';
+        priority = NotificationPriority.normal;
+        break;
+      case ReportStatus.dismissed:
+        title = 'Report Dismissed';
+        message =
+            'A report involving you has been dismissed. No action was taken.';
+        priority = NotificationPriority.normal;
+        break;
+      default:
+        title = 'Report Update';
+        message = 'There has been an update to a report involving you.';
+        priority = NotificationPriority.low;
+    }
+
+    return NotificationModel(
+      id: 'report_resolution_${userId}_${DateTime.now().millisecondsSinceEpoch}',
+      userId: userId,
+      title: title,
+      message: message,
+      type: NotificationType.system,
+      priority: priority,
+      data: {
+        'reportId': reportId,
+        'status': status.index,
+        'type': 'report_resolution'
+      },
+      createdAt: DateTime.now(),
+    );
   }
 }

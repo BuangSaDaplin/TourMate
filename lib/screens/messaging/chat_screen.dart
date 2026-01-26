@@ -4,6 +4,7 @@ import 'package:tourmate_app/services/database_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tourmate_app/models/message_model.dart';
 import 'package:tourmate_app/models/chat_room_model.dart';
+import 'package:tourmate_app/models/report_model.dart';
 import '../../utils/app_theme.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -483,9 +484,26 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _reportConversation() {
-    // Implement report functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Report functionality coming soon')),
+    showDialog(
+      context: context,
+      builder: (context) => ReportDialog(
+        chatRoom: widget.chatRoom,
+        currentUserId: widget.currentUserId,
+        onReportSubmitted: (report) async {
+          try {
+            final db = DatabaseService();
+            await db.createReport(report);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Report submitted successfully')),
+            );
+            // The notification to the reporter is now handled in database_service.createReport()
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to submit report: $e')),
+            );
+          }
+        },
+      ),
     );
   }
 
@@ -571,5 +589,243 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       ),
     );
+  }
+}
+
+class ReportDialog extends StatefulWidget {
+  final ChatRoomModel chatRoom;
+  final String currentUserId;
+  final Function(ReportModel) onReportSubmitted;
+
+  const ReportDialog({
+    super.key,
+    required this.chatRoom,
+    required this.currentUserId,
+    required this.onReportSubmitted,
+  });
+
+  @override
+  State<ReportDialog> createState() => _ReportDialogState();
+}
+
+class _ReportDialogState extends State<ReportDialog> {
+  ReportReason? _selectedReason;
+  final TextEditingController _descriptionController = TextEditingController();
+  List<String> _selectedMessageIds = [];
+  bool _isLoading = false;
+  List<MessageModel> _recentMessages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentMessages();
+  }
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadRecentMessages() async {
+    final db = DatabaseService();
+    final messages =
+        await db.getChatRoomMessages(widget.chatRoom.id, limit: 10);
+    setState(() {
+      _recentMessages = messages;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Report Conversation'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Report Reason (Required)',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            ...ReportReason.values.map((reason) {
+              return RadioListTile<ReportReason>(
+                title: Text(_getReasonText(reason)),
+                value: reason,
+                groupValue: _selectedReason,
+                onChanged: (value) {
+                  setState(() {
+                    _selectedReason = value;
+                  });
+                },
+                dense: true,
+              );
+            }),
+            const SizedBox(height: 16),
+            const Text(
+              'Description (Optional)',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _descriptionController,
+              decoration: const InputDecoration(
+                hintText: 'Provide additional details about the report...',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Select Messages (Optional - Max 5)',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Only selected messages will be reviewed for moderation purposes.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            if (_recentMessages.isEmpty)
+              const Text('Loading messages...')
+            else
+              Column(
+                children: _recentMessages.map((message) {
+                  final isSelected = _selectedMessageIds.contains(message.id);
+                  return CheckboxListTile(
+                    title: Text(
+                      '${message.senderName}: ${message.content}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      _formatMessageTime(message.timestamp),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    value: isSelected,
+                    onChanged: _selectedMessageIds.length >= 5 && !isSelected
+                        ? null
+                        : (value) {
+                            setState(() {
+                              if (value == true) {
+                                _selectedMessageIds.add(message.id);
+                              } else {
+                                _selectedMessageIds.remove(message.id);
+                              }
+                            });
+                          },
+                    dense: true,
+                  );
+                }).toList(),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed:
+              _isLoading || _selectedReason == null ? null : _submitReport,
+          child: _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Submit Report'),
+        ),
+      ],
+    );
+  }
+
+  String _getReasonText(ReportReason reason) {
+    switch (reason) {
+      case ReportReason.harassment:
+        return 'Harassment';
+      case ReportReason.scamFraud:
+        return 'Scam / Fraud';
+      case ReportReason.hateSpeech:
+        return 'Hate Speech';
+      case ReportReason.inappropriateContent:
+        return 'Inappropriate Content';
+      case ReportReason.spam:
+        return 'Spam';
+      case ReportReason.other:
+        return 'Other';
+    }
+  }
+
+  String _formatMessageTime(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+
+    if (difference.inDays == 0) {
+      return '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
+    } else if (difference.inDays == 1) {
+      return 'Yesterday';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} days ago';
+    } else {
+      return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
+    }
+  }
+
+  void _submitReport() async {
+    if (_selectedReason == null) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Get selected messages
+      final selectedMessages = _recentMessages
+          .where((message) => _selectedMessageIds.contains(message.id))
+          .toList();
+
+      // Create reported message snapshots
+      final reportedMessageSnapshots = selectedMessages.map((message) {
+        return ReportedMessageSnapshot(
+          messageId: message.id,
+          senderId: message.senderId,
+          content: message.content,
+          timestamp: message.timestamp,
+        );
+      }).toList();
+
+      // Determine reported user (the other participant)
+      final reportedUserId = widget.chatRoom.participants
+          .firstWhere((id) => id != widget.currentUserId);
+
+      // Create report
+      final report = ReportModel(
+        reportId: 'report_${DateTime.now().millisecondsSinceEpoch}',
+        chatRoomId: widget.chatRoom.id,
+        reportedByUserId: widget.currentUserId,
+        reportedUserId: reportedUserId,
+        reason: _selectedReason!,
+        description: _descriptionController.text.trim().isEmpty
+            ? null
+            : _descriptionController.text.trim(),
+        reportedMessageSnapshots: reportedMessageSnapshots,
+        reportedAt: DateTime.now(),
+      );
+
+      widget.onReportSubmitted(report);
+      Navigator.of(context).pop();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to submit report: $e')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 }
