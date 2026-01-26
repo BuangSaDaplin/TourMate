@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:tourmate_app/screens/payments/payment_history_screen.dart';
 import 'package:tourmate_app/screens/verification/verification_screen.dart';
 import 'package:tourmate_app/services/auth_service.dart';
+import 'package:tourmate_app/services/notification_service.dart';
 import 'package:tourmate_app/services/user_profile_service.dart';
 import 'package:tourmate_app/models/user_model.dart';
 import 'package:tourmate_app/providers/language_provider.dart';
@@ -28,6 +29,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final AuthService _authService = AuthService();
   final UserProfileService _profileService = UserProfileService();
+  final NotificationService _notificationService = NotificationService();
 
   UserModel? _userProfile;
   bool _isLoading = true;
@@ -68,33 +70,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: const Text('Profile'),
         elevation: 0,
         actions: [
-          IconButton(
-            icon: Stack(
-              children: [
-                const Icon(Icons.notifications_outlined),
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: AppTheme.accentColor,
-                      shape: BoxShape.circle,
+          StreamBuilder<int>(
+            stream: FirebaseAuth.instance.currentUser != null
+                ? _notificationService
+                    .getUnreadCount(FirebaseAuth.instance.currentUser!.uid)
+                : Stream.value(0),
+            builder: (context, snapshot) {
+              final unreadCount = snapshot.data ?? 0;
+              return IconButton(
+                icon: Stack(
+                  children: [
+                    const Icon(Icons.notifications_outlined),
+                    if (unreadCount > 0)
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: AppTheme.accentColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const NotificationScreen(),
                     ),
-                  ),
-                ),
-              ],
-            ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const NotificationScreen(),
-                ),
+                  );
+                },
+                tooltip: 'Notifications',
               );
             },
-            tooltip: 'Notifications',
           ),
           IconButton(
             icon: const Icon(Icons.language),
@@ -288,7 +300,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           if (_userProfile != null) {
                             Widget editScreen;
                             switch (_userProfile!.role) {
-                              case 'Tour Guide':
+                              case 'guide':
                                 editScreen = const GuideEditAccountScreen();
                                 break;
                               case 'admin':
