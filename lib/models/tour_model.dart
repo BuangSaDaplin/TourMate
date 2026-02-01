@@ -14,7 +14,7 @@ class TourModel {
   final bool shared;
   final List<Map<String, String>> itinerary;
   final String status;
-  final double duration;
+  final String duration;
   final List<String> languages;
   final List<String> highlights;
   final double rating;
@@ -77,11 +77,7 @@ class TourModel {
             [],
       ),
       status: data['status'],
-      duration: (data['duration'] is double)
-          ? data['duration']
-          : (data['duration'] is int)
-              ? data['duration'].toDouble()
-              : double.tryParse(data['duration']?.toString() ?? '0.0') ?? 0.0,
+      duration: data['duration']?.toString() ?? '0.0',
       languages: List<String>.from(data['languages'] ?? []),
       highlights: List<String>.from(data['highlights'] ?? []),
       rating: (data['rating'] is double)
@@ -148,7 +144,7 @@ class TourModel {
     bool? shared,
     List<Map<String, String>>? itinerary,
     String? status,
-    double? duration,
+    String? duration,
     List<String>? languages,
     List<String>? specializations,
     List<String>? highlights,

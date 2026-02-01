@@ -508,7 +508,8 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
                             // For the last item, calculate end time based on tour duration in minutes
                             // Convert tour duration from hours to minutes and add to start time
                             final tourDurationInMinutes =
-                                (tourData.duration * 60).round();
+                                (double.tryParse(tourData.duration) ?? 0.0 * 60)
+                                    .round();
                             endTime = startTime
                                 .add(Duration(minutes: tourDurationInMinutes));
                           }

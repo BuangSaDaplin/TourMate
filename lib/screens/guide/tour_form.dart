@@ -274,7 +274,7 @@ class _TourFormState extends State<TourForm> {
                               shared: _isShared,
                               itinerary: [],
                               status: 'published',
-                              duration: 4,
+                              duration: '4',
                               languages: ['English'],
                               highlights: [],
                             );

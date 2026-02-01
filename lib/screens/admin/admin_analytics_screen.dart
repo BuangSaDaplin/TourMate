@@ -555,21 +555,6 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.green.withOpacity(0.2)),
               ),
-              child: Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.green, size: 24),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      '🎉 Platform is running successfully! All systems operational.',
-                      style: AppTheme.bodyMedium.copyWith(
-                        color: Colors.green.shade800,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),

@@ -61,7 +61,7 @@ class _TourBrowseScreenState extends State<TourBrowseScreen> {
         {'time': '16:00', 'activity': 'Return and farewell'}
       ],
       status: 'active',
-      duration: 8,
+      duration: '8',
       languages: ['English'],
       highlights: [
         'Jump from heights up to 10 meters',
@@ -93,7 +93,7 @@ class _TourBrowseScreenState extends State<TourBrowseScreen> {
         {'time': '12:00', 'activity': 'Tour ends'}
       ],
       status: 'active',
-      duration: 4,
+      duration: '4',
       languages: ['English', 'Cebuano'],
       highlights: [
         'Visit Magellan\'s Cross',
@@ -125,7 +125,7 @@ class _TourBrowseScreenState extends State<TourBrowseScreen> {
         {'time': '14:00', 'activity': 'Tour ends'}
       ],
       status: 'active',
-      duration: 6,
+      duration: '6',
       languages: ['English'],
       highlights: [
         'Snorkel with millions of sardines',

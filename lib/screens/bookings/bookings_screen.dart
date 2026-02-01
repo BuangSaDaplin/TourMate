@@ -346,18 +346,55 @@ class _BookingsScreenState extends State<BookingsScreen>
                       '${booking.tourStartDate.day}/${booking.tourStartDate.month}/${booking.tourStartDate.year}',
                     ),
                     const SizedBox(width: 24),
-                    FutureBuilder<TourModel?>(
-                      future: _db.getTour(booking.tourId),
+                    FutureBuilder<(TourModel?, ItineraryModel?)>(
+                      future: _getTourAndItinerary(booking),
                       builder: (context, snapshot) {
-                        final tour = snapshot.data;
-                        final startTime =
-                            '${booking.tourStartDate.hour}:${booking.tourStartDate.minute.toString().padLeft(2, '0')}';
-                        final endTime = tour != null
-                            ? '${tour.endTime.hour}:${tour.endTime.minute.toString().padLeft(2, '0')}'
-                            : '${booking.tourStartDate.add(Duration(hours: (booking.duration ?? 0).toInt())).hour}:${booking.tourStartDate.add(Duration(hours: (booking.duration ?? 0).toInt())).minute.toString().padLeft(2, '0')}';
+                        final (tour, itinerary) = snapshot.data ?? (null, null);
+
+                        // Calculate duration and times from itinerary if available
+                        String durationText;
+                        String startTime;
+                        String endTime;
+
+                        if (itinerary != null && itinerary.items.isNotEmpty) {
+                          // Sort items by start time
+                          final sortedItems = List<ItineraryItemModel>.from(
+                              itinerary.items)
+                            ..sort(
+                                (a, b) => a.startTime.compareTo(b.startTime));
+
+                          final firstActivity = sortedItems.first;
+                          final lastActivity = sortedItems.last;
+
+                          startTime =
+                              '${firstActivity.startTime.hour}:${firstActivity.startTime.minute.toString().padLeft(2, '0')}';
+                          endTime =
+                              '${lastActivity.startTime.hour}:${lastActivity.startTime.minute.toString().padLeft(2, '0')}';
+
+                          final totalDuration = lastActivity.startTime
+                              .difference(firstActivity.startTime);
+                          final hours = totalDuration.inHours;
+                          final minutes = totalDuration.inMinutes.remainder(60);
+                          final durationStr = hours > 0
+                              ? '${hours}h ${minutes}m'
+                              : '${minutes}m';
+
+                          durationText =
+                              '$durationStr ($startTime to $endTime)';
+                        } else {
+                          // Fallback to tour or booking duration
+                          startTime =
+                              '${booking.tourStartDate.hour}:${booking.tourStartDate.minute.toString().padLeft(2, '0')}';
+                          endTime = tour != null
+                              ? '${tour.endTime.hour}:${tour.endTime.minute.toString().padLeft(2, '0')}'
+                              : '${booking.tourStartDate.add(Duration(hours: (booking.duration ?? 0).toInt())).hour}:${booking.tourStartDate.add(Duration(hours: (booking.duration ?? 0).toInt())).minute.toString().padLeft(2, '0')}';
+                          durationText =
+                              '${booking.duration ?? 0} Hrs ($startTime to $endTime)';
+                        }
+
                         return _buildInfoItem(
                           Icons.access_time,
-                          '${booking.duration ?? 0} Hrs ($startTime to $endTime)',
+                          durationText,
                         );
                       },
                     ),
@@ -572,6 +609,37 @@ class _BookingsScreenState extends State<BookingsScreen>
     } catch (e) {
       return 'Unknown';
     }
+  }
+
+  Future<(TourModel?, ItineraryModel?)> _getTourAndItinerary(
+      BookingModel booking) async {
+    TourModel? tour;
+    ItineraryModel? itinerary;
+
+    try {
+      tour = await _db.getTour(booking.tourId);
+    } catch (e) {
+      // Handle error silently
+    }
+
+    try {
+      // Try to get existing itinerary if booking has itineraryId
+      if (booking.itineraryId != null) {
+        itinerary = await _itineraryService.getItinerary(booking.itineraryId!);
+      }
+
+      // If no itinerary exists, try to generate one from tour
+      if (itinerary == null && tour != null) {
+        itinerary = await _itineraryService.generateItineraryFromBooking(
+          booking,
+          tour,
+        );
+      }
+    } catch (e) {
+      // Handle error silently
+    }
+
+    return (tour, itinerary);
   }
 
   void _showCancelDialog(BookingModel booking) async {
@@ -1311,7 +1379,7 @@ class _BookingsScreenState extends State<BookingsScreen>
   }
 
   void _showPaymentDialog(BookingModel booking) {
-    String selectedPaymentMethod = 'Cash';
+    String selectedPaymentMethod = 'E-Wallet';
     final TextEditingController _cardNumberController = TextEditingController();
     final TextEditingController _expiryController = TextEditingController();
     final TextEditingController _cvvController = TextEditingController();
@@ -1344,16 +1412,6 @@ class _BookingsScreenState extends State<BookingsScreen>
                       // Payment method selection
                       Column(
                         children: [
-                          RadioListTile<String>(
-                            title: const Text('Cash'),
-                            value: 'Cash',
-                            groupValue: selectedPaymentMethod,
-                            onChanged: (value) {
-                              setState(() {
-                                selectedPaymentMethod = value!;
-                              });
-                            },
-                          ),
                           RadioListTile<String>(
                             title: const Text('E-Wallet'),
                             value: 'E-Wallet',

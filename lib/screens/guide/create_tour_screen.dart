@@ -36,7 +36,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
   final _maxParticipantsController = TextEditingController();
   DateTime _tourDate = DateTime.now(); // Automatically set to current date
   DateTime? _tourStartTime;
-  double? _tourDuration; // Duration in hours
+  String? _tourDuration; // Duration in hours
   ItineraryModel? _generatedItinerary;
 
   List<String> _selectedSpots = [];
@@ -768,63 +768,78 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
                         style: AppTheme.bodyMedium,
                       ),
                       const SizedBox(height: 16),
-                      ..._generatedItinerary!.items.map((item) {
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: AppTheme.dividerColor),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.location_on,
-                                    size: 16,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      item.title,
-                                      style: AppTheme.bodyLarge.copyWith(
-                                        fontWeight: FontWeight.w600,
+                      ...(() {
+                        final sortedItems = _generatedItinerary!.items
+                          ..sort((a, b) =>
+                              a.startTime
+                                  ?.compareTo(b.startTime ?? DateTime.now()) ??
+                              0);
+                        return sortedItems.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final item = entry.value;
+                          final nextItem = index < sortedItems.length - 1
+                              ? sortedItems[index + 1]
+                              : null;
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppTheme.dividerColor),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.location_on,
+                                      size: 16,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        item.title,
+                                        style: AppTheme.bodyLarge.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                item.description,
-                                style: AppTheme.bodySmall,
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.access_time,
-                                    size: 14,
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    item.startTime != null
-                                        ? '${item.startTime!.hour.toString().padLeft(2, '0')}:${item.startTime!.minute.toString().padLeft(2, '0')} - ${item.endTime?.hour.toString().padLeft(2, '0')}:${item.endTime?.minute.toString().padLeft(2, '0')}'
-                                        : 'Time TBD',
-                                    style: AppTheme.bodySmall.copyWith(
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  item.description,
+                                  style: AppTheme.bodySmall,
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.access_time,
+                                      size: 14,
                                       color: AppTheme.textSecondary,
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      item.startTime != null
+                                          ? nextItem != null &&
+                                                  nextItem.startTime != null
+                                              ? '${item.startTime!.hour.toString().padLeft(2, '0')}:${item.startTime!.minute.toString().padLeft(2, '0')} - ${nextItem.startTime!.hour.toString().padLeft(2, '0')}:${nextItem.startTime!.minute.toString().padLeft(2, '0')}'
+                                              : '${item.startTime!.hour.toString().padLeft(2, '0')}:${item.startTime!.minute.toString().padLeft(2, '0')}'
+                                          : 'Time TBD',
+                                      style: AppTheme.bodySmall.copyWith(
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList();
+                      })(),
                     ],
                   ),
                 ),
@@ -862,21 +877,38 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
     );
   }
 
-  double _calculateDurationFromItinerary(ItineraryModel itinerary) {
-    if (itinerary.items.isEmpty) return 0.0;
+  String _calculateDurationFromItinerary(ItineraryModel itinerary) {
+    if (itinerary.items.isEmpty) return "0.00";
 
-    final first = itinerary.items.first.startTime;
-    final last = itinerary.items.last.endTime;
+    DateTime? earliestStart;
+    DateTime? latestEnd;
 
-    if (first == null || last == null) return 0.0;
+    for (final item in itinerary.items) {
+      // 1. Get the earliest start time
+      if (item.startTime != null) {
+        if (earliestStart == null || item.startTime!.isBefore(earliestStart)) {
+          earliestStart = item.startTime;
+        }
+      }
 
-    final diff = last.difference(first);
+      // 2. FIX: Use endTime to capture the actual end of the tour
+      final end = item.endTime;
+      if (end != null) {
+        if (latestEnd == null || end.isAfter(latestEnd)) {
+          latestEnd = end;
+        }
+      }
+    }
 
-    // Convert total minutes → decimal hours
-    final durationInHours = diff.inMinutes / 60.0;
+    if (earliestStart == null || latestEnd == null) return "0.00";
 
-    // Optional: round to 2 decimal places (4.05 instead of 4.049999)
-    return double.parse(durationInHours.toStringAsFixed(2));
+    final diff = latestEnd.difference(earliestStart);
+    final totalMinutes = diff.inMinutes;
+    final hours = totalMinutes ~/ 60;
+    final minutes = totalMinutes % 60;
+
+    // 3. FIX: Use padLeft(2, '0') to ensure the minute part is always two digits
+    return "$hours.${minutes.toString().padLeft(2, '0')}";
   }
 
   Future<void> _autoGenerateTour() async {
@@ -1094,7 +1126,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
       final user = _authService.getCurrentUser();
       if (user != null) {
         // Calculate duration from generated itinerary
-        double duration = 8.0;
+        String duration = "8.0";
 
         DateTime startTime = _tourStartTime ??
             DateTime(_tourDate.year, _tourDate.month, _tourDate.day, 8, 0);
@@ -1103,16 +1135,19 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
 
         if (_generatedItinerary != null &&
             _generatedItinerary!.items.isNotEmpty) {
-          final first = _generatedItinerary!.items.first.startTime!;
-          final last = _generatedItinerary!.items.last.endTime!;
+          final sorted = List.of(_generatedItinerary!.items)
+            ..sort((a, b) => a.startTime!.compareTo(b.startTime!));
+
+          final first = sorted.first.startTime!;
+          final last = sorted.last.endTime ?? sorted.last.startTime!;
 
           duration = _calculateDurationFromItinerary(_generatedItinerary!);
           startTime = first;
           endTime = last;
         }
 
-        if (duration <= 0) {
-          duration = 8; // Fallback to default
+        if (double.tryParse(duration) != null && double.parse(duration) <= 0) {
+          duration = "8.0"; // Fallback to default
         }
 
         // Generate tour ID once
@@ -1161,38 +1196,6 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           interests: [], // PASS EMPTY LIST to stop the service from filtering out your picks!
           pace: 'packed',
         );
-
-        // Generate optimized itinerary
-        try {
-          print('DEBUG: Generating itinerary with ${tourSpots.length} spots');
-          print('DEBUG: Selected categories: $_selectedCategories');
-          print('DEBUG: Start time: $startTime, End time: $endTime');
-
-          final generatedItinerary =
-              await _itineraryGeneratorService.generateItinerary(
-            availableSpots: tourSpots,
-            context: userContext,
-            userId: user.uid,
-            title: _titleController.text,
-            description: _descriptionController.text,
-          );
-
-          print(
-              'DEBUG: Generated itinerary has ${generatedItinerary.items.length} items');
-
-          // Store the generated itinerary for preview
-          setState(() {
-            _generatedItinerary = generatedItinerary;
-          });
-
-          print("Generated Items: ${_generatedItinerary?.items.length}");
-        } catch (e) {
-          print('DEBUG: Itinerary generation failed: $e');
-          // Fallback: set _generatedItinerary to null or handle accordingly
-          setState(() {
-            _generatedItinerary = null;
-          });
-        }
 
         // 1. Create the list of maps from your generated itinerary
         List<Map<String, String>> itineraryData = [];
@@ -1254,7 +1257,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           shared: false,
           itinerary: itineraryData, // This is the mapped list of 3 items
           status: 'pending',
-          duration: duration,
+          duration: duration.toString(),
           languages: _selectedLanguages,
           highlights: _selectedSpots,
           included: _selectedInclusions,

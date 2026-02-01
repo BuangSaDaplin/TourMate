@@ -482,7 +482,7 @@ class ItineraryGeneratorService {
     final lastItemEndTime =
         items.isNotEmpty ? items.last.endTime : context.startTime;
     final tourEndStartTime = lastItemEndTime;
-    final tourEndEndTime = tourEndStartTime.add(const Duration(minutes: 15));
+    final tourEndEndTime = tourEndStartTime;
     items.add(ItineraryItemModel(
       id: 'tour_end',
       title: 'Tour End',

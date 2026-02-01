@@ -348,9 +348,11 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                             /// THIS FIXES THE OVERFLOW
                             Expanded(
                               child: Text(
-                                '${DateFormat('HH:mm').format(item.startTime)} - '
-                                '${DateFormat('HH:mm').format(item.startTime.add(const Duration(minutes: 15)))} '
-                                '(${item.title})',
+                                isLast
+                                    ? '${DateFormat('HH:mm').format(item.startTime)} (${item.title})'
+                                    : '${DateFormat('HH:mm').format(item.startTime)} - '
+                                        '${DateFormat('HH:mm').format(items[index + 1].startTime)} '
+                                        '(${item.title})',
                                 style: AppTheme.bodySmall.copyWith(
                                   color: AppTheme.textSecondary,
                                 ),

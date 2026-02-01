@@ -1358,7 +1358,7 @@ class _BookingScreenState extends State<BookingScreen> {
         participantNames: participantNames,
         contactNumber: _contactController.text.trim(),
         emergencyContact: null,
-        duration: selectedTour!.duration,
+        duration: double.tryParse(selectedTour!.duration) ?? 0.0,
       );
 
       await _db.createBooking(newBooking);

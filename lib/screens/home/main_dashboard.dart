@@ -3,7 +3,6 @@ import 'package:carousel_slider/carousel_slider.dart' as carousel;
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../utils/app_theme.dart';
 import '../tour/tour_details_screen.dart';
-import '../tour/tour_browse_screen.dart';
 import '../tour/category_based_tours_screen.dart';
 import '../booking/booking_screen.dart';
 import '../profile/profile_screen.dart';
@@ -29,20 +28,16 @@ class _MainDashboardState extends State<MainDashboard> {
   final _searchController = TextEditingController();
   final NotificationService _notificationService = NotificationService();
 
-  // State for suggested tours
   List<TourModel> _suggestedTours = [];
   bool _isLoadingSuggestedTours = true;
   UserModel? _currentUser;
 
-  // State for recommended tours
   List<TourModel> _recommendedTours = [];
   bool _isLoadingRecommendedTours = true;
 
-  // State for alternative tours
   List<TourModel> _alternativeTours = [];
   bool _isLoadingAlternativeTours = true;
 
-  // State for search functionality
   List<TourModel> _searchResults = [];
   bool _isSearching = false;
   List<TourModel> _allTours = [];
@@ -56,7 +51,7 @@ class _MainDashboardState extends State<MainDashboard> {
   Widget _getPage(int index) {
     switch (index) {
       case 0:
-        return _homePage; // rebuilt every time
+        return _homePage;
       case 1:
         return const BookingsScreen();
       case 2:
@@ -82,7 +77,6 @@ class _MainDashboardState extends State<MainDashboard> {
         if (_currentUser != null &&
             _currentUser!.category != null &&
             _currentUser!.category!.isNotEmpty) {
-          // Fetch tours that match any of the user's categories
           final List<String> userCategories = _currentUser!.category!
               .map((c) => c.toLowerCase().trim())
               .toList();
@@ -100,7 +94,6 @@ class _MainDashboardState extends State<MainDashboard> {
           }).toList();
           print('Suggested tours: ${_suggestedTours.length}');
 
-          // Load alternative tours that do NOT match user categories
           _alternativeTours = allTours.where((tour) {
             final matches = tour.category.any(
               (tourCategory) =>
@@ -111,23 +104,20 @@ class _MainDashboardState extends State<MainDashboard> {
           print('Alternative tours: ${_alternativeTours.length}');
         } else {
           print('User has no categories or user data is null');
-          // If no categories, load all tours as alternatives
           final allTours = await databaseService.getApprovedTours();
           _alternativeTours = allTours;
         }
       } else {
         print('No authenticated user');
-        // If no user, load all tours as alternatives
         final databaseService = DatabaseService();
         final allTours = await databaseService.getApprovedTours();
         _alternativeTours = allTours;
       }
 
-      // Load recommended tours (approved tours, limited to 3)
       final databaseService = DatabaseService();
       final allApprovedTours = await databaseService.getApprovedTours();
       _recommendedTours = allApprovedTours.take(3).toList();
-      _allTours = allApprovedTours; // Store all tours for search functionality
+      _allTours = allApprovedTours;
       print('Recommended tours: ${_recommendedTours.length}');
       print('All tours loaded for search: ${_allTours.length}');
     } catch (e) {
@@ -176,7 +166,6 @@ class _MainDashboardState extends State<MainDashboard> {
     });
   }
 
-  // Cebu-specific categories
   final List<Map<String, dynamic>> _categories = [
     {'name': 'Adventure', 'icon': Icons.terrain, 'color': Colors.orange},
     {'name': 'Culture', 'icon': Icons.museum, 'color': Colors.purple},
@@ -186,7 +175,6 @@ class _MainDashboardState extends State<MainDashboard> {
     {'name': 'Religious', 'icon': Icons.church, 'color': Colors.deepPurple},
   ];
 
-  // Nearby Cebu destinations
   final List<Map<String, dynamic>> _nearbyDestinations = [
     {'name': 'Simala Shrine', 'distance': '45 km', 'tours': 8},
     {'name': 'Moalboal Sardine Run', 'distance': '89 km', 'tours': 15},
@@ -306,7 +294,6 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   void _showBookNowModal(BuildContext context) {
-    // Check if user status is approved before allowing booking
     if (_currentUser?.status != UserStatus.approved) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -467,7 +454,6 @@ class _MainDashboardState extends State<MainDashboard> {
                     await DatabaseService()
                         .updateEWalletBalance(user.uid, newBalance);
 
-                    // Update local state immediately
                     setState(() {
                       _currentUser = UserModel(
                         uid: _currentUser!.uid,
@@ -564,7 +550,6 @@ class _MainDashboardState extends State<MainDashboard> {
     return SafeArea(
       child: CustomScrollView(
         slivers: [
-          // App Bar
           SliverAppBar(
             floating: true,
             backgroundColor: Colors.white,
@@ -636,25 +621,22 @@ class _MainDashboardState extends State<MainDashboard> {
                 icon: const Icon(Icons.language),
                 onSelected: (value) {
                   if (value == 'tl') {
-                    isTagalogNotifier.value = true; // Switch to Tagalog
+                    isTagalogNotifier.value = true;
                   } else {
-                    isTagalogNotifier.value = false; // Switch to English
+                    isTagalogNotifier.value = false;
                   }
                 },
                 itemBuilder: (context) => [
                   const PopupMenuItem(value: 'en', child: Text('English')),
-                  // const PopupMenuItem(value: 'ceb', child: Text('Cebuano')), // Hide if not supported
                   const PopupMenuItem(value: 'tl', child: Text('Tagalog')),
                 ],
               ),
             ],
           ),
-          // Content
           SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // E-Wallet Section
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Container(
@@ -738,7 +720,6 @@ class _MainDashboardState extends State<MainDashboard> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Tour Image
                                   Container(
                                     height: 160,
                                     decoration: BoxDecoration(
@@ -809,7 +790,6 @@ class _MainDashboardState extends State<MainDashboard> {
                                       ],
                                     ),
                                   ),
-                                  // Tour Info
                                   Padding(
                                     padding: const EdgeInsets.all(16),
                                     child: Column(
@@ -872,7 +852,6 @@ class _MainDashboardState extends State<MainDashboard> {
                         }).toList(),
                       ),
                 const SizedBox(height: 24),
-                // Categories
                 Padding(
                   padding: const EdgeInsets.only(left: 16, bottom: 16),
                   child: AutoTranslatedText(
@@ -926,7 +905,6 @@ class _MainDashboardState extends State<MainDashboard> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                // Suggested Tours
                 Padding(
                   padding: const EdgeInsets.only(left: 16, bottom: 16),
                   child: AutoTranslatedText(
@@ -965,7 +943,6 @@ class _MainDashboardState extends State<MainDashboard> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        // Tour Image
                                         Container(
                                           height: 160,
                                           decoration: BoxDecoration(

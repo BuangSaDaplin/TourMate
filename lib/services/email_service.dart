@@ -69,7 +69,8 @@ class EmailService {
       final databaseService = DatabaseService();
       final tour = await databaseService.getTour(itinerary.relatedTourId!);
       if (tour != null) {
-        tourDuration = tour.duration;
+        tourDuration =
+            double.tryParse(tour.duration) ?? itinerary.totalDays.toDouble();
       }
     }
 
@@ -192,7 +193,8 @@ class EmailService {
       final databaseService = DatabaseService();
       final tour = await databaseService.getTour(itinerary.relatedTourId!);
       if (tour != null) {
-        tourDuration = tour.duration;
+        tourDuration =
+            double.tryParse(tour.duration) ?? itinerary.totalDays.toDouble();
       }
     }
 
