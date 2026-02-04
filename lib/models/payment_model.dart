@@ -19,6 +19,7 @@ enum PaymentMethod {
   bankTransfer,
   cash,
   eWallet,
+  tourMateWallet,
 }
 
 // Extension methods for PaymentMethod
@@ -41,6 +42,8 @@ extension PaymentMethodExtension on PaymentMethod {
         return 'Cash';
       case PaymentMethod.eWallet:
         return 'eWallet';
+      case PaymentMethod.tourMateWallet:
+        return 'TourMate Wallet';
     }
   }
 
@@ -60,6 +63,8 @@ extension PaymentMethodExtension on PaymentMethod {
         return Icons.money;
       case PaymentMethod.eWallet:
         return Icons.account_balance_wallet;
+      case PaymentMethod.tourMateWallet:
+        return Icons.wallet;
     }
   }
 }
@@ -206,43 +211,15 @@ class PaymentModel {
     }
   }
 
+  // DEPRECATED: These methods are redundant and have been replaced by the PaymentMethodExtension
+  // Use paymentMethod.paymentMethodDisplayText and paymentMethod.paymentMethodIcon instead
+  @deprecated
   String get paymentMethodDisplayText {
-    switch (paymentMethod) {
-      case PaymentMethod.creditCard:
-        return 'Credit Card';
-      case PaymentMethod.debitCard:
-        return 'Debit Card';
-      case PaymentMethod.paypal:
-        return 'PayPal';
-      case PaymentMethod.gcash:
-        return 'GCash';
-      case PaymentMethod.paymaya:
-        return 'PayMaya';
-      case PaymentMethod.bankTransfer:
-        return 'Bank Transfer';
-      case PaymentMethod.cash:
-        return 'Cash';
-      case PaymentMethod.eWallet:
-        return 'eWallet';
-    }
+    return paymentMethod.paymentMethodDisplayText;
   }
 
+  @deprecated
   IconData get paymentMethodIcon {
-    switch (paymentMethod) {
-      case PaymentMethod.creditCard:
-      case PaymentMethod.debitCard:
-        return Icons.credit_card;
-      case PaymentMethod.paypal:
-        return Icons.account_balance_wallet;
-      case PaymentMethod.gcash:
-      case PaymentMethod.paymaya:
-        return Icons.phone_android;
-      case PaymentMethod.bankTransfer:
-        return Icons.account_balance;
-      case PaymentMethod.cash:
-        return Icons.money;
-      case PaymentMethod.eWallet:
-        return Icons.account_balance_wallet;
-    }
+    return paymentMethod.paymentMethodIcon;
   }
 }

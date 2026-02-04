@@ -4,6 +4,7 @@ import 'package:tourmate_app/models/booking_model.dart';
 import 'package:tourmate_app/models/payment_model.dart';
 import 'package:tourmate_app/services/payment_service.dart';
 import 'package:tourmate_app/services/auth_service.dart';
+import 'package:tourmate_app/services/wallet_service.dart';
 import '../../utils/app_theme.dart';
 
 class PaymentScreen extends StatefulWidget {
@@ -16,9 +17,9 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
-  final PaymentService _paymentService = PaymentService();
-  final AuthService _authService = AuthService();
-  final _formKey = GlobalKey<FormState>();
+  final WalletService _walletService = WalletService();
+  StreamSubscription<double>? _balanceSubscription;
+  double _currentWalletBalance = 0.0;
 
   PaymentMethod _selectedPaymentMethod = PaymentMethod.creditCard;
   bool _isProcessing = false;
@@ -29,13 +30,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
   final TextEditingController _cardNumberController = TextEditingController();
   final TextEditingController _expiryController = TextEditingController();
   final TextEditingController _cvvController = TextEditingController();
-  final TextEditingController _cardholderNameController = TextEditingController();
+  final TextEditingController _cardholderNameController =
+      TextEditingController();
 
   // E-wallet details
   final TextEditingController _phoneNumberController = TextEditingController();
 
   // Bank transfer details
-  final TextEditingController _accountNumberController = TextEditingController();
+  final TextEditingController _accountNumberController =
+      TextEditingController();
   final TextEditingController _accountNameController = TextEditingController();
   String _selectedBank = 'BDO';
 
@@ -49,7 +52,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    final user = _authService.getCurrentUser();
+    if (user != null) {
+      _balanceSubscription = _walletService.getBalanceStream(user.uid).listen((
+        balance,
+      ) {
+        setState(() {
+          _currentWalletBalance = balance;
+        });
+      });
+    }
+  }
+
+  @override
   void dispose() {
+    _balanceSubscription?.cancel();
     _cardNumberController.dispose();
     _expiryController.dispose();
     _cvvController.dispose();
@@ -136,7 +155,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     children: [
                       Text(
                         'Tour Booking', // Would be tour title
-                        style: AppTheme.bodyLarge.copyWith(fontWeight: FontWeight.w600),
+                        style: AppTheme.bodyLarge.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -151,7 +172,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 8),
-            _buildSummaryRow('Tour Price', '₱${widget.booking.totalPrice.toStringAsFixed(2)}'),
+            _buildSummaryRow(
+              'Tour Price',
+              '₱${widget.booking.totalPrice.toStringAsFixed(2)}',
+            ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -161,12 +185,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, color: AppTheme.primaryColor, size: 20),
+                  Icon(
+                    Icons.info_outline,
+                    color: AppTheme.primaryColor,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Payment will be processed securely. You will receive a confirmation email once payment is completed.',
-                      style: AppTheme.bodySmall.copyWith(color: AppTheme.primaryColor),
+                      style: AppTheme.bodySmall.copyWith(
+                        color: AppTheme.primaryColor,
+                      ),
                     ),
                   ),
                 ],
@@ -183,7 +213,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: AppTheme.bodyMedium),
-        Text(value, style: AppTheme.bodyLarge.copyWith(fontWeight: FontWeight.w600)),
+        Text(
+          value,
+          style: AppTheme.bodyLarge.copyWith(fontWeight: FontWeight.w600),
+        ),
       ],
     );
   }
@@ -194,13 +227,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
       children: [
         Text('Payment Method', style: AppTheme.headlineSmall),
         const SizedBox(height: 16),
-        ...PaymentMethod.values.map((method) => _buildPaymentMethodOption(method)),
+        ...PaymentMethod.values.map(
+          (method) => _buildPaymentMethodOption(method),
+        ),
       ],
     );
   }
 
   Widget _buildPaymentMethodOption(PaymentMethod method) {
     final isSelected = _selectedPaymentMethod == method;
+    final isInsufficientFunds =
+        method == PaymentMethod.tourMateWallet &&
+        _currentWalletBalance < widget.booking.totalPrice;
 
     return Card(
       elevation: isSelected ? 4 : 1,
@@ -225,7 +263,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
             children: [
               Icon(
                 method.paymentMethodIcon,
-                color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                color: isSelected
+                    ? AppTheme.primaryColor
+                    : AppTheme.textSecondary,
                 size: 24,
               ),
               const SizedBox(width: 12),
@@ -233,16 +273,32 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 child: Text(
                   method.paymentMethodDisplayText,
                   style: AppTheme.bodyLarge.copyWith(
-                    color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    color: isSelected
+                        ? AppTheme.primaryColor
+                        : AppTheme.textPrimary,
+                    fontWeight: isSelected
+                        ? FontWeight.w600
+                        : FontWeight.normal,
                   ),
                 ),
               ),
-              if (isSelected)
-                Icon(
-                  Icons.check_circle,
-                  color: AppTheme.primaryColor,
+              if (method == PaymentMethod.tourMateWallet &&
+                  !isInsufficientFunds)
+                Text(
+                  '₱${_currentWalletBalance.toStringAsFixed(2)}',
+                  style: AppTheme.bodySmall.copyWith(
+                    color: isSelected
+                        ? AppTheme.primaryColor
+                        : AppTheme.textSecondary,
+                  ),
                 ),
+              if (method == PaymentMethod.tourMateWallet && isInsufficientFunds)
+                Text(
+                  'Insufficient Funds',
+                  style: AppTheme.bodySmall.copyWith(color: Colors.red),
+                ),
+              if (isSelected)
+                Icon(Icons.check_circle, color: AppTheme.primaryColor),
             ],
           ),
         ),
@@ -283,9 +339,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             labelText: 'Card Number',
             hintText: '1234 5678 9012 3456',
             prefixIcon: const Icon(Icons.credit_card),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           keyboardType: TextInputType.number,
           inputFormatters: [
@@ -375,9 +429,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           decoration: InputDecoration(
             labelText: 'Cardholder Name',
             hintText: 'John Doe',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           textCapitalization: TextCapitalization.words,
           validator: (value) {
@@ -428,7 +480,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 'assets/images/paypal_logo.png',
                 height: 40,
                 errorBuilder: (context, error, stackTrace) {
-                  return const Icon(Icons.account_balance_wallet, size: 40, color: Color(0xFF0070BA));
+                  return const Icon(
+                    Icons.account_balance_wallet,
+                    size: 40,
+                    color: Color(0xFF0070BA),
+                  );
                 },
               ),
               const SizedBox(height: 12),
@@ -445,7 +501,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Widget _buildEWalletForm() {
-    final walletName = _selectedPaymentMethod == PaymentMethod.gcash ? 'GCash' : 'PayMaya';
+    final walletName = _selectedPaymentMethod == PaymentMethod.gcash
+        ? 'GCash'
+        : 'PayMaya';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -476,10 +534,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     : const Color(0xFFFF6600),
               ),
               const SizedBox(height: 12),
-              Text(
-                'Enter your $walletName number',
-                style: AppTheme.bodyMedium,
-              ),
+              Text('Enter your $walletName number', style: AppTheme.bodyMedium),
             ],
           ),
         ),
@@ -492,9 +547,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             labelText: '$walletName Number',
             hintText: '+63 912 345 6789',
             prefixIcon: const Icon(Icons.phone),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           keyboardType: TextInputType.phone,
           validator: (value) {
@@ -537,15 +590,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
           value: _selectedBank,
           decoration: InputDecoration(
             labelText: 'Select Bank',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           items: _banks.map((bank) {
-            return DropdownMenuItem(
-              value: bank,
-              child: Text(bank),
-            );
+            return DropdownMenuItem(value: bank, child: Text(bank));
           }).toList(),
           onChanged: (value) {
             setState(() {
@@ -562,9 +610,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           decoration: InputDecoration(
             labelText: 'Account Number',
             hintText: 'Enter your account number',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           keyboardType: TextInputType.number,
           validator: (value) {
@@ -583,9 +629,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           decoration: InputDecoration(
             labelText: 'Account Name',
             hintText: 'Enter account holder name',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           textCapitalization: TextCapitalization.words,
           validator: (value) {
@@ -609,7 +653,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
             children: [
               Text(
                 'Bank Transfer Instructions:',
-                style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                style: AppTheme.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -642,11 +688,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ),
           child: Column(
             children: [
-              Icon(
-                Icons.money,
-                size: 40,
-                color: AppTheme.successColor,
-              ),
+              Icon(Icons.money, size: 40, color: AppTheme.successColor),
               const SizedBox(height: 12),
               Text(
                 'Cash Payment at Office',
@@ -675,7 +717,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
             children: [
               Text(
                 'Office Details:',
-                style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                style: AppTheme.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 8),
               const Text(
@@ -802,9 +846,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           break;
         case PaymentMethod.gcash:
         case PaymentMethod.paymaya:
-          paymentDetails = {
-            'phoneNumber': _phoneNumberController.text,
-          };
+          paymentDetails = {'phoneNumber': _phoneNumberController.text};
           break;
         case PaymentMethod.bankTransfer:
           paymentDetails = {
@@ -866,7 +908,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
 // Custom input formatters
 class _CardNumberFormatter extends TextInputFormatter {
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     final text = newValue.text.replaceAll(' ', '');
     final buffer = StringBuffer();
 
@@ -886,7 +931,10 @@ class _CardNumberFormatter extends TextInputFormatter {
 
 class _ExpiryDateFormatter extends TextInputFormatter {
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     final text = newValue.text.replaceAll('/', '');
     final buffer = StringBuffer();
 
@@ -898,8 +946,12 @@ class _ExpiryDateFormatter extends TextInputFormatter {
     }
 
     return TextEditingValue(
-      text: buffer.length <= 5 ? buffer.toString() : buffer.toString().substring(0, 5),
-      selection: TextSelection.collapsed(offset: buffer.length <= 5 ? buffer.length : 5),
+      text: buffer.length <= 5
+          ? buffer.toString()
+          : buffer.toString().substring(0, 5),
+      selection: TextSelection.collapsed(
+        offset: buffer.length <= 5 ? buffer.length : 5,
+      ),
     );
   }
 }
